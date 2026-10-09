@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Plus,
@@ -44,6 +44,7 @@ export function TemplateEditorModal({
   initialTemplate,
 }: TemplateEditorModalProps) {
   const { toast } = useToast();
+  const requirementsEndRef = useRef<HTMLDivElement>(null);
 
   const [name, setName] = useState("");
   const [serviceType, setServiceType] = useState("Custom Checklist");
@@ -52,6 +53,7 @@ export function TemplateEditorModal({
     { name: "", description: "", is_required: true },
   ]);
   const [saving, setSaving] = useState(false);
+  const [justAddedIndex, setJustAddedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialTemplate) {
@@ -77,10 +79,20 @@ export function TemplateEditorModal({
   if (!isOpen) return null;
 
   const handleAddRequirement = () => {
+    const newIndex = requirements.length;
     setRequirements((prev) => [
       ...prev,
       { name: "", description: "", is_required: true },
     ]);
+    setJustAddedIndex(newIndex);
+    setTimeout(() => {
+      requirementsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const el = document.getElementById(`req-name-${newIndex}`);
+      if (el) (el as HTMLInputElement).focus();
+    }, 100);
+    setTimeout(() => {
+      setJustAddedIndex(null);
+    }, 2500);
   };
 
   const handleRemoveRequirement = (index: number) => {
@@ -257,36 +269,51 @@ export function TemplateEditorModal({
               {requirements.map((req, idx) => (
                 <div
                   key={idx}
-                  className="p-3 bg-neutral-50/80 rounded-xl border border-neutral-200/80 space-y-2 transition-all hover:border-neutral-300"
+                  id={`req-item-${idx}`}
+                  className={`p-3 rounded-xl border space-y-2 transition-all duration-300 ${
+                    justAddedIndex === idx
+                      ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300/50 shadow-sm"
+                      : "bg-neutral-50/80 border-neutral-200/80 hover:border-neutral-300"
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono font-bold text-neutral-500 bg-neutral-200/60 px-1.5 py-0.5 rounded">
-                      #{idx + 1}
-                    </span>
-                    <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={req.is_required}
-                        onChange={(e) =>
-                          handleRequirementChange(idx, "is_required", e.target.checked)
-                        }
-                        className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 w-3.5 h-3.5"
-                      />
-                      <span>Mandatory</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveRequirement(idx)}
-                      disabled={requirements.length <= 1}
-                      className="text-neutral-400 hover:text-rose-600 p-1 rounded transition-colors disabled:opacity-30"
-                      title="Remove item"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono font-bold text-neutral-500 bg-neutral-200/60 px-1.5 py-0.5 rounded">
+                        #{idx + 1}
+                      </span>
+                      {justAddedIndex === idx && (
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded animate-pulse">
+                          Just added
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={req.is_required}
+                          onChange={(e) =>
+                            handleRequirementChange(idx, "is_required", e.target.checked)
+                          }
+                          className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 w-3.5 h-3.5"
+                        />
+                        <span>Mandatory</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveRequirement(idx)}
+                        disabled={requirements.length <= 1}
+                        className="text-neutral-400 hover:text-rose-600 p-1 rounded transition-colors disabled:opacity-30 cursor-pointer"
+                        title="Remove item"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <input
+                      id={`req-name-${idx}`}
                       type="text"
                       required
                       placeholder="Document Name (e.g. Form 16, Bank Statement)"
@@ -309,6 +336,18 @@ export function TemplateEditorModal({
                   </div>
                 </div>
               ))}
+
+              {/* Bottom Add Button for effortless discovery */}
+              <button
+                type="button"
+                onClick={handleAddRequirement}
+                className="w-full py-2.5 px-3 border border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2"
+              >
+                <Plus className="w-4 h-4 text-emerald-600" />
+                <span>+ Add Another Document Item</span>
+              </button>
+
+              <div ref={requirementsEndRef} />
             </div>
           </div>
 

@@ -1272,3 +1272,81 @@ export async function getAdminOverviewAction({ adminSecret }: { adminSecret: str
   }
 }
 
+export interface PublicPaymentSettings {
+  upi_id: string;
+  bank_name: string;
+  bank_holder: string;
+  bank_account: string;
+  bank_ifsc: string;
+  contact_email: string;
+  contact_phone: string;
+  show_upi: boolean;
+  show_bank: boolean;
+  show_whatsapp: boolean;
+}
+
+export async function getPublicPaymentSettingsAction(): Promise<PublicPaymentSettings> {
+  const fallbackSettings: PublicPaymentSettings = {
+    upi_id: process.env.NEXT_PUBLIC_UPI_ID || "7290964963@kotak811",
+    bank_name: process.env.NEXT_PUBLIC_BANK_NAME || "State Bank of India",
+    bank_holder: process.env.NEXT_PUBLIC_BANK_HOLDER || "DocuCollect Technologies",
+    bank_account: process.env.NEXT_PUBLIC_BANK_ACCOUNT || "3982001100234",
+    bank_ifsc: process.env.NEXT_PUBLIC_BANK_IFSC || "SBIN0001234",
+    contact_email: process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@docucollect.in",
+    contact_phone: process.env.NEXT_PUBLIC_CONTACT_PHONE || "+919718871979",
+    show_upi: true,
+    show_bank: true,
+    show_whatsapp: true,
+  };
+
+  const sql = getDb();
+  if (!sql) return fallbackSettings;
+
+  try {
+    const rows = await sql`SELECT value FROM public.system_settings WHERE key = 'payment_settings' LIMIT 1;`;
+    if (rows && rows.length > 0 && rows[0].value) {
+      return {
+        ...fallbackSettings,
+        ...rows[0].value,
+      };
+    }
+  } catch (err) {
+    console.warn("Failed to load payment settings from DB, using defaults:", err);
+  }
+
+  return fallbackSettings;
+}
+
+export async function updatePaymentSettingsAction(
+  adminSecret: string,
+  settings: Partial<PublicPaymentSettings>
+): Promise<{ success: boolean; error?: string; settings?: PublicPaymentSettings }> {
+  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
+  if (!adminSecret || adminSecret.trim() !== EXPECTED_SECRET.trim()) {
+    return { success: false, error: "Invalid Admin Secret Key." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const current = await getPublicPaymentSettingsAction();
+    const updated: PublicPaymentSettings = {
+      ...current,
+      ...settings,
+    };
+
+    await sql`
+      INSERT INTO public.system_settings (key, value, updated_at)
+      VALUES ('payment_settings', ${JSON.stringify(updated)}::jsonb, now())
+      ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value, updated_at = now();
+    `;
+
+    return { success: true, settings: updated };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to update payment settings" };
+  }
+}
+
+

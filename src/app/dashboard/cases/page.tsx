@@ -61,8 +61,8 @@ export default function CasesListPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cases & Collection Requests</h1>
-          <p className="text-xs text-slate-500 mt-1">Manage active client document requests, review cycles, and status.</p>
+          <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Cases & Collection Requests</h1>
+          <p className="text-xs text-neutral-500 mt-1">Manage active client document requests, review cycles, and status.</p>
         </div>
         <div className="flex items-center gap-2.5">
           <Link

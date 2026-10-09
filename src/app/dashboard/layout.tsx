@@ -23,8 +23,8 @@ export default function DashboardLayout({
         {/* Fixed Non-Scrolling Sidebar */}
         <Sidebar />
 
-        {/* Main Scrollable Container */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        {/* Main Scrollable Container with stable scrollbar gutter */}
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll">
           {/* Top Navbar with Dynamic User & Sign Out */}
           <Header />
 

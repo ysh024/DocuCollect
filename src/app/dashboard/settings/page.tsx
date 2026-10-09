@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Building2,
   CheckCircle,
@@ -15,6 +16,8 @@ import {
   Sparkles,
   Trash2,
   FileUp,
+  Clock,
+  MessageSquare,
 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/InfoPopover";
 import { useToast } from "@/components/ui/Toast";
@@ -30,7 +33,7 @@ import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { user: contextUser, refresh } = useDashboardData();
+  const { user: contextUser, subscription, refresh } = useDashboardData();
   const [user, setUser] = useState<any>(contextUser || null);
   const [orgName, setOrgName] = useState(contextUser?.organizationName || "");
   const [phone, setPhone] = useState(contextUser?.phone || "");
@@ -38,8 +41,6 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(contextUser?.logoUrl || null);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
-  const [maxFileSize, setMaxFileSize] = useState("10");
-  const [defaultExpiryDays, setDefaultExpiryDays] = useState("30");
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -321,45 +322,68 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Document Policy */}
+        {/* Document & Upload Policy - Real Plan-Enforced Limits & Transparency */}
         <div className="p-5 bg-white rounded-xl border border-neutral-200/80 space-y-4">
-          <div className="flex items-center gap-2 text-neutral-900 font-semibold text-xs border-b border-neutral-100 pb-3">
-            <FileText className="w-4 h-4" />
-            <span>Document & Upload Policy</span>
+          <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+            <div className="flex items-center gap-2 text-neutral-900 font-semibold text-xs">
+              <FileText className="w-4 h-4 text-neutral-700" />
+              <span>Document & Portal Policy</span>
+            </div>
+            <span className="text-[10px] font-semibold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200">
+              Enforced by {subscription?.plan_display_name || "Active"} Plan
+            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-600 mb-1">
-                Client Portal Link Expiry
-              </label>
-              <select
-                value={defaultExpiryDays}
-                onChange={(e) => setDefaultExpiryDays(e.target.value)}
-                className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-              >
-                <option value="7">7 Days</option>
-                <option value="14">14 Days</option>
-                <option value="30">30 Days (Recommended)</option>
-                <option value="60">60 Days</option>
-              </select>
+            {/* File Upload Size Limit */}
+            <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5">
+                  <FileUp className="w-3.5 h-3.5 text-neutral-500" />
+                  Max File Upload Limit
+                </span>
+                <span className="text-xs font-bold text-neutral-900 bg-white border border-neutral-200 px-2 py-0.5 rounded-md">
+                  {subscription?.max_upload_size_mb || 10} MB / file
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 leading-relaxed">
+                Client uploads via secure links are strictly verified against your plan ceiling.
+              </p>
+              {(Number(subscription?.max_upload_size_mb || 10) < 50) && (
+                <div className="pt-1">
+                  <Link
+                    href="/dashboard/billing"
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-800 hover:text-black underline underline-offset-2"
+                  >
+                    <span>Upgrade to unlock up to 50 MB uploads</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </Link>
+                </div>
+              )}
             </div>
 
-            <div>
-              <label className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-neutral-600 mb-1">
-                <span>Max Upload File Size</span>
-                <InfoPopover text="Actual upload limit is governed by your active subscription plan tier." />
-              </label>
-              <select
-                value={maxFileSize}
-                onChange={(e) => setMaxFileSize(e.target.value)}
-                className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2.5 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-              >
-                <option value="5">5 MB (Light)</option>
-                <option value="10">10 MB (Free plan)</option>
-                <option value="25">25 MB (Starter)</option>
-                <option value="50">50 MB (Professional)</option>
-              </select>
+            {/* Portal Link Expiry Policy */}
+            <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-neutral-500" />
+                  Client Portal Link Expiry
+                </span>
+                <span className="text-xs font-bold text-neutral-900 bg-white border border-neutral-200 px-2 py-0.5 rounded-md">
+                  30 Days
+                </span>
+              </div>
+              <p className="text-[11px] text-neutral-500 leading-relaxed">
+                Client links expire automatically 30 days after creation or when all checklist items are verified. You can extend any link from the Case Details page.
+              </p>
+            </div>
+          </div>
+
+          {/* Client Enquiries Note */}
+          <div className="p-3 bg-neutral-50/50 rounded-xl border border-neutral-200/50 flex items-start gap-2.5">
+            <MessageSquare className="w-3.5 h-3.5 text-neutral-500 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-neutral-600 leading-relaxed">
+              <strong>Client Enquiries & Communication:</strong> Clients can send queries directly from their upload link. Inbound client remarks trigger real-time notifications in your top navigation bar and log to the audit trail.
             </div>
           </div>
         </div>

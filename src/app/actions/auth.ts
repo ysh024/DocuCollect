@@ -818,3 +818,118 @@ export async function resolveGoogleSessionAction(params?: {
   }
 }
 
+/**
+ * Request Password Reset OTP via Email
+ */
+export async function requestPasswordResetOtpAction(email: string): Promise<{ success: boolean; error?: string; message?: string }> {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  const normalizedEmail = email.toLowerCase().trim();
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
+  try {
+    const existing = await sql`
+      SELECT id, email, full_name 
+      FROM public.users 
+      WHERE LOWER(email) = ${normalizedEmail} 
+      LIMIT 1;
+    `;
+
+    if (existing.length === 0) {
+      // Security practice: Return success-like message or generic error so user enumeration is mitigated
+      return {
+        success: false,
+        error: "No registered account found with this email address.",
+      };
+    }
+
+    const { code, codeHash } = generateOtp();
+    await storeOtp(normalizedEmail, codeHash, "login");
+    const mailRes = await sendOtpEmail(normalizedEmail, code, "login");
+
+    if (!mailRes.success) {
+      return { success: false, error: mailRes.error || "Failed to dispatch reset code email." };
+    }
+
+    return {
+      success: true,
+      message: `Password reset verification code sent to ${normalizedEmail}.`,
+    };
+  } catch (err: any) {
+    console.error("requestPasswordResetOtpAction error:", err);
+    return { success: false, error: err.message || "Failed to send reset code." };
+  }
+}
+
+/**
+ * Reset Password with Verified OTP and log the user in immediately
+ */
+export async function resetPasswordWithOtpAction(data: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<{ success: boolean; error?: string; message?: string }> {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  const normalizedEmail = data.email.toLowerCase().trim();
+  const cleanCode = data.code.trim();
+
+  if (!cleanCode || cleanCode.length !== 6) {
+    return { success: false, error: "Please enter a valid 6-digit verification code." };
+  }
+
+  if (!data.newPassword || data.newPassword.length < 8) {
+    return { success: false, error: "New password must be at least 8 characters long." };
+  }
+
+  try {
+    const isValidOtp = await verifyOtp(normalizedEmail, cleanCode);
+    if (!isValidOtp) {
+      return { success: false, error: "Invalid or expired verification code. Please request a new code." };
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+
+    // Update user record
+    const updatedUsers = await sql`
+      UPDATE public.users
+      SET password_hash = ${passwordHash},
+          email_verified = true,
+          updated_at = now()
+      WHERE LOWER(email) = ${normalizedEmail}
+      RETURNING id, organization_id, email, role;
+    `;
+
+    if (updatedUsers.length === 0) {
+      return { success: false, error: "User account not found." };
+    }
+
+    const user = updatedUsers[0] as any;
+
+    // Log the user in immediately
+    const sessionToken = await createSessionToken({
+      userId: user.id,
+      organizationId: user.organization_id,
+      email: user.email,
+      role: user.role,
+    });
+
+    await setSessionCookie(sessionToken);
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      message: "Password updated successfully! Logging you in...",
+    };
+  } catch (err: any) {
+    console.error("resetPasswordWithOtpAction error:", err);
+    return { success: false, error: err.message || "Failed to reset password." };
+  }
+}
+
+

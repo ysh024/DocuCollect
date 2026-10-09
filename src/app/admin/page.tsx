@@ -22,6 +22,7 @@ import {
   Crown,
   Shield,
   Zap,
+  CreditCard,
 } from "lucide-react";
 import {
   generateLicenseKeyAction,
@@ -29,6 +30,9 @@ import {
   revokeLicenseKeyAction,
   activateSubscriptionAction,
   getAdminOverviewAction,
+  getPublicPaymentSettingsAction,
+  updatePaymentSettingsAction,
+  PublicPaymentSettings,
 } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
 
@@ -41,7 +45,22 @@ export default function AdminPortalPage() {
   const [authLoading, setAuthLoading] = useState(false);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<"generate" | "ledger" | "direct" | "users">("generate");
+  const [activeTab, setActiveTab] = useState<"generate" | "ledger" | "direct" | "users" | "payment">("generate");
+
+  // Payment & Billing Settings
+  const [paymentSettings, setPaymentSettings] = useState<PublicPaymentSettings>({
+    upi_id: "7290964963@kotak811",
+    bank_name: "State Bank of India",
+    bank_holder: "DocuCollect Technologies",
+    bank_account: "3982001100234",
+    bank_ifsc: "SBIN0001234",
+    contact_email: "support@docucollect.in",
+    contact_phone: "+919718871979",
+    show_upi: true,
+    show_bank: true,
+    show_whatsapp: true,
+  });
+  const [savingPayment, setSavingPayment] = useState(false);
 
   // Overview Data
   const [stats, setStats] = useState<any>({ totalUsers: 0, totalOrgs: 0, activeKeys: 0, redeemedKeys: 0 });
@@ -86,6 +105,7 @@ export default function AdminPortalPage() {
         setStats(res.stats);
         setKeysList(res.keys || []);
         setRecentUsers(res.recentUsers || []);
+        getPublicPaymentSettingsAction().then(setPaymentSettings).catch(console.error);
       } else {
         sessionStorage.removeItem("dc_admin_secret");
         toast({ title: "Authentication Failed", description: res.error || "Invalid secret key" });
@@ -94,6 +114,23 @@ export default function AdminPortalPage() {
       toast({ title: "Error", description: err.message || "Failed to authenticate" });
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleSavePaymentSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingPayment(true);
+    try {
+      const res = await updatePaymentSettingsAction(adminSecret, paymentSettings);
+      if (res.success) {
+        toast({ title: "Settings Saved!", description: "Public payment information updated in database." });
+      } else {
+        toast({ title: "Save Failed", description: res.error || "Could not update payment settings", type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setSavingPayment(false);
     }
   };
 
@@ -419,6 +456,19 @@ export default function AdminPortalPage() {
           >
             <Users className="w-3.5 h-3.5" />
             <span>Registered Users</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("payment")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === "payment"
+                ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>Public Payment Details</span>
           </button>
         </div>
 
@@ -815,6 +865,189 @@ export default function AdminPortalPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* WORKSPACE 5: Public Payment & Billing Display */}
+        {activeTab === "payment" && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-6">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-emerald-400" />
+                Live Payment & Public Billing Details
+              </h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Customize payment receiver accounts displayed on the user Billing page. Changes save directly to the database without editing .env files.
+              </p>
+            </div>
+
+            <form onSubmit={handleSavePaymentSettings} className="space-y-5">
+              {/* Visibility Toggles */}
+              <div className="p-4 bg-neutral-950 rounded-2xl border border-neutral-800 space-y-3">
+                <span className="text-xs font-bold text-neutral-200 block uppercase tracking-wider">
+                  Payment Channels Visibility
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.show_upi}
+                      onChange={(e) =>
+                        setPaymentSettings({ ...paymentSettings, show_upi: e.target.checked })
+                      }
+                      className="rounded border-neutral-700 bg-neutral-800 text-emerald-500 w-4 h-4"
+                    />
+                    <span>Show UPI Payment</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.show_bank}
+                      onChange={(e) =>
+                        setPaymentSettings({ ...paymentSettings, show_bank: e.target.checked })
+                      }
+                      className="rounded border-neutral-700 bg-neutral-800 text-emerald-500 w-4 h-4"
+                    />
+                    <span>Show Bank Transfer</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer p-2.5 bg-neutral-900 rounded-xl border border-neutral-800">
+                    <input
+                      type="checkbox"
+                      checked={paymentSettings.show_whatsapp}
+                      onChange={(e) =>
+                        setPaymentSettings({ ...paymentSettings, show_whatsapp: e.target.checked })
+                      }
+                      className="rounded border-neutral-700 bg-neutral-800 text-emerald-500 w-4 h-4"
+                    />
+                    <span>Show WhatsApp Proof</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* UPI & Contact Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    UPI Virtual Payment Address (VPA)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={paymentSettings.upi_id}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, upi_id: e.target.value.trim() })
+                    }
+                    placeholder="e.g. yourname@okaxis"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    WhatsApp Support / Key Dispatch Phone
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={paymentSettings.contact_phone}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, contact_phone: e.target.value.trim() })
+                    }
+                    placeholder="+91 98765 43210"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Support / Proof Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={paymentSettings.contact_email}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, contact_email: e.target.value.trim() })
+                    }
+                    placeholder="billing@yourfirm.com"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentSettings.bank_name}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, bank_name: e.target.value })
+                    }
+                    placeholder="e.g. State Bank of India / HDFC"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Account Beneficiary Name
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentSettings.bank_holder}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, bank_holder: e.target.value })
+                    }
+                    placeholder="e.g. DocuCollect Technologies"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Bank Account Number
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentSettings.bank_account}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, bank_account: e.target.value.trim() })
+                    }
+                    placeholder="e.g. 50200012345678"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    Bank IFSC Code
+                  </label>
+                  <input
+                    type="text"
+                    value={paymentSettings.bank_ifsc}
+                    onChange={(e) =>
+                      setPaymentSettings({ ...paymentSettings, bank_ifsc: e.target.value.trim().toUpperCase() })
+                    }
+                    placeholder="e.g. SBIN0001234"
+                    className="w-full sm:w-1/2 bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono uppercase placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-800">
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-500/20"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{savingPayment ? "Saving Changes..." : "Save Payment Details"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </main>
