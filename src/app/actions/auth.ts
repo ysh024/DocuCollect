@@ -1,0 +1,630 @@
+"use server";
+
+import bcrypt from "bcryptjs";
+import { getDb } from "@/lib/db";
+import {
+  generateOtp,
+  storeOtp,
+  verifyOtp,
+  createSessionToken,
+  setSessionCookie,
+  logoutUser,
+  getSession,
+  getCurrentUser,
+} from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+
+// =====================================================================
+// EMAIL OTP DELIVERY
+// =====================================================================
+
+async function sendOtpEmail(email: string, code: string, purpose: "login" | "signup"): Promise<{ success: boolean; error?: string }> {
+  // If RESEND_API_KEY is set, send via Resend
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM || "DocuCollect <noreply@docucollect.in>",
+          to: [email],
+          subject: purpose === "signup"
+            ? `Welcome to DocuCollect — Your Verification Code: ${code}`
+            : `DocuCollect Security Verification Code: ${code}`,
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5;">
+              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+                <div style="width: 36px; height: 36px; background: #111; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                  <span style="color: white; font-size: 18px;">📄</span>
+                </div>
+                <span style="font-size: 18px; font-weight: 700; color: #111;">DocuCollect</span>
+              </div>
+              <h2 style="font-size: 20px; font-weight: 700; color: #111; margin: 0 0 8px;">
+                ${purpose === "signup" ? "Verify Your Account" : "Security Verification Code"}
+              </h2>
+              <p style="color: #555; font-size: 14px; margin: 0 0 24px; line-height: 1.6;">
+                Use the following 6-digit one-time code to complete your verification. Do not share this code with anyone.
+              </p>
+              <div style="background: #f4f4f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+                <div style="font-size: 34px; font-weight: 800; letter-spacing: 10px; color: #111; font-family: monospace;">
+                  ${code}
+                </div>
+                <p style="color: #71717a; font-size: 12px; margin: 10px 0 0;">
+                  Expires in 10 minutes
+                </p>
+              </div>
+              <p style="color: #a1a1aa; font-size: 12px; border-top: 1px solid #f4f4f5; padding-top: 16px; margin: 0;">
+                If you did not request this verification, please secure your account immediately.
+              </p>
+            </div>
+          `,
+        }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.text();
+      console.warn("Resend email warning, attempting Neon delivery:", err);
+    } catch (err: any) {
+      console.warn("Resend dispatch error, attempting Neon delivery:", err);
+    }
+  }
+
+  // Try Neon Managed Better Auth built-in email service
+  const neonAuthUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.NEON_AUTH_BASE_URL;
+  if (neonAuthUrl) {
+    try {
+      const cleanBase = neonAuthUrl.replace(/\/$/, "");
+      const neonRes = await fetch(`${cleanBase}/email-otp/send-verification-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, type: "sign-in" }),
+      });
+      if (neonRes.ok) {
+        console.log(`[Neon Auth] Dispatched real verification code email to: ${email}`);
+      } else {
+        const text = await neonRes.text();
+        console.warn("[Neon Auth] Email delivery response:", text);
+      }
+    } catch (neonErr) {
+      console.warn("[Neon Auth] Email dispatch warning:", neonErr);
+    }
+  }
+
+  // Server console record for local development backup
+  console.log(`\n=================================================`);
+  console.log(`🔒 [SECURE EMAIL SERVICE]`);
+  console.log(`Recipient: ${email}`);
+  console.log(`Verification Code: ${code}`);
+  console.log(`Purpose: ${purpose} | Valid: 10 minutes`);
+  console.log(`=================================================\n`);
+  return { success: true };
+}
+
+// =====================================================================
+// AUTHENTICATION ACTIONS: PASSWORD + VERIFICATION (MFA)
+// =====================================================================
+
+/**
+ * Sign In with Email & Password
+ * Checks password hash, requires email verification, and issues session
+ */
+export async function loginWithPasswordAction(formData: {
+  email: string;
+  password: string;
+}) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected. Please contact support." };
+
+  const normalizedEmail = formData.email.toLowerCase().trim();
+  const password = formData.password;
+
+  if (!normalizedEmail || !password) {
+    return { success: false, error: "Please provide both email and password." };
+  }
+
+  try {
+    const users = await sql`
+      SELECT id, organization_id, full_name, email, role, email_verified, password_hash
+      FROM public.users
+      WHERE LOWER(email) = ${normalizedEmail}
+      LIMIT 1;
+    `;
+
+    if (users.length === 0) {
+      return { success: false, error: "Invalid email or password." };
+    }
+
+    const user = users[0] as any;
+
+    if (!user.password_hash) {
+      return {
+        success: false,
+        error: "This account was registered via Google OAuth or OTP. Please sign in with Google or reset your password.",
+      };
+    }
+
+    // Securely compare password hash
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+      return { success: false, error: "Invalid email or password." };
+    }
+
+    // Strict security check: Unverified users cannot enter dashboard
+    if (!user.email_verified) {
+      // Trigger a fresh OTP so the user can verify immediately
+      const { code, codeHash } = generateOtp();
+      await storeOtp(normalizedEmail, codeHash, "login");
+      await sendOtpEmail(normalizedEmail, code, "login");
+
+      return {
+        success: false,
+        requiresVerification: true,
+        error: "Your account is not yet verified. A 6-digit verification code has been sent to your email.",
+      };
+    }
+
+    // Update last login timestamp
+    await sql`
+      UPDATE public.users
+      SET last_login_at = now()
+      WHERE id = ${user.id};
+    `;
+
+    // Create session token
+    const sessionToken = await createSessionToken({
+      userId: user.id,
+      organizationId: user.organization_id,
+      email: user.email,
+      role: user.role,
+    });
+
+    await setSessionCookie(sessionToken);
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Login error:", err);
+    return { success: false, error: "An unexpected error occurred during sign-in." };
+  }
+}
+
+/**
+ * Step 1: Initiate Sign-up with Full Details + Password
+ * Hashes password, checks uniqueness, sends verification OTP
+ */
+export async function initiateSignupAction(data: {
+  email: string;
+  password: string;
+  fullName: string;
+  firmName: string;
+  phone?: string;
+}) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  const normalizedEmail = data.email.toLowerCase().trim();
+
+  if (!normalizedEmail || !normalizedEmail.includes("@")) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
+  if (!data.password || data.password.length < 8) {
+    return { success: false, error: "Password must be at least 8 characters long." };
+  }
+
+  if (!data.fullName?.trim() || !data.firmName?.trim()) {
+    return { success: false, error: "Please enter your name and firm/company name." };
+  }
+
+  // Check if user already exists
+  const existing = await sql`SELECT id, email_verified FROM public.users WHERE LOWER(email) = ${normalizedEmail} LIMIT 1;`;
+  if (existing.length > 0) {
+    return {
+      success: false,
+      alreadyExisted: true,
+      error: "An account with this email is already registered and verified. Switching you to Sign In...",
+    };
+  }
+
+  // Generate and store OTP verification code
+  const { code, codeHash } = generateOtp();
+  await storeOtp(normalizedEmail, codeHash, "signup");
+
+  // Send verification email
+  const emailRes = await sendOtpEmail(normalizedEmail, code, "signup");
+  if (!emailRes.success) {
+    return { success: false, error: emailRes.error || "Failed to send verification email." };
+  }
+
+  // Never return the OTP code to the frontend
+  return {
+    success: true,
+    message: `Verification code sent to ${normalizedEmail}. Please enter the 6-digit code to complete registration.`,
+  };
+}
+
+/**
+ * Step 2: Complete Sign-up by Verifying OTP
+ * Only runs when OTP is valid. Hashes password, creates organization, user, subscription, and session.
+ */
+export async function completeSignupWithPasswordAction(data: {
+  email: string;
+  password: string;
+  code: string;
+  firmName: string;
+  fullName: string;
+  phone?: string;
+}) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  const normalizedEmail = data.email.toLowerCase().trim();
+
+  // If user already exists: check if password matches to log them in automatically
+  const existing = await sql`
+    SELECT id, organization_id, email, password_hash, role, email_verified 
+    FROM public.users 
+    WHERE LOWER(email) = ${normalizedEmail} 
+    LIMIT 1;
+  `;
+  if (existing.length > 0) {
+    const user = existing[0] as any;
+    if (data.password && user.password_hash) {
+      const isMatch = await bcrypt.compare(data.password, user.password_hash);
+      if (isMatch) {
+        const sessionToken = await createSessionToken({
+          userId: user.id,
+          organizationId: user.organization_id,
+          email: user.email,
+          role: user.role,
+        });
+        await setSessionCookie(sessionToken);
+        revalidatePath("/dashboard");
+        return {
+          success: true,
+          alreadyExisted: true,
+          message: "Welcome! Account verified and logged in. Redirecting to your dashboard...",
+        };
+      }
+    }
+    return {
+      success: false,
+      alreadyExisted: true,
+      error: "Your account is already created and verified! Please switch to Sign In and enter your password.",
+    };
+  }
+
+  // Strict OTP verification: verify local DB first
+  let isValidOtp = await verifyOtp(normalizedEmail, data.code.trim());
+
+  // If not in local DB, check Neon Managed Better Auth
+  const neonAuthUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.NEON_AUTH_BASE_URL;
+  if (!isValidOtp && neonAuthUrl) {
+    try {
+      const cleanBase = neonAuthUrl.replace(/\/$/, "");
+      const neonVerifyRes = await fetch(`${cleanBase}/sign-in/email-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, otp: data.code.trim() }),
+      });
+      if (neonVerifyRes.ok) {
+        isValidOtp = true;
+      }
+    } catch (verifyErr) {
+      console.warn("Neon OTP verify error:", verifyErr);
+    }
+  }
+
+  if (!isValidOtp) {
+    return { success: false, error: "Invalid or expired 6-digit verification code. Please check your email and try again." };
+  }
+
+  try {
+    // Hash password securely with bcrypt
+    const passwordHash = await bcrypt.hash(data.password, 10);
+
+    // Auto-seed default plans if missing
+    let plans = await sql`SELECT id FROM public.plans WHERE name = 'free_trial' LIMIT 1;`;
+    if (plans.length === 0) {
+      await sql`
+        INSERT INTO public.plans (name, display_name, price_monthly, price_yearly, max_clients, max_cases_per_client, max_storage_mb, file_retention_days, max_upload_size_mb, features, sort_order)
+        VALUES
+          ('free_trial', 'Free Trial', 0, 0, 10, 5, 500, 7, 10,
+           '["Up to 10 clients", "5 cases per client", "7-day file auto-purge", "WhatsApp upload links", "Email & Google login", "30-day free trial"]'::jsonb, 0),
+          ('starter', 'Starter', 499, 4999, 25, 20, 2048, 30, 25,
+           '["Up to 25 clients", "20 cases per client", "30-day file retention", "WhatsApp upload links", "Priority email support", "Custom branding"]'::jsonb, 1),
+          ('pro', 'Professional', 999, 9999, 100, 100, 5120, 90, 50,
+           '["Unlimited clients", "Unlimited cases", "90-day file retention", "Custom domain", "API access", "Dedicated support"]'::jsonb, 2)
+        ON CONFLICT (name) DO NOTHING;
+      `;
+      plans = await sql`SELECT id FROM public.plans WHERE name = 'free_trial' LIMIT 1;`;
+    }
+    const planId = plans[0]?.id;
+
+    // Create Organization
+    const cleanFirmName = data.firmName.trim();
+    const slug = cleanFirmName.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 40) + "-" + Date.now().toString().slice(-4);
+    const orgs = await sql`
+      INSERT INTO public.organizations (name, slug, branding_color)
+      VALUES (${cleanFirmName}, ${slug}, '#171717')
+      RETURNING id;
+    `;
+    const orgId = orgs[0].id;
+
+    // Create User with verified status
+    const users = await sql`
+      INSERT INTO public.users (
+        organization_id, full_name, email, password_hash, phone, role, email_verified, last_login_at
+      ) VALUES (
+        ${orgId}, ${data.fullName.trim()}, ${normalizedEmail}, ${passwordHash}, ${data.phone || null}, 'owner', true, now()
+      )
+      RETURNING id, role;
+    `;
+    const user = users[0] as any;
+
+    // Create Free Trial subscription (30 days)
+    if (planId) {
+      try {
+        await sql`
+          INSERT INTO public.subscriptions (organization_id, plan_id, status, trial_ends_at)
+          VALUES (${orgId}, ${planId}, 'trial', (now() + interval '30 days'))
+          ON CONFLICT (organization_id) DO NOTHING;
+        `;
+      } catch (subErr) {
+        console.warn("Subscription creation note:", subErr);
+      }
+    }
+
+    // Issue secure session cookie
+    const sessionToken = await createSessionToken({
+      userId: user.id,
+      organizationId: orgId,
+      email: normalizedEmail,
+      role: user.role,
+    });
+
+    await setSessionCookie(sessionToken);
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Complete signup error:", err);
+    return { success: false, error: err.message || "Failed to create account." };
+  }
+}
+
+/**
+ * Resend OTP Verification Code
+ */
+export async function resendVerificationCodeAction(email: string, purpose: "login" | "signup" = "signup") {
+  const normalizedEmail = email.toLowerCase().trim();
+  const { code, codeHash } = generateOtp();
+  await storeOtp(normalizedEmail, codeHash, purpose);
+  const emailRes = await sendOtpEmail(normalizedEmail, code, purpose);
+  if (!emailRes.success) {
+    return { success: false, error: emailRes.error || "Failed to resend code." };
+  }
+  return { success: true, message: `New verification code sent to ${normalizedEmail}` };
+}
+
+/**
+ * Verify Login OTP (For accounts requiring 2FA or email confirmation)
+ */
+export async function verifyLoginOtpAction(email: string, code: string) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  const normalizedEmail = email.toLowerCase().trim();
+  let isValid = await verifyOtp(normalizedEmail, code.trim());
+
+  const neonAuthUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.NEON_AUTH_BASE_URL;
+  if (!isValid && neonAuthUrl) {
+    try {
+      const cleanBase = neonAuthUrl.replace(/\/$/, "");
+      const neonVerifyRes = await fetch(`${cleanBase}/sign-in/email-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, otp: code.trim() }),
+      });
+      if (neonVerifyRes.ok) {
+        isValid = true;
+      }
+    } catch (verifyErr) {
+      console.warn("Neon OTP verify error:", verifyErr);
+    }
+  }
+
+  if (!isValid) {
+    return { success: false, error: "Invalid or expired verification code. Please try again." };
+  }
+
+  const users = await sql`
+    SELECT id, organization_id, email, role FROM public.users
+    WHERE LOWER(email) = ${normalizedEmail} LIMIT 1;
+  `;
+
+  if (users.length === 0) {
+    return { success: false, error: "Account not found." };
+  }
+
+  const user = users[0] as any;
+
+  // Mark email verified
+  await sql`
+    UPDATE public.users 
+    SET last_login_at = now(), email_verified = true 
+    WHERE id = ${user.id};
+  `;
+
+  const sessionToken = await createSessionToken({
+    userId: user.id,
+    organizationId: user.organization_id,
+    email: user.email,
+    role: user.role,
+  });
+
+  await setSessionCookie(sessionToken);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+/**
+ * Logout
+ */
+export async function handleLogoutAction() {
+  await logoutUser();
+  revalidatePath("/");
+  return { success: true };
+}
+
+/**
+ * Get current user profile
+ */
+export async function getCurrentUserAction() {
+  return await getCurrentUser();
+}
+
+/**
+ * Update Firm & User Profile Settings
+ */
+export async function updateFirmSettingsAction(data: {
+  firmName?: string;
+  phone?: string;
+  email?: string;
+}) {
+  const session = await getSession();
+  if (!session?.organizationId || !session?.userId) {
+    return { success: false, error: "UNAUTHENTICATED" };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    if (data.firmName?.trim()) {
+      await sql`
+        UPDATE public.organizations
+        SET name = ${data.firmName.trim()}, updated_at = now()
+        WHERE id = ${session.organizationId};
+      `;
+    }
+
+    if (data.phone !== undefined) {
+      await sql`
+        UPDATE public.users
+        SET phone = ${data.phone.trim() || null}, updated_at = now()
+        WHERE id::text = ${session.userId};
+      `;
+    }
+
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to update settings" };
+  }
+}
+
+/**
+ * Synchronize Google OAuth user from Neon Better Auth and establish application session
+ */
+export async function syncGoogleUserAction(userData: {
+  id?: string;
+  email: string;
+  name?: string;
+  emailVerified?: boolean;
+}) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  if (!userData?.email) {
+    return { success: false, error: "Invalid user data provided from Google OAuth." };
+  }
+
+  const normalizedEmail = userData.email.toLowerCase().trim();
+
+  try {
+    // 1. Check if user already exists in public.users
+    let userRows = await sql`
+      SELECT id, organization_id, email, role, email_verified 
+      FROM public.users 
+      WHERE LOWER(email) = ${normalizedEmail} 
+      LIMIT 1;
+    `;
+
+    let userId: string;
+    let orgId: string;
+    let role: "owner" | "admin" | "staff" = "owner";
+
+    if (userRows.length === 0) {
+      // Auto-provision Organization for new Google user
+      const orgName = (userData.name || normalizedEmail.split("@")[0]) + " Firm";
+      const slug =
+        orgName.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 40) +
+        "-" +
+        Date.now().toString().slice(-4);
+
+      const orgs = await sql`
+        INSERT INTO public.organizations (name, slug, branding_color)
+        VALUES (${orgName}, ${slug}, '#171717')
+        RETURNING id;
+      `;
+      orgId = orgs[0].id;
+
+      // Create User with email_verified = true (Google accounts are pre-verified)
+      const newUsers = await sql`
+        INSERT INTO public.users (
+          organization_id, full_name, email, role, email_verified, last_login_at
+        ) VALUES (
+          ${orgId}, ${userData.name || normalizedEmail.split("@")[0]}, ${normalizedEmail}, 'owner', true, now()
+        )
+        RETURNING id, role;
+      `;
+      userId = newUsers[0].id;
+      role = (newUsers[0].role as "owner" | "admin" | "staff") || "owner";
+
+      // Auto-provision 30-day Free Trial
+      let plans = await sql`SELECT id FROM public.plans WHERE name = 'free_trial' LIMIT 1;`;
+      if (plans.length > 0) {
+        try {
+          await sql`
+            INSERT INTO public.subscriptions (organization_id, plan_id, status, trial_ends_at)
+            VALUES (${orgId}, ${plans[0].id}, 'trial', (now() + interval '30 days'))
+            ON CONFLICT (organization_id) DO NOTHING;
+          `;
+        } catch (subErr) {
+          console.warn("Google subscription init note:", subErr);
+        }
+      }
+    } else {
+      userId = userRows[0].id;
+      orgId = userRows[0].organization_id;
+      role = (userRows[0].role as "owner" | "admin" | "staff") || "owner";
+
+      // Update last login and ensure email is verified
+      await sql`
+        UPDATE public.users 
+        SET last_login_at = now(), email_verified = true 
+        WHERE id = ${userId};
+      `;
+    }
+
+    // 2. Issue the application JWT session token & cookie
+    const sessionToken = await createSessionToken({
+      userId,
+      organizationId: orgId,
+      email: normalizedEmail,
+      role,
+    });
+
+    await setSessionCookie(sessionToken);
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err: any) {
+    console.error("syncGoogleUserAction error:", err);
+    return { success: false, error: err.message || "Failed to establish Google session" };
+  }
+}

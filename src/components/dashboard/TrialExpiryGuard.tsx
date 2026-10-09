@@ -1,0 +1,179 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  Clock,
+  CreditCard,
+  MessageSquare,
+  KeyRound,
+  ShieldAlert,
+  ArrowRight,
+  CheckCircle2,
+} from "lucide-react";
+import { getSubscriptionAction, activateSubscriptionAction } from "@/app/actions/portal";
+import { useToast } from "@/components/ui/Toast";
+
+export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { toast } = useToast();
+  const [subscription, setSubscription] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const lastFetchedRef = useRef<number>(0);
+
+  // Quick code activation
+  const [showCodeInput, setShowCodeInput] = useState(false);
+  const [adminSecret, setAdminSecret] = useState("");
+  const [activating, setActivating] = useState(false);
+
+  const loadSub = async (force = false) => {
+    const now = Date.now();
+    if (!force && lastFetchedRef.current && now - lastFetchedRef.current < 60000) {
+      return;
+    }
+    try {
+      const sub = await getSubscriptionAction();
+      setSubscription(sub);
+      lastFetchedRef.current = Date.now();
+    } catch {
+      // Ignore
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSub();
+  }, [pathname]);
+
+  const handleQuickActivate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminSecret.trim()) return;
+
+    setActivating(true);
+    try {
+      const res = await activateSubscriptionAction({
+        adminSecret: adminSecret.trim(),
+        planName: "starter",
+        period: "monthly",
+        paymentMethod: "upi",
+        paymentNotes: "Activated via Paywall Lockout Screen",
+      });
+
+      if (res.success) {
+        toast({ title: "Account Renewed!", description: res.message });
+        setAdminSecret("");
+        setShowCodeInput(false);
+        await loadSub(true);
+      } else {
+        toast({ title: "Activation Failed", description: res.error || "Invalid secret" });
+      }
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  if (loading || !subscription) {
+    return <>{children}</>;
+  }
+
+  const now = new Date();
+  const isTrial = subscription.status === "trial";
+  const isExpiredStatus = subscription.status === "expired";
+  const trialExpired = isTrial && subscription.trial_ends_at && new Date(subscription.trial_ends_at) < now;
+  const planExpired = subscription.status === "active" && subscription.current_period_end && new Date(subscription.current_period_end) < now;
+
+  const isBlocked = isExpiredStatus || trialExpired || planExpired;
+
+  // Always allow the user to view the Billing page to see payment instructions or enter the secret code
+  const isBillingPage = pathname === "/dashboard/billing";
+
+  if (isBlocked && !isBillingPage) {
+    const adminPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE || "+919876543210";
+    const cleanPhone = adminPhone.replace(/[^0-9]/g, "");
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+      "Hello! My 30-day trial for DocuCollect has ended and I would like to renew my subscription plan."
+    )}`;
+
+    return (
+      <div className="py-8 max-w-2xl mx-auto space-y-6">
+        <div className="bg-white border-2 border-amber-300 rounded-2xl p-8 sm:p-10 shadow-lg text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center mx-auto shadow-inner">
+            <Clock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+              Subscription Required
+            </span>
+            <h2 className="text-2xl font-black tracking-tight text-neutral-900 mt-2">
+              Your 30-Day Free Trial Has Ended
+            </h2>
+            <p className="text-sm text-neutral-600 max-w-md mx-auto leading-relaxed">
+              We hope DocuCollect helped your firm streamline client document collection! To continue creating cases, adding clients, and sharing secure upload links, please renew your subscription.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-left">
+            <Link
+              href="/dashboard/billing"
+              className="flex items-center justify-between p-4 rounded-xl border-2 border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-800 transition group"
+            >
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Step 1</p>
+                <p className="text-sm font-bold text-white mt-0.5">Pay via UPI / Bank</p>
+              </div>
+              <CreditCard className="w-5 h-5 text-neutral-300 group-hover:translate-x-0.5 transition-transform" />
+            </Link>
+
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between p-4 rounded-xl border border-emerald-300 bg-emerald-50 text-emerald-950 hover:bg-emerald-100 transition group"
+            >
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Step 2</p>
+                <p className="text-sm font-bold text-emerald-900 mt-0.5">Contact on WhatsApp</p>
+              </div>
+              <MessageSquare className="w-5 h-5 text-emerald-600 group-hover:translate-x-0.5 transition-transform" />
+            </a>
+          </div>
+
+          <div className="border-t border-neutral-200 pt-5 text-center">
+            <button
+              onClick={() => setShowCodeInput(!showCodeInput)}
+              className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 inline-flex items-center gap-1.5 transition"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              {showCodeInput ? "Hide activation code input" : "Have an administrator activation code?"}
+            </button>
+
+            {showCodeInput && (
+              <form onSubmit={handleQuickActivate} className="mt-4 max-w-sm mx-auto flex gap-2">
+                <input
+                  type="password"
+                  placeholder="Enter admin secret..."
+                  value={adminSecret}
+                  onChange={(e) => setAdminSecret(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                />
+                <button
+                  type="submit"
+                  disabled={activating || !adminSecret.trim()}
+                  className="px-4 py-2 bg-neutral-900 text-white text-xs font-bold rounded-lg hover:bg-neutral-800 transition disabled:opacity-50"
+                >
+                  {activating ? "Activating..." : "Unlock"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
