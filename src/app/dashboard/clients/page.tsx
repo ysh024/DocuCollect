@@ -14,10 +14,9 @@ import {
   Download,
   Eye,
   FileText,
-  ShieldCheck,
   X,
   ExternalLink,
-  CheckCircle2,
+  CheckCircle,
   Clock,
   AlertCircle,
 } from "lucide-react";
@@ -257,7 +256,7 @@ export default function ClientsPage() {
                           {/* Verification Badge */}
                           {doc.status === "approved" && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3" />
+                              <CheckCircle className="w-3 h-3" />
                               Approved
                             </span>
                           )}

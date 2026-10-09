@@ -12,8 +12,8 @@ import {
   ArrowUpRight,
   LogOut,
   CreditCard,
-  AlertTriangle,
   ShieldCheck,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getCurrentUserAction, handleLogoutAction } from "@/app/actions/auth";
@@ -94,7 +94,7 @@ export function Sidebar() {
         {/* Trial warning */}
         {isOnTrial && isTrialExpiringSoon && trialDaysLeft !== null && (
           <div className="px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-semibold text-amber-800">Trial expires in {trialDaysLeft}d</p>
               <Link href="/dashboard/billing" className="text-[10px] text-amber-700 underline">View plans →</Link>

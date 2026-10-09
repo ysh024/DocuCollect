@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback } from "react";
-import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
+import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 
 interface Toast {
   id: string;
@@ -40,7 +40,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             key={t.id}
             className="pointer-events-auto flex items-start gap-3 p-3.5 bg-neutral-900 text-white rounded-xl shadow-xl border border-neutral-800 text-xs animate-in slide-in-from-bottom-3 duration-200"
           >
-            {t.type === "success" && <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />}
+            {t.type === "success" && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />}
             {t.type === "error" && <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />}
             {t.type === "info" && <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />}
             <div className="flex-1 min-w-0">

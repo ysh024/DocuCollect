@@ -3,19 +3,20 @@
 import { useState, useEffect } from "react";
 import {
   Building2,
-  Check,
+  CheckCircle,
   Save,
   Database,
   Shield,
   ExternalLink,
   LogOut,
-  FileCheck2,
+  FileText,
   Phone,
   Image as ImageIcon,
   Sparkles,
   Trash2,
-  UploadCloud,
+  FileUp,
 } from "lucide-react";
+import { InfoPopover } from "@/components/ui/InfoPopover";
 import { useToast } from "@/components/ui/Toast";
 import {
   getCurrentUserAction,
@@ -146,26 +147,26 @@ export default function SettingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
           <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200/60 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-neutral-800 text-[11px]">Document Storage Vault</span>
+              <span className="font-semibold text-neutral-800 text-[11px] flex items-center gap-1">
+                Document Storage Vault
+                <InfoPopover text="High-Availability cloud storage with AES-256 encryption and automated retention policy." />
+              </span>
               <span className="text-[10px] bg-emerald-50 text-emerald-700 font-medium px-1.5 py-0.5 rounded border border-emerald-200">Encrypted</span>
             </div>
             <p className="text-[11px] text-neutral-600">
               AES-256 cloud encryption with automatic retention management
             </p>
-            <p className="text-[10px] text-neutral-500">
-              Storage: <strong className="text-neutral-700">High-Availability Cloud</strong> · Auto-purge enabled
-            </p>
           </div>
 
           <div className="p-3.5 bg-neutral-50/80 rounded-xl border border-neutral-200/60 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-neutral-800 text-[11px]">Authentication System</span>
+              <span className="font-semibold text-neutral-800 text-[11px] flex items-center gap-1">
+                Authentication System
+                <InfoPopover text="Passwordless OTP verification with cryptographically signed sessions. Zero password breach risk." />
+              </span>
               <span className="text-[10px] bg-blue-50 text-blue-700 font-medium px-1.5 py-0.5 rounded border border-blue-200">OTP-Only</span>
             </div>
             <p className="text-[11px] text-neutral-600">Passwordless One-Time Code verification</p>
-            <p className="text-[10px] text-neutral-500">
-              Zero password leak risk · Cryptographically signed sessions
-            </p>
           </div>
         </div>
 
@@ -175,7 +176,7 @@ export default function SettingsPage() {
             <span>Account ID: <code className="font-mono text-neutral-800 bg-neutral-100 px-1.5 py-0.5 rounded text-[11px]">{user?.organizationId || "—"}</code></span>
           </div>
           <span className="text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-            <Check className="w-3.5 h-3.5" />
+            <CheckCircle className="w-3.5 h-3.5" />
             Enterprise-grade compliance ready
           </span>
         </div>
@@ -212,7 +213,7 @@ export default function SettingsPage() {
             </div>
             {logoUrl && (
               <span className="absolute -bottom-1.5 -right-1.5 bg-emerald-500 text-white rounded-full p-1 shadow-sm">
-                <Check className="w-3 h-3 stroke-[3]" />
+                <CheckCircle className="w-3 h-3 stroke-[3]" />
               </span>
             )}
           </div>
@@ -220,9 +221,15 @@ export default function SettingsPage() {
           {/* Description & Upload Controls */}
           <div className="space-y-3 flex-1 text-center sm:text-left">
             <div>
-              <h3 className="text-xs font-semibold text-neutral-800">Custom Firm Logo for Client Portals</h3>
-              <p className="text-[11px] text-neutral-500 mt-1 leading-relaxed">
-                Add and crop your firm&apos;s logo in a clean square format. When uploaded to cloud storage, it is automatically compressed down to ~30 KB so your client portal loads instantly while displaying your firm&apos;s proud branding.
+              <h3 className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5">
+                Custom Firm Logo for Client Portals
+                <InfoPopover
+                  title="Square Logo Guidelines"
+                  text="Square format (1:1). Automatically compressed down to ~30 KB WebP so client portals load instantly while showcasing your brand."
+                />
+              </h3>
+              <p className="text-[11px] text-neutral-500 mt-1">
+                Displayed on client upload links (<code className="text-neutral-600 bg-neutral-100 px-1 py-0.5 rounded">/upload/[token]</code>) & advisor dashboard
               </p>
             </div>
 
@@ -232,7 +239,7 @@ export default function SettingsPage() {
                 onClick={() => setIsLogoModalOpen(true)}
                 className="inline-flex items-center gap-2 px-3.5 py-2 bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
               >
-                <UploadCloud className="w-3.5 h-3.5" />
+                <FileUp className="w-3.5 h-3.5" />
                 <span>{logoUrl ? "Change / Re-crop Logo" : "Upload & Crop Square Logo"}</span>
               </button>
 
@@ -248,10 +255,6 @@ export default function SettingsPage() {
                 </button>
               )}
             </div>
-
-            <p className="text-[10px] text-neutral-400">
-              Displayed on client upload links (<code className="text-neutral-600 bg-neutral-100 px-1 py-0.5 rounded">/upload/[token]</code>) & advisor dashboard
-            </p>
           </div>
         </div>
       </div>
@@ -291,8 +294,9 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-600 mb-1">
-                Email Address
+              <label className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                <span>Email Address</span>
+                <InfoPopover text="Email cannot be changed directly. Contact support if needed." />
               </label>
               <input
                 type="email"
@@ -300,7 +304,6 @@ export default function SettingsPage() {
                 readOnly
                 className="w-full text-xs bg-neutral-50 border border-neutral-200 rounded-lg p-2.5 text-neutral-600 cursor-not-allowed"
               />
-              <p className="text-[10px] text-neutral-400 mt-1">Email cannot be changed. Contact support if needed.</p>
             </div>
 
             <div>
@@ -321,7 +324,7 @@ export default function SettingsPage() {
         {/* Document Policy */}
         <div className="p-5 bg-white rounded-xl border border-neutral-200/80 space-y-4">
           <div className="flex items-center gap-2 text-neutral-900 font-semibold text-xs border-b border-neutral-100 pb-3">
-            <FileCheck2 className="w-4 h-4" />
+            <FileText className="w-4 h-4" />
             <span>Document & Upload Policy</span>
           </div>
 
@@ -343,8 +346,9 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider text-neutral-600 mb-1">
-                Max Upload File Size
+              <label className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                <span>Max Upload File Size</span>
+                <InfoPopover text="Actual upload limit is governed by your active subscription plan tier." />
               </label>
               <select
                 value={maxFileSize}
@@ -356,7 +360,6 @@ export default function SettingsPage() {
                 <option value="25">25 MB (Starter)</option>
                 <option value="50">50 MB (Professional)</option>
               </select>
-              <p className="text-[10px] text-neutral-400 mt-1">Actual limit depends on your active plan.</p>
             </div>
           </div>
         </div>
@@ -364,7 +367,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-end gap-3 pt-2">
           {saved && (
             <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
-              <Check className="w-4 h-4" /> Saved
+              <CheckCircle className="w-4 h-4" /> Saved
             </span>
           )}
           <button

@@ -4,12 +4,12 @@ import {
   ArrowRight,
   Shield,
   MessageSquareShare,
-  CheckCircle2,
+  CheckCircle,
   Lock,
   Briefcase,
   Star,
   Users,
-  FileCheck2,
+  FileText,
   Clock,
   Zap,
   Building2,
@@ -38,7 +38,7 @@ const features = [
     desc: "Generate encrypted upload links. Send via WhatsApp or email in one click. Clients upload without any login required.",
   },
   {
-    icon: FileCheck2,
+    icon: FileText,
     title: "Structured Document Checklists",
     desc: "Create case-specific checklists. Track exactly which documents are missing, uploaded, under review, or approved.",
   },
@@ -257,7 +257,7 @@ export default function LandingPage() {
               <ul className="space-y-2">
                 {features.map((f) => (
                   <li key={f} className="flex items-center gap-2 text-xs">
-                    <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 ${highlight ? "text-emerald-400" : "text-emerald-500"}`} />
+                    <CheckCircle className={`w-3.5 h-3.5 shrink-0 ${highlight ? "text-emerald-400" : "text-emerald-500"}`} />
                     <span className={highlight ? "text-neutral-300" : "text-neutral-600"}>{f}</span>
                   </li>
                 ))}

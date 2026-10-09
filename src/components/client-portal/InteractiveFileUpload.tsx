@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import {
-  UploadCloud,
+  FileUp,
   FileText,
   AlertCircle,
   Loader2,
@@ -165,7 +165,7 @@ export function InteractiveFileUpload({
               : "border-neutral-300 bg-neutral-50/70 hover:bg-neutral-100 text-neutral-700"
           }`}
         >
-          <UploadCloud className="w-4 h-4 text-neutral-500" />
+          <FileUp className="w-4 h-4 text-neutral-500" />
           <span>{isReplacement ? "Tap to upload corrected file or photo" : "Tap to choose file or photo"}</span>
         </button>
       ) : (

@@ -3,11 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
-  ShieldCheck,
   KeyRound,
   Sparkles,
   Copy,
-  Check,
+  CheckCircle,
   RefreshCw,
   Ban,
   Users,
@@ -18,7 +17,7 @@ import {
   ExternalLink,
   Search,
   MessageSquare,
-  AlertTriangle,
+  AlertCircle,
   Layers,
   Crown,
   Shield,
@@ -232,7 +231,7 @@ export default function AdminPortalPage() {
         <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-3xl p-8 shadow-2xl space-y-6">
           <div className="text-center space-y-2">
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto shadow-inner">
-              <ShieldCheck className="w-6 h-6" />
+              <CheckCircle className="w-6 h-6" />
             </div>
             <h1 className="text-xl font-bold text-white tracking-tight">DocuCollect Admin Console</h1>
             <p className="text-xs text-neutral-400">
@@ -361,7 +360,7 @@ export default function AdminPortalPage() {
 
           <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-1">
             <span className="text-[11px] text-blue-400 uppercase font-semibold flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-blue-400" />
+              <CheckCircle className="w-3.5 h-3.5 text-blue-400" />
               Redeemed Keys
             </span>
             <p className="text-2xl font-black text-blue-400">{stats.redeemedKeys}</p>
@@ -740,7 +739,7 @@ export default function AdminPortalPage() {
                 disabled={directActivating || !directEmail.trim()}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-500/20"
               >
-                <Check className="w-4 h-4" />
+                <CheckCircle className="w-4 h-4" />
                 <span>{directActivating ? "Upgrading Account..." : "Directly Activate Account"}</span>
               </button>
             </form>

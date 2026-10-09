@@ -6,8 +6,7 @@ import {
   Plus,
   Search,
   Sparkles,
-  Check,
-  FileCheck2,
+  FileText,
   Trash2,
   Edit2,
   Copy,
@@ -328,7 +327,7 @@ export default function ChecklistTemplatesPage() {
                   {/* Document Count Badge */}
                   <div className="flex items-center justify-between text-[11px] text-neutral-600 bg-neutral-50/80 p-2 rounded-lg border border-neutral-200/60">
                     <span className="font-semibold text-neutral-800 flex items-center gap-1.5">
-                      <FileCheck2 className="w-3.5 h-3.5 text-neutral-600" />
+                      <FileText className="w-3.5 h-3.5 text-neutral-600" />
                       {tpl.requirements.length} Items
                     </span>
                     <span className="text-[10px] text-neutral-500">

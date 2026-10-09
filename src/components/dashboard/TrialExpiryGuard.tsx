@@ -4,14 +4,13 @@ import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import {
-  AlertTriangle,
   Clock,
   CreditCard,
   MessageSquare,
   KeyRound,
-  ShieldAlert,
   ArrowRight,
-  CheckCircle2,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { getSubscriptionAction, redeemLicenseKeyAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";

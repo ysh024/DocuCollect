@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { UploadCloud, AlertCircle, Loader2, ArrowUpCircle, Camera } from "lucide-react";
+import { FileUp, AlertCircle, Loader2, Camera } from "lucide-react";
 import { clientUploadDocumentAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
 
@@ -164,11 +164,7 @@ export function FileUploadZone({
                     : "bg-neutral-100 text-neutral-700"
                 }`}
               >
-                {isReplacement ? (
-                  <ArrowUpCircle className="w-4 h-4" />
-                ) : (
-                  <UploadCloud className="w-4 h-4" />
-                )}
+                <FileUp className="w-4 h-4" />
               </div>
               <div>
                 <p className="text-[11px] font-semibold text-neutral-800">

@@ -3,22 +3,21 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import {
-  FileCheck,
   Shield,
-  Check,
+  CheckCircle,
   Clock,
-  AlertTriangle,
+  AlertCircle,
   FileText,
   Lock,
   MessageSquareShare,
-  HelpCircle,
-  X,
+  Info,
   PartyPopper,
 } from "lucide-react";
 import { getPortalData } from "@/app/actions/portal";
 import { ClientPortalData } from "@/types";
 import { formatBytes } from "@/lib/utils";
 import { InteractiveFileUpload } from "@/components/client-portal/InteractiveFileUpload";
+import { RequirementsPopover } from "@/components/ui/InfoPopover";
 
 export default function ClientUploadPortalPage() {
   const params = useParams();
@@ -26,7 +25,6 @@ export default function ClientUploadPortalPage() {
 
   const [portalData, setPortalData] = useState<ClientPortalData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showGuidelines, setShowGuidelines] = useState(false);
 
   const loadPortal = async () => {
     if (!token) return;
@@ -60,7 +58,7 @@ export default function ClientUploadPortalPage() {
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
         <div className="max-w-sm w-full bg-white p-8 rounded-2xl shadow-sm border border-neutral-200 text-center space-y-3">
           <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
-            <AlertTriangle className="w-6 h-6" />
+            <AlertCircle className="w-6 h-6" />
           </div>
           <h2 className="text-base font-bold text-neutral-900">Upload Link Inactive</h2>
           <p className="text-xs text-neutral-500 leading-relaxed">
@@ -92,7 +90,7 @@ export default function ClientUploadPortalPage() {
               </div>
             ) : (
               <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                <FileCheck className="w-4 h-4" />
+                <FileText className="w-4 h-4" />
               </div>
             )}
             <div>
@@ -105,14 +103,7 @@ export default function ClientUploadPortalPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowGuidelines(true)}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-2.5 py-1.5 rounded-lg transition"
-            >
-              <HelpCircle className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Photo Tips</span>
-            </button>
+            <RequirementsPopover buttonLabel="Photo Tips" />
             <div className="text-right pl-2 border-l border-neutral-200">
               <p className="text-xs font-semibold text-neutral-900 truncate max-w-[120px]">{client.name}</p>
               <p className="text-[10px] text-neutral-400 font-mono">#{caseInfo.reference_number}</p>
@@ -170,12 +161,21 @@ export default function ClientUploadPortalPage() {
           </div>
         )}
 
-        {/* 3. Direct Document Checklist (Eliminated all duplicate badges and inner cards) */}
+        {/* 3. Direct Document Checklist */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
               Documents to Provide ({requirements.length})
             </h3>
+            <RequirementsPopover
+              title="Tips for Clear Document Photos"
+              buttonLabel="Photo Tips"
+              items={[
+                "Place document on a flat surface in good lighting without shadows",
+                "Ensure all 4 corners and borders are inside the frame",
+                "Make sure names, numbers, and dates are sharp and readable",
+              ]}
+            />
           </div>
 
           {requirements.map((req, idx) => {
@@ -214,11 +214,11 @@ export default function ClientUploadPortalPage() {
                       }`}
                     >
                       {isApproved ? (
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <CheckCircle className="w-3.5 h-3.5" />
                       ) : isUnderReview ? (
                         <Clock className="w-3 h-3" />
                       ) : isRejected ? (
-                        <AlertTriangle className="w-3 h-3" />
+                        <AlertCircle className="w-3.5 h-3.5" />
                       ) : (
                         idx + 1
                       )}
@@ -284,7 +284,7 @@ export default function ClientUploadPortalPage() {
                 {isApproved && (
                   <div className="p-2 bg-emerald-50/60 rounded-xl border border-emerald-100 flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <p className="font-medium text-neutral-800 truncate text-[11px]">
                         {latestDoc?.file_name || "Verified Document"}
                       </p>
@@ -346,47 +346,6 @@ export default function ClientUploadPortalPage() {
           </p>
         </div>
       </main>
-
-      {/* Photo Guidelines Modal */}
-      {showGuidelines && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl border border-neutral-200 space-y-3">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
-              <h3 className="text-xs font-bold text-neutral-900">Tips for Clear Document Photos</h3>
-              <button
-                type="button"
-                onClick={() => setShowGuidelines(false)}
-                className="w-6 h-6 flex items-center justify-center text-neutral-400 hover:text-neutral-700 rounded-md"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2 text-xs text-neutral-600">
-              <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
-                <p className="font-bold text-neutral-900">💡 Good Lighting</p>
-                <p className="text-[11px] text-neutral-500 mt-0.5">Place document on a flat surface in good lighting without casting shadows.</p>
-              </div>
-              <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
-                <p className="font-bold text-neutral-900">📐 All 4 Corners Visible</p>
-                <p className="text-[11px] text-neutral-500 mt-0.5">Ensure the entire document border is inside the frame.</p>
-              </div>
-              <div className="p-2.5 bg-neutral-50 rounded-xl border border-neutral-200">
-                <p className="font-bold text-neutral-900">🔍 Clear Text</p>
-                <p className="text-[11px] text-neutral-500 mt-0.5">Make sure names, numbers, and dates are sharp and easily readable.</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowGuidelines(false)}
-              className="w-full py-2 bg-neutral-900 text-white rounded-xl text-xs font-bold transition"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CaseWithDetails } from "@/types";
-import { Copy, Check, MessageSquareShare, X, ExternalLink, ShieldCheck, RefreshCw } from "lucide-react";
+import { Copy, CheckCircle, MessageSquareShare, X, ExternalLink, RefreshCw } from "lucide-react";
 import { generateUploadLinkAction } from "@/app/actions/portal";
 
 interface WhatsAppShareModalProps {
@@ -93,7 +93,7 @@ export function WhatsAppShareModal({
                 onClick={handleCopy}
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shrink-0 shadow-sm transition-colors"
               >
-                {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copied ? <CheckCircle className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copied ? "Copied!" : "Copy"}
               </button>
             </div>
@@ -113,7 +113,7 @@ export function WhatsAppShareModal({
           {/* Security details */}
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs text-slate-600">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
+              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Expires in 14 days • Single-client scoped</span>
             </div>
             <button

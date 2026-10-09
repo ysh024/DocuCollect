@@ -2,14 +2,14 @@ import Link from "next/link";
 import { Metadata } from "next";
 import {
   Layers,
-  CheckCircle2,
+  CheckCircle,
   ArrowRight,
   ChevronLeft,
   Shield,
   Zap,
   Crown,
   MessageSquareShare,
-  HelpCircle,
+  Info,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -197,7 +197,7 @@ export default function PricingPage() {
               <ul className="space-y-2 flex-1 mb-6">
                 {features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-xs">
-                    <CheckCircle2 className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${highlight ? "text-emerald-400" : "text-emerald-500"}`} />
+                    <CheckCircle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${highlight ? "text-emerald-400" : "text-emerald-500"}`} />
                     <span className={highlight ? "text-neutral-300" : "text-neutral-600"}>{f}</span>
                   </li>
                 ))}
@@ -278,7 +278,7 @@ export default function PricingPage() {
           {faqs.map(({ q, a }) => (
             <div key={q} className="p-5 bg-white border border-neutral-200 rounded-xl">
               <div className="flex items-start gap-3">
-                <HelpCircle className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
+                <Info className="w-4 h-4 text-neutral-400 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-neutral-900 mb-1.5">{q}</p>
                   <p className="text-xs text-neutral-600 leading-relaxed">{a}</p>

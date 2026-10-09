@@ -7,20 +7,19 @@ import {
   ArrowLeft,
   Briefcase,
   Users,
-  CheckCircle2,
+  CheckCircle,
   FileText,
   MessageSquareShare,
   Copy,
-  Check,
   ExternalLink,
   Shield,
   Eye,
   Sparkles,
   Bell,
-  CheckCheck,
   Send,
   Download,
 } from "lucide-react";
+import { InfoPopover } from "@/components/ui/InfoPopover";
 import { getCaseDetails, reviewDocumentAction } from "@/app/actions/portal";
 import { CaseWithDetails, DocumentRequirement, Document } from "@/types";
 import { getCaseStatusBadge, getRequirementStatusBadge, formatDate, formatDateTime, formatBytes } from "@/lib/utils";
@@ -159,7 +158,7 @@ export default function CaseDetailPage() {
               onClick={handleApproveAll}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
             >
-              <CheckCheck className="w-3.5 h-3.5" />
+              <CheckCircle className="w-3.5 h-3.5" />
               {batchLoading ? "Approving..." : `Approve All (${underReviewCount})`}
             </button>
           )}
@@ -178,7 +177,7 @@ export default function CaseDetailPage() {
             onClick={handleCopyLink}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-50 text-neutral-700 rounded-lg text-xs font-medium border border-neutral-200/80 shadow-subtle transition-colors"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
             {copied ? "Copied" : "Copy Link"}
           </button>
 
@@ -198,7 +197,7 @@ export default function CaseDetailPage() {
         <div className="p-4 bg-emerald-50/80 border border-emerald-200/70 rounded-xl flex items-center justify-between shadow-subtle">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-5 h-5" />
+              <CheckCircle className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-xs font-semibold text-emerald-900">All Required Documents Approved</h3>
@@ -283,14 +282,10 @@ export default function CaseDetailPage() {
       {/* Checklist Table Card with 1-Click Inline Review */}
       <div className="bg-white rounded-xl border border-neutral-200/80 shadow-subtle overflow-hidden">
         <div className="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-xs font-semibold text-neutral-900 uppercase tracking-wider">
-              Document Checklist ({caseData.requirements.length})
-            </h2>
-            <p className="text-[11px] text-neutral-400">
-              Quick approve clean scans with 1-click or open dialog to send revision feedback.
-            </p>
-          </div>
+          <h2 className="text-xs font-semibold text-neutral-900 uppercase tracking-wider flex items-center gap-1.5">
+            Document Checklist ({caseData.requirements.length})
+            <InfoPopover text="Quick approve clean scans with 1-click or open dialog to send revision feedback." />
+          </h2>
         </div>
 
         <div className="divide-y divide-neutral-100">
@@ -338,7 +333,7 @@ export default function CaseDetailPage() {
                           className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 font-medium rounded-lg transition-colors text-xs"
                           title="1-Click Quick Approve"
                         >
-                          <Check className="w-3 h-3 text-emerald-600" />
+                          <CheckCircle className="w-3 h-3 text-emerald-600" />
                           Approve
                         </button>
                       )}

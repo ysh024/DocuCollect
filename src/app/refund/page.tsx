@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, CheckCircle2, ShieldAlert } from "lucide-react";
+import { ArrowLeft, RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 
 export const metadata = {
   title: "Refund & Cancellation Policy | DocuCollect",
@@ -69,7 +69,7 @@ export default function RefundPage() {
               </p>
               <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2">
                 <h4 className="font-bold text-xs text-neutral-900 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" /> 48-Hour Grace Period Exception
+                  <CheckCircle className="w-4 h-4 text-emerald-600" /> 48-Hour Grace Period Exception
                 </h4>
                 <p className="text-xs text-neutral-600">
                   If you transfer a payment mistakenly or upgrade your plan and request a refund within <strong>48 hours of payment</strong> (prior to creating new cases on the upgraded tier), we will issue a 100% refund to your originating UPI account or bank account within 3 business days.

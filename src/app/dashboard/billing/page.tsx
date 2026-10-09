@@ -4,14 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   CreditCard,
-  CheckCircle2,
+  CheckCircle,
   Crown,
   Shield,
   Zap,
-  AlertTriangle,
+  AlertCircle,
   ExternalLink,
   Copy,
-  Check,
   ChevronRight,
   Building,
   QrCode,
@@ -20,8 +19,8 @@ import {
   HardDrive,
   Calendar,
   Ticket,
-  ShieldCheck,
 } from "lucide-react";
+import { InfoPopover } from "@/components/ui/InfoPopover";
 import {
   getSubscriptionAction,
   getAllPlansAction,
@@ -145,7 +144,13 @@ export default function BillingPage() {
               <Ticket className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-neutral-900">Redeem License Key / Voucher</h2>
+              <h2 className="text-sm font-bold text-neutral-900 flex items-center gap-1.5">
+                Redeem License Key / Voucher
+                <InfoPopover
+                  title="License Key Protection"
+                  text="Each license key is cryptographically signed and single-use. Once redeemed, it binds permanently to your account and cannot be reused."
+                />
+              </h2>
               <p className="text-[11px] text-neutral-500">
                 Received a single-use activation code after payment? Enter it below to upgrade your plan.
               </p>
@@ -170,13 +175,10 @@ export default function BillingPage() {
             disabled={redeeming || !licenseKeyInput.trim()}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50 shrink-0 cursor-pointer"
           >
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <CheckCircle className="w-4 h-4 text-emerald-400" />
             <span>{redeeming ? "Verifying..." : "Redeem License Key"}</span>
           </button>
         </form>
-        <p className="text-[10px] text-neutral-500">
-          🔒 Each license key is uniquely signed and can only be redeemed once. Once redeemed, it cannot be shared or reused by any other account.
-        </p>
       </div>
 
       {/* 2. Current Plan Card */}
@@ -293,7 +295,7 @@ export default function BillingPage() {
       {/* Trial warning */}
       {isTrial && trialDaysLeft !== null && trialDaysLeft <= 7 && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
           <div>
             <p className="text-sm font-bold text-amber-900">Your trial expires in {trialDaysLeft} day{trialDaysLeft !== 1 ? "s" : ""}</p>
             <p className="text-xs text-amber-800 mt-0.5">
@@ -342,7 +344,7 @@ export default function BillingPage() {
                   onClick={() => copyToClipboard(UPI_ID, "UPI ID")}
                   className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition flex items-center gap-1 cursor-pointer"
                 >
-                  {copiedKey === "UPI ID" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {copiedKey === "UPI ID" ? <CheckCircle className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                   <span>{copiedKey === "UPI ID" ? "Copied" : "Copy"}</span>
                 </button>
               </div>
@@ -489,7 +491,7 @@ export default function BillingPage() {
                   <ul className="space-y-1.5 flex-1 mb-4">
                     {(plan.features || []).map((f: string) => (
                       <li key={f} className="flex items-center gap-1.5 text-xs text-neutral-600">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
+                        <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0" />
                         <span>{f}</span>
                       </li>
                     ))}

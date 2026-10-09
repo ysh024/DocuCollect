@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Bell, LogOut, Building2, MessageSquare, UploadCloud, Clock } from "lucide-react";
+import { Bell, LogOut, Building2, MessageSquare, FileUp, Clock } from "lucide-react";
 import { getCurrentUserAction, handleLogoutAction } from "@/app/actions/auth";
 import { getAdvisorNotificationsAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
@@ -112,7 +112,7 @@ export function Header() {
                           {n.type === "query" ? (
                             <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
                           ) : (
-                            <UploadCloud className="w-3.5 h-3.5 text-emerald-600" />
+                            <FileUp className="w-3.5 h-3.5 text-emerald-600" />
                           )}
                           {n.title}
                         </span>

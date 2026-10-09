@@ -5,11 +5,11 @@ import {
   X,
   Plus,
   Trash2,
-  FileCheck2,
+  FileText,
   Sparkles,
   Layers,
   AlertCircle,
-  HelpCircle,
+  Info,
 } from "lucide-react";
 import { ChecklistTemplate, TemplateRequirement } from "@/types";
 import {
@@ -238,7 +238,7 @@ export function TemplateEditorModal({
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
               <div className="flex items-center gap-1.5">
-                <FileCheck2 className="w-4 h-4 text-emerald-600" />
+                <FileText className="w-4 h-4 text-emerald-600" />
                 <h3 className="text-xs font-bold text-neutral-900">
                   Document Requirements ({requirements.length})
                 </h3>

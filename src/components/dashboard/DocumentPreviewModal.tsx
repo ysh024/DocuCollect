@@ -6,13 +6,12 @@ import {
   Eye,
   Download,
   FileText,
-  CheckCircle2,
+  CheckCircle,
   XCircle,
   ZoomIn,
   ZoomOut,
   RotateCw,
   Clock,
-  ShieldCheck,
   Maximize2,
   ExternalLink,
 } from "lucide-react";
@@ -204,7 +203,7 @@ export function DocumentPreviewModal({
         {/* Modal Footer Controls */}
         <div className="px-6 py-3.5 bg-white border-t border-neutral-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-xs text-neutral-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
             <span className="text-[11px]">Direct encrypted preview • Secure cloud storage</span>
           </div>
 
@@ -224,7 +223,7 @@ export function DocumentPreviewModal({
                 onClick={handleApprove}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle className="w-3.5 h-3.5" />
                 <span>{loadingAction ? "Approving..." : "Verify & Approve"}</span>
               </button>
             )}

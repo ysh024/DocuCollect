@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { AlertCircle, RefreshCw, Home } from "lucide-react";
 
 export default function GlobalError({
   error,
@@ -19,7 +19,7 @@ export default function GlobalError({
     <div className="min-h-screen bg-[#fafafa] flex items-center justify-center p-6 text-neutral-900">
       <div className="max-w-md w-full bg-white border border-neutral-200 rounded-2xl p-8 shadow-sm text-center space-y-5">
         <div className="w-14 h-14 rounded-full bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center mx-auto">
-          <AlertTriangle className="w-7 h-7" />
+          <AlertCircle className="w-7 h-7" />
         </div>
 
         <div>

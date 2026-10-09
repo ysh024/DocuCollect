@@ -4,15 +4,14 @@ import { useState } from "react";
 import { DocumentRequirement, Document, PREDEFINED_REJECTION_REASONS } from "@/types";
 import { formatBytes, formatDateTime } from "@/lib/utils";
 import {
-  CheckCircle2,
+  CheckCircle,
   XCircle,
   FileText,
-  AlertTriangle,
+  AlertCircle,
   X,
   ExternalLink,
   Download,
   Eye,
-  ShieldCheck,
   RotateCcw,
 } from "lucide-react";
 import { reviewDocumentAction } from "@/app/actions/portal";
@@ -88,7 +87,7 @@ export function ReviewModal({
         <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4" />
+              <CheckCircle className="w-4 h-4" />
             </div>
             <div>
               <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
@@ -153,7 +152,7 @@ export function ReviewModal({
           {isRejecting ? (
             <div className="space-y-3 p-4 bg-rose-50/60 rounded-xl border border-rose-200/80">
               <div className="flex items-center gap-1.5 text-rose-900 text-xs font-bold">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <AlertCircle className="w-4 h-4 text-rose-600" />
                 <span>Specify Rejection Reason for Client</span>
               </div>
 
@@ -244,7 +243,7 @@ export function ReviewModal({
                 onClick={handleApprove}
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle className="w-3.5 h-3.5" />
                 <span>{loading ? "Verifying..." : "Approve & Verify"}</span>
               </button>
             </div>

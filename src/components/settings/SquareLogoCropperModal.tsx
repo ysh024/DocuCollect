@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import {
-  UploadCloud,
+  FileUp,
   X,
-  Check,
+  CheckCircle,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -226,7 +226,7 @@ export function SquareLogoCropperModal({
             className="border-2 border-dashed border-neutral-300 hover:border-emerald-500 hover:bg-emerald-50/20 rounded-2xl p-8 text-center cursor-pointer transition space-y-3"
           >
             <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-500 flex items-center justify-center mx-auto">
-              <UploadCloud className="w-6 h-6" />
+              <FileUp className="w-6 h-6" />
             </div>
             <div>
               <p className="text-xs font-bold text-neutral-800">Click to select firm logo</p>
@@ -323,7 +323,7 @@ export function SquareLogoCropperModal({
                   </>
                 ) : (
                   <>
-                    <Check className="w-3.5 h-3.5" />
+                    <CheckCircle className="w-3.5 h-3.5" />
                     <span>Save Square Logo</span>
                   </>
                 )}

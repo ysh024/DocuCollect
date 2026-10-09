@@ -7,7 +7,7 @@ import {
   Filter,
   Download,
   FileText,
-  CheckCircle2,
+  CheckCircle,
   XCircle,
   Link2,
   MessageSquare,
@@ -96,7 +96,7 @@ export default function AuditTrailPage() {
     if (action.includes("approved")) {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-          <CheckCircle2 className="w-3 h-3" /> Approved
+          <CheckCircle className="w-3 h-3" /> Approved
         </span>
       );
     }

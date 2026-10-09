@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Clock, ShieldAlert, ArrowLeft, Mail } from "lucide-react";
+import { Clock, AlertCircle, ArrowLeft, Mail } from "lucide-react";
 
 export const metadata = {
   title: "Link Expired | DocuCollect",
@@ -25,7 +25,7 @@ export default function UploadExpiredPage() {
 
         <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl text-left space-y-2 text-xs text-neutral-600">
           <p className="font-semibold text-neutral-800 flex items-center gap-1.5">
-            <ShieldAlert className="w-4 h-4 text-neutral-500" /> What should you do?
+            <AlertCircle className="w-4 h-4 text-neutral-500" /> What should you do?
           </p>
           <p>
             Please reply to the WhatsApp or email message sent by your service provider and ask them to share a new upload link.

@@ -6,21 +6,20 @@ import {
   Users,
   Briefcase,
   Clock,
-  CheckCircle2,
-  FileCheck2,
+  CheckCircle,
+  FileText,
   AlertCircle,
   Plus,
   MessageSquareShare,
   Copy,
-  Check,
   ArrowUpRight,
   Sparkles,
   Bell,
   Search,
   Eye,
-  FileText,
   Download,
 } from "lucide-react";
+import { InfoPopover } from "@/components/ui/InfoPopover";
 import { getDashboardData } from "@/app/actions/portal";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { CaseWithDetails, Client, Document } from "@/types";
@@ -239,16 +238,14 @@ export default function DashboardOverviewPage() {
               <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
                 <Eye className="w-3.5 h-3.5" />
               </div>
-              <h2 className="text-xs font-bold text-neutral-900 tracking-tight">
+              <h2 className="text-xs font-bold text-neutral-900 tracking-tight flex items-center gap-1.5">
                 Recent Document Vault Submissions
+                <InfoPopover text="Click the View icon on any document to launch instant full-screen preview and inline approval." />
               </h2>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600">
                 {allUploadedDocs.length} Total
               </span>
             </div>
-            <p className="text-[11px] text-neutral-400">
-              Click any <Eye className="w-3 h-3 inline text-emerald-600" /> icon to view instant pop-up window
-            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
@@ -488,7 +485,7 @@ export default function DashboardOverviewPage() {
                           title="Copy Upload Link"
                           className="w-7 h-7 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 flex items-center justify-center transition-colors"
                         >
-                          {copiedId === c.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copiedId === c.id ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                         </button>
 
                         {/* Open Review */}

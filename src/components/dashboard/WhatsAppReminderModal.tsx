@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CaseWithDetails } from "@/types";
-import { MessageSquare, X, ExternalLink, Copy, Check, Sparkles, Clock, AlertTriangle } from "lucide-react";
+import { MessageSquare, X, ExternalLink, Copy, CheckCircle, Sparkles, Clock, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 
 interface WhatsAppReminderModalProps {
@@ -119,7 +119,7 @@ export function WhatsAppReminderModal({
                     : "bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50"
                 }`}
               >
-                <AlertTriangle className="w-3.5 h-3.5 mx-auto mb-1 opacity-70" />
+                <AlertCircle className="w-3.5 h-3.5 mx-auto mb-1 opacity-70" />
                 Re-upload Request
               </button>
             </div>
@@ -134,7 +134,7 @@ export function WhatsAppReminderModal({
                 onClick={handleCopy}
                 className="text-[11px] font-medium text-neutral-600 hover:text-neutral-900 flex items-center gap-1"
               >
-                {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                {copied ? <CheckCircle className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
                 {copied ? "Copied" : "Copy Text"}
               </button>
             </div>

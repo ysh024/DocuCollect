@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Shield, FileCheck, AlertCircle } from "lucide-react";
+import { ArrowLeft, Shield, FileText, AlertCircle } from "lucide-react";
 
 export const metadata = {
   title: "Terms of Service | DocuCollect",
