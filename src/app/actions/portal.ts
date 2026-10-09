@@ -1188,3 +1188,53 @@ export async function activateSubscriptionAction({
   }
 }
 
+/**
+ * Full admin overview for the dedicated Admin Panel
+ */
+export async function getAdminOverviewAction({ adminSecret }: { adminSecret: string }) {
+  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
+  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
+    return { success: false, error: "Invalid Admin Secret Key." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const [usersCount, orgsCount, keys, users, plans] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM public.users;`,
+      sql`SELECT COUNT(*) as count FROM public.organizations;`,
+      sql`SELECT * FROM public.license_keys ORDER BY created_at DESC LIMIT 50;`,
+      sql`
+        SELECT u.id, u.email, u.full_name, u.role, u.created_at, o.name as org_name,
+               s.status as sub_status, p.display_name as plan_name, s.current_period_end
+        FROM public.users u
+        LEFT JOIN public.organizations o ON u.organization_id = o.id
+        LEFT JOIN public.subscriptions s ON o.id = s.organization_id
+        LEFT JOIN public.plans p ON s.plan_id = p.id
+        ORDER BY u.created_at DESC
+        LIMIT 20;
+      `,
+      sql`SELECT * FROM public.plans WHERE is_active = true ORDER BY sort_order ASC;`,
+    ]);
+
+    const activeKeysCount = keys.filter((k: any) => k.status === "active").length;
+    const redeemedKeysCount = keys.filter((k: any) => k.status === "redeemed").length;
+
+    return {
+      success: true,
+      stats: {
+        totalUsers: Number(usersCount[0]?.count || 0),
+        totalOrgs: Number(orgsCount[0]?.count || 0),
+        activeKeys: activeKeysCount,
+        redeemedKeys: redeemedKeysCount,
+      },
+      keys: keys as any[],
+      recentUsers: users as any[],
+      plans: plans as any[],
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to load admin overview." };
+  }
+}
+

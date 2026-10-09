@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   CreditCard,
   CheckCircle2,
-  Clock,
   Crown,
   Shield,
   Zap,
@@ -17,26 +16,16 @@ import {
   Building,
   QrCode,
   MessageSquare,
-  KeyRound,
   Users,
   HardDrive,
   Calendar,
-  Lock,
-  Sparkles,
   Ticket,
-  Send,
-  RefreshCw,
-  Ban,
   ShieldCheck,
 } from "lucide-react";
 import {
   getSubscriptionAction,
   getAllPlansAction,
   redeemLicenseKeyAction,
-  generateLicenseKeyAction,
-  getLicenseKeysAction,
-  revokeLicenseKeyAction,
-  activateSubscriptionAction,
 } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
 
@@ -54,32 +43,9 @@ export default function BillingPage() {
   const [plans, setPlans] = useState<any[]>([]);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Customer-facing License Key Redemption
+  // License Key Redemption
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
   const [redeeming, setRedeeming] = useState(false);
-
-  // Admin License Management
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
-  const [adminSecret, setAdminSecret] = useState("");
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
-  const [adminTab, setAdminTab] = useState<"generate" | "keys" | "direct">("generate");
-
-  // Admin Key Generator Form
-  const [genPlan, setGenPlan] = useState<"starter" | "pro">("starter");
-  const [genPeriod, setGenPeriod] = useState<"monthly" | "yearly">("monthly");
-  const [genNotes, setGenNotes] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [lastGeneratedKey, setLastGeneratedKey] = useState<any>(null);
-
-  // Admin Keys List
-  const [issuedKeys, setIssuedKeys] = useState<any[]>([]);
-  const [loadingKeys, setLoadingKeys] = useState(false);
-
-  // Admin Direct Activation
-  const [directEmail, setDirectEmail] = useState("");
-  const [directPlan, setDirectPlan] = useState("starter");
-  const [directPeriod, setDirectPeriod] = useState<"monthly" | "yearly">("monthly");
-  const [directActivating, setDirectActivating] = useState(false);
 
   const loadData = async () => {
     const [sub, pl] = await Promise.all([
@@ -101,7 +67,7 @@ export default function BillingPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // 1. Redeem Single-Use License Key
+  // Redeem Single-Use License Key
   const handleRedeemKey = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = licenseKeyInput.trim();
@@ -127,105 +93,6 @@ export default function BillingPage() {
     }
   };
 
-  // 2. Unlock Admin Panel
-  const handleAdminUnlock = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminSecret.trim()) {
-      toast({ title: "Error", description: "Please enter the Admin Secret." });
-      return;
-    }
-
-    setLoadingKeys(true);
-    try {
-      const res = await getLicenseKeysAction({ adminSecret: adminSecret.trim() });
-      if (res.success) {
-        setAdminUnlocked(true);
-        setIssuedKeys(res.keys || []);
-        toast({ title: "Admin Mode Unlocked", description: "Authorized to issue and manage license keys." });
-      } else {
-        toast({ title: "Access Denied", description: res.error || "Incorrect Admin Secret key" });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message });
-    } finally {
-      setLoadingKeys(false);
-    }
-  };
-
-  // 3. Generate Single-Use License Key
-  const handleGenerateKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setGenerating(true);
-    try {
-      const res = await generateLicenseKeyAction({
-        adminSecret: adminSecret.trim(),
-        planName: genPlan,
-        period: genPeriod,
-        notes: genNotes.trim(),
-      });
-
-      if (res.success) {
-        setLastGeneratedKey(res.key);
-        setGenNotes("");
-        toast({ title: "Single-Use Key Created!", description: res.key.code });
-        // Refresh keys list
-        const refreshed = await getLicenseKeysAction({ adminSecret: adminSecret.trim() });
-        if (refreshed.success) setIssuedKeys(refreshed.keys || []);
-      } else {
-        toast({ title: "Generation Failed", description: res.error });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message });
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  // 4. Revoke License Key
-  const handleRevokeKey = async (keyId: string) => {
-    if (!confirm("Are you sure you want to deactivate/revoke this key? It will become permanently invalid.")) return;
-    try {
-      const res = await revokeLicenseKeyAction({ adminSecret: adminSecret.trim(), keyId });
-      if (res.success) {
-        toast({ title: "Key Revoked", description: "License key is now deactivated." });
-        const refreshed = await getLicenseKeysAction({ adminSecret: adminSecret.trim() });
-        if (refreshed.success) setIssuedKeys(refreshed.keys || []);
-      } else {
-        toast({ title: "Error", description: res.error });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message });
-    }
-  };
-
-  // 5. Admin Direct Email Upgrade
-  const handleDirectActivation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setDirectActivating(true);
-    try {
-      const res = await activateSubscriptionAction({
-        adminSecret: adminSecret.trim(),
-        userEmail: directEmail.trim() || undefined,
-        planName: directPlan,
-        period: directPeriod,
-        paymentMethod: "admin_direct",
-        paymentNotes: "Activated via Admin Manual Override",
-      });
-
-      if (res.success) {
-        toast({ title: "Account Activated!", description: res.message });
-        setDirectEmail("");
-        await loadData();
-      } else {
-        toast({ title: "Activation Failed", description: res.error });
-      }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message });
-    } finally {
-      setDirectActivating(false);
-    }
-  };
-
   const trialDaysLeft = subscription?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
@@ -243,336 +110,31 @@ export default function BillingPage() {
 
   const cleanPhone = CONTACT_PHONE.replace(/[^0-9]/g, "");
   const waMessage = encodeURIComponent(
-    `Hello DocuCollect, I have completed the payment for subscription upgrade. Please issue my one-time activation license key. My account email is: `
+    `Hello DocuCollect, I have completed payment for subscription upgrade. Please issue my license key for account: ${subscription?.email || ""}`
   );
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${waMessage}`;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-16">
+    <div className="max-w-4xl mx-auto space-y-6 pb-16">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Billing & Subscriptions</h1>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Manage your subscription tier, track storage quotas, and redeem one-time license keys.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAdminPanel(!showAdminPanel)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-xs font-semibold text-neutral-600 transition shadow-xs self-start"
-        >
-          <Lock className="w-3.5 h-3.5 text-neutral-500" />
-          <span>{showAdminPanel ? "Hide Admin Tools" : "Admin Key Manager"}</span>
-        </button>
+      <div>
+        <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Billing & Subscriptions</h1>
+        <p className="text-xs text-neutral-500 mt-0.5">
+          Manage your subscription tier, track client slot quotas, and redeem one-time license keys.
+        </p>
       </div>
 
-      {/* Admin Panel (Secured) */}
-      {showAdminPanel && (
-        <div className="p-5 bg-neutral-900 text-white rounded-2xl shadow-xl space-y-5 border border-neutral-800 transition-all">
-          <div className="flex items-center justify-between border-b border-neutral-800 pb-3">
-            <div className="flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-emerald-400" />
-              <span className="text-sm font-bold">Admin License Key Center</span>
-            </div>
-            <span className="text-[10px] bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded font-mono">
-              Protected Admin Authority
-            </span>
-          </div>
-
-          {!adminUnlocked ? (
-            <form onSubmit={handleAdminUnlock} className="space-y-3 max-w-md">
-              <p className="text-xs text-neutral-400">
-                Enter your Admin Secret to issue single-use customer keys and track voucher redemptions. Customers do NOT see this secret.
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  required
-                  value={adminSecret}
-                  onChange={(e) => setAdminSecret(e.target.value)}
-                  placeholder="Enter ADMIN_SECRET..."
-                  className="flex-1 bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-                <button
-                  type="submit"
-                  disabled={loadingKeys}
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-lg text-xs transition disabled:opacity-50"
-                >
-                  {loadingKeys ? "Verifying..." : "Unlock"}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-4">
-              {/* Navigation Tabs */}
-              <div className="flex gap-2 border-b border-neutral-800 pb-2">
-                <button
-                  type="button"
-                  onClick={() => setAdminTab("generate")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    adminTab === "generate" ? "bg-emerald-500 text-neutral-950" : "text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Issue New Key
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminTab("keys")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    adminTab === "keys" ? "bg-emerald-500 text-neutral-950" : "text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Key Ledger ({issuedKeys.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdminTab("direct")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    adminTab === "direct" ? "bg-emerald-500 text-neutral-950" : "text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Direct Email Upgrade
-                </button>
-              </div>
-
-              {/* Tab 1: Generate Key */}
-              {adminTab === "generate" && (
-                <form onSubmit={handleGenerateKey} className="space-y-4">
-                  <p className="text-xs text-neutral-400">
-                    Generate a unique, single-use license key for a customer after verifying their UPI/Bank payment. Once the customer redeems it, the key is permanently locked and cannot be shared.
-                  </p>
-
-                  <div className="grid sm:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-300 mb-1">Select Plan</label>
-                      <select
-                        value={genPlan}
-                        onChange={(e) => setGenPlan(e.target.value as any)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="starter">Starter Plan (25 clients, 30d retention)</option>
-                        <option value="pro">Professional Plan (100 clients, 90d retention)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-300 mb-1">Billing Period</label>
-                      <select
-                        value={genPeriod}
-                        onChange={(e) => setGenPeriod(e.target.value as any)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="monthly">Monthly (30 Days)</option>
-                        <option value="yearly">Yearly (365 Days)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-300 mb-1">Customer / Payment Ref</label>
-                      <input
-                        type="text"
-                        value={genNotes}
-                        onChange={(e) => setGenNotes(e.target.value)}
-                        placeholder="e.g. CA Amit - UPI ref 891283"
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    <button
-                      type="submit"
-                      disabled={generating}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-lg text-xs transition disabled:opacity-50"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{generating ? "Generating..." : "Generate Single-Use License Key"}</span>
-                    </button>
-                  </div>
-
-                  {/* Display Generated Key */}
-                  {lastGeneratedKey && (
-                    <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl space-y-2 mt-3 animate-in fade-in">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-400">
-                          Single-Use Key Generated (Send to Client)
-                        </span>
-                        <span className="text-[10px] bg-emerald-800/80 text-emerald-200 px-2 py-0.5 rounded font-mono">
-                          {lastGeneratedKey.plan_name.toUpperCase()} · {lastGeneratedKey.period.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 font-mono text-sm font-black bg-neutral-950 p-2.5 rounded-lg border border-neutral-800 text-emerald-300 select-all">
-                          {lastGeneratedKey.code}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(lastGeneratedKey.code, "License Key")}
-                          className="px-3 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-bold text-xs rounded-lg transition flex items-center gap-1.5"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>{copiedKey === "License Key" ? "Copied" : "Copy"}</span>
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-neutral-400">
-                        Give this code to the customer. When they enter it in the "Redeem License Key" box below, it will unlock their account once and expire.
-                      </p>
-                    </div>
-                  )}
-                </form>
-              )}
-
-              {/* Tab 2: Keys History Ledger */}
-              {adminTab === "keys" && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-neutral-400">
-                      Audit trail of all generated license keys and who redeemed them.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const refreshed = await getLicenseKeysAction({ adminSecret: adminSecret.trim() });
-                        if (refreshed.success) setIssuedKeys(refreshed.keys || []);
-                      }}
-                      className="text-xs text-neutral-400 hover:text-white flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" />
-                      <span>Refresh</span>
-                    </button>
-                  </div>
-
-                  <div className="max-h-64 overflow-y-auto border border-neutral-800 rounded-xl divide-y divide-neutral-800 text-xs">
-                    {issuedKeys.length === 0 ? (
-                      <p className="p-4 text-center text-neutral-500">No license keys generated yet.</p>
-                    ) : (
-                      issuedKeys.map((k) => (
-                        <div key={k.id} className="p-3 flex items-center justify-between gap-3 hover:bg-neutral-800/40">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <code className="font-mono font-bold text-white text-xs">{k.code}</code>
-                              <span className="text-[10px] bg-neutral-800 px-1.5 py-0.5 rounded text-neutral-300 uppercase">
-                                {k.plan_name} ({k.period})
-                              </span>
-                              {k.status === "active" && (
-                                <span className="text-[10px] bg-emerald-900/60 text-emerald-300 border border-emerald-700/60 px-1.5 py-0.5 rounded font-medium">
-                                  Unredeemed
-                                </span>
-                              )}
-                              {k.status === "redeemed" && (
-                                <span className="text-[10px] bg-neutral-800 text-neutral-400 px-1.5 py-0.5 rounded font-medium">
-                                  Redeemed
-                                </span>
-                              )}
-                              {k.status === "revoked" && (
-                                <span className="text-[10px] bg-red-900/60 text-red-300 px-1.5 py-0.5 rounded font-medium">
-                                  Revoked
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-neutral-400 mt-1">
-                              {k.notes && <span className="text-neutral-300 mr-2">{k.notes}</span>}
-                              {k.status === "redeemed" && k.redeemed_by_email && (
-                                <span>Used by: <strong className="text-emerald-400">{k.redeemed_by_email}</strong> on {new Date(k.redeemed_at).toLocaleDateString()}</span>
-                              )}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(k.code, k.code)}
-                              className="p-1.5 hover:bg-neutral-700 rounded text-neutral-400 hover:text-white transition"
-                              title="Copy code"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                            {k.status === "active" && (
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeKey(k.id)}
-                                className="p-1.5 hover:bg-red-900/50 rounded text-red-400 hover:text-red-300 transition"
-                                title="Revoke key"
-                              >
-                                <Ban className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 3: Direct Manual Upgrade */}
-              {adminTab === "direct" && (
-                <form onSubmit={handleDirectActivation} className="space-y-4">
-                  <p className="text-xs text-neutral-400">
-                    Directly upgrade an account by user email without issuing a voucher code.
-                  </p>
-                  <div className="grid sm:grid-cols-3 gap-3 text-xs">
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-300 mb-1">Target User Email *</label>
-                      <input
-                        type="email"
-                        required
-                        value={directEmail}
-                        onChange={(e) => setDirectEmail(e.target.value)}
-                        placeholder="user@example.com"
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-300 mb-1">Select Plan</label>
-                      <select
-                        value={directPlan}
-                        onChange={(e) => setDirectPlan(e.target.value)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="starter">Starter Plan</option>
-                        <option value="pro">Professional Plan</option>
-                        <option value="free_trial">Free Trial Reset</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-medium text-neutral-300 mb-1">Billing Period</label>
-                      <select
-                        value={directPeriod}
-                        onChange={(e) => setDirectPeriod(e.target.value as any)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-lg p-2.5 text-white focus:outline-none focus:border-emerald-500"
-                      >
-                        <option value="monthly">Monthly (30 Days)</option>
-                        <option value="yearly">Yearly (365 Days)</option>
-                      </select>
-                    </div>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={directActivating}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-lg text-xs transition disabled:opacity-50"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{directActivating ? "Upgrading..." : "Directly Activate Account"}</span>
-                  </button>
-                </form>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Customer License Key Redemption Card */}
-      <div className="p-5 bg-gradient-to-br from-emerald-50/70 via-white to-neutral-50 rounded-2xl border-2 border-emerald-200 shadow-sm space-y-3">
+      {/* 1. Customer License Key Redemption Card */}
+      <div className="p-5 bg-gradient-to-br from-emerald-50/70 via-white to-neutral-50 rounded-2xl border-2 border-emerald-200 shadow-xs space-y-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
               <Ticket className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-neutral-900">Redeem License Key / Voucher</h2>
               <p className="text-[11px] text-neutral-500">
-                Received a single-use activation code after payment? Enter it here to upgrade immediately.
+                Received a single-use activation code after payment? Enter it below to upgrade your plan.
               </p>
             </div>
           </div>
@@ -585,7 +147,7 @@ export default function BillingPage() {
           <input
             type="text"
             required
-            placeholder="Enter key e.g. DOCU-PRO-YR-A4F1-9E28"
+            placeholder="e.g. DOCU-PRO-YR-A4F1-9E28"
             value={licenseKeyInput}
             onChange={(e) => setLicenseKeyInput(e.target.value.toUpperCase())}
             className="flex-1 bg-white border border-neutral-300 rounded-xl px-3.5 py-2.5 text-xs font-mono uppercase font-bold text-neutral-900 placeholder:normal-case placeholder:font-normal placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
@@ -593,19 +155,19 @@ export default function BillingPage() {
           <button
             type="submit"
             disabled={redeeming || !licenseKeyInput.trim()}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50 shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs rounded-xl shadow-xs transition disabled:opacity-50 shrink-0 cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
             <span>{redeeming ? "Verifying..." : "Redeem License Key"}</span>
           </button>
         </form>
-        <p className="text-[10px] text-neutral-500 flex items-center gap-1.5">
-          <span>🔒 Each license key is uniquely signed and can only be redeemed once. Once redeemed, it cannot be shared or reused by any other account.</span>
+        <p className="text-[10px] text-neutral-500">
+          🔒 Each license key is uniquely signed and can only be redeemed once. Once redeemed, it cannot be shared or reused by any other account.
         </p>
       </div>
 
-      {/* Current Plan Card */}
-      <div className="p-5 bg-white rounded-xl border border-neutral-200 shadow-sm space-y-4">
+      {/* 2. Current Plan Card */}
+      <div className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
         <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
           <div className="flex items-center gap-2 text-sm font-bold text-neutral-900">
             <CreditCard className="w-4 h-4 text-emerald-600" />
@@ -728,36 +290,35 @@ export default function BillingPage() {
         </div>
       )}
 
-      {/* Payment Methods (Bank Transfer & UPI QR) */}
-      <div className="p-5 bg-white rounded-xl border border-neutral-200 shadow-sm space-y-6">
+      {/* 3. Payment Methods (Bank Transfer & UPI QR) */}
+      <div className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-5">
         <div>
           <h2 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-emerald-600" />
-            Payment & Activation Details
+            Payment & Upgrade Instructions
           </h2>
           <p className="text-xs text-neutral-500 mt-0.5">
-            Pay directly via UPI or Net Banking. Once paid, send screenshot on WhatsApp to receive your single-use license key.
+            Complete payment via UPI or Net Banking, then message proof on WhatsApp to receive your single-use activation license key.
           </p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           {/* UPI & QR Code Box */}
-          <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50 flex flex-col justify-between space-y-4">
+          <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50 flex flex-col justify-between space-y-3">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
                   <QrCode className="w-4 h-4 text-emerald-600" />
-                  UPI / QR Payment
+                  UPI Payment
                 </span>
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">
-                  Instant Verification
+                  Instant
                 </span>
               </div>
-              <p className="text-xs text-neutral-500 mb-3">
-                Scan using any UPI app (Google Pay, PhonePe, Paytm, BHIM):
+              <p className="text-xs text-neutral-500 mb-2.5">
+                Scan using Google Pay, PhonePe, Paytm, or BHIM:
               </p>
 
-              {/* UPI ID Row */}
               <div className="p-2.5 bg-white rounded-lg border border-neutral-200 flex items-center justify-between gap-2">
                 <div>
                   <p className="text-[10px] text-neutral-400 uppercase font-semibold">UPI ID</p>
@@ -766,36 +327,33 @@ export default function BillingPage() {
                 <button
                   type="button"
                   onClick={() => copyToClipboard(UPI_ID, "UPI ID")}
-                  className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition flex items-center gap-1"
+                  className="px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition flex items-center gap-1 cursor-pointer"
                 >
                   {copiedKey === "UPI ID" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  {copiedKey === "UPI ID" ? "Copied" : "Copy"}
+                  <span>{copiedKey === "UPI ID" ? "Copied" : "Copy"}</span>
                 </button>
               </div>
             </div>
 
-            <div className="pt-2 border-t border-neutral-200/70 text-[11px] text-neutral-500">
-              💡 Mention your registered email address in the UPI payment note/remarks.
+            <div className="text-[11px] text-neutral-500">
+              💡 Mention your registered email address in payment remarks.
             </div>
           </div>
 
-          {/* Direct Bank Transfer (NEFT/IMPS) Box */}
-          <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50 flex flex-col justify-between space-y-4">
+          {/* Direct Bank Transfer Box */}
+          <div className="p-4 rounded-xl border border-neutral-200 bg-neutral-50/50 flex flex-col justify-between space-y-3">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
                   <Building className="w-4 h-4 text-neutral-700" />
-                  Direct Bank Transfer (NEFT / IMPS)
+                  Bank Transfer (NEFT / IMPS)
                 </span>
                 <span className="text-[10px] bg-neutral-200 text-neutral-700 font-semibold px-2 py-0.5 rounded">
                   Bank Account
                 </span>
               </div>
-              <p className="text-xs text-neutral-500 mb-3">
-                Transfer directly to our official bank account:
-              </p>
 
-              <div className="space-y-1.5 text-xs bg-white p-3 rounded-lg border border-neutral-200">
+              <div className="space-y-1.5 text-xs bg-white p-2.5 rounded-lg border border-neutral-200">
                 <div className="flex items-center justify-between">
                   <span className="text-neutral-500 text-[11px]">Bank:</span>
                   <span className="font-semibold text-neutral-800">{BANK_NAME}</span>
@@ -811,7 +369,7 @@ export default function BillingPage() {
                     <button
                       type="button"
                       onClick={() => copyToClipboard(BANK_ACCOUNT, "Account Number")}
-                      className="text-neutral-400 hover:text-neutral-700"
+                      className="text-neutral-400 hover:text-neutral-700 cursor-pointer"
                     >
                       <Copy className="w-3 h-3" />
                     </button>
@@ -824,7 +382,7 @@ export default function BillingPage() {
                     <button
                       type="button"
                       onClick={() => copyToClipboard(BANK_IFSC, "IFSC Code")}
-                      className="text-neutral-400 hover:text-neutral-700"
+                      className="text-neutral-400 hover:text-neutral-700 cursor-pointer"
                     >
                       <Copy className="w-3 h-3" />
                     </button>
@@ -833,7 +391,7 @@ export default function BillingPage() {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-neutral-200/70 text-[11px] text-neutral-500">
+            <div className="text-[11px] text-neutral-500">
               💡 Supports NEFT, RTGS, and IMPS from all Indian banks.
             </div>
           </div>
@@ -848,7 +406,7 @@ export default function BillingPage() {
             <div>
               <p className="text-xs font-bold text-neutral-900">Send Payment Proof to Get License Key</p>
               <p className="text-[11px] text-neutral-600">
-                Send screenshot on WhatsApp to receive your unique, single-use activation key within 15 minutes.
+                Send screenshot on WhatsApp to receive your unique activation key within 15 minutes.
               </p>
             </div>
           </div>
@@ -874,7 +432,7 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {/* Available Plans Grid */}
+      {/* 4. Available Plans Grid */}
       <div>
         <h2 className="text-sm font-bold text-neutral-900 mb-3">Available Plans for Your Practice</h2>
         <div className="grid sm:grid-cols-3 gap-4">
