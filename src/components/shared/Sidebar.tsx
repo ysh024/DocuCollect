@@ -22,6 +22,7 @@ import { useToast } from "@/components/ui/Toast";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/dashboard/cases", label: "Cases & Checklists", icon: Briefcase },
+  { href: "/dashboard/templates", label: "Checklist Templates", icon: Layers },
   { href: "/dashboard/clients", label: "Clients & Document Vault", icon: Users },
   { href: "/dashboard/audit", label: "Audit Trail", icon: ShieldCheck },
   { href: "/dashboard/billing", label: "Billing & Plan", icon: CreditCard },

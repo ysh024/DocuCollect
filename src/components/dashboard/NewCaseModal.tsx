@@ -1,9 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { Client } from "@/types";
-import { X, Plus, Trash2, Sparkles, Briefcase } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Client, ChecklistTemplate } from "@/types";
+import { X, Plus, Trash2, Sparkles, Briefcase, BookmarkPlus, Layers } from "lucide-react";
 import { createCaseAction } from "@/app/actions/portal";
+import {
+  getChecklistTemplatesAction,
+  createChecklistTemplateAction,
+} from "@/app/actions/templates";
 import { useToast } from "@/components/ui/Toast";
 
 interface NewCaseModalProps {
@@ -11,9 +15,10 @@ interface NewCaseModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  initialTemplate?: ChecklistTemplate | null;
 }
 
-const TEMPLATES: Record<
+const FALLBACK_TEMPLATES: Record<
   string,
   { name: string; description: string; is_required: boolean }[]
 > = {
@@ -39,25 +44,6 @@ const TEMPLATES: Record<
     { name: "Form 16 & 3 Years ITR-V", description: "Tax acknowledgment for past 3 financial years.", is_required: true },
     { name: "Property Title Deeds / Agreement to Sell", description: "Complete chain of title documents.", is_required: true },
   ],
-  "Company Incorporation": [
-    { name: "Director Identity Proof (PAN / Passport)", description: "Self-attested identity documents for all directors.", is_required: true },
-    { name: "Director Address Proof (Bank Statement / Utility)", description: "Statement under 2 months old with current address.", is_required: true },
-    { name: "Registered Office Proof (Electricity Bill + NOC)", description: "Latest electricity bill and owner consent NOC.", is_required: true },
-    { name: "Director Passport Size Photos", description: "Clear studio photographs with white background.", is_required: true },
-  ],
-  "Visa & Immigration": [
-    { name: "Valid Passport (All Pages)", description: "Current passport with at least 6 months remaining validity.", is_required: true },
-    { name: "Last 6 Months Bank Statement with Stamp", description: "Original bank statement with branch stamp & seal.", is_required: true },
-    { name: "Employment Letter & NOC", description: "Letter from employer detailing role, salary, and leave approval.", is_required: true },
-    { name: "3 Years ITR Acknowledgment", description: "ITR-V acknowledgment for past three assessment years.", is_required: true },
-    { name: "Travel Itinerary & Hotel Booking", description: "Flight reservation and lodging confirmation.", is_required: false },
-  ],
-  "Statutory Audit": [
-    { name: "Trial Balance & Financial Statements", description: "Full year trial balance with grouping schedules.", is_required: true },
-    { name: "Bank Confirmation & Year-end Statements", description: "Bank balance confirmation letters and closing statements.", is_required: true },
-    { name: "Fixed Asset Register", description: "Depreciation schedule and additions/deletions during the year.", is_required: true },
-    { name: "Statutory Dues Payment Proofs (PF/ESI/GST)", description: "Challans and proof of payment before due date.", is_required: true },
-  ],
 };
 
 export function NewCaseModal({
@@ -65,6 +51,7 @@ export function NewCaseModal({
   isOpen,
   onClose,
   onSuccess,
+  initialTemplate,
 }: NewCaseModalProps) {
   const { toast } = useToast();
   const [clientId, setClientId] = useState<string>(clients[0]?.id || "");
@@ -75,17 +62,53 @@ export function NewCaseModal({
   const [notes, setNotes] = useState<string>("");
   const [requirements, setRequirements] = useState<
     { name: string; description: string; is_required: boolean }[]
-  >(TEMPLATES["ITR Filing"] || []);
+  >(FALLBACK_TEMPLATES["ITR Filing"] || []);
+  const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      getChecklistTemplatesAction().then((loaded) => {
+        if (loaded && loaded.length > 0) {
+          setTemplates(loaded);
+        }
+      });
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (initialTemplate) {
+      setTitle(`${initialTemplate.name} - ${new Date().getFullYear()}`);
+      setServiceType(initialTemplate.service_type || "Custom Checklist");
+      setRequirements(initialTemplate.requirements || []);
+    }
+  }, [initialTemplate, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleTemplateChange = (selectedType: string) => {
+  const handleTemplateSelect = (template: ChecklistTemplate) => {
+    setServiceType(template.service_type);
+    setTitle(`${template.name} - ${new Date().getFullYear()}`);
+    setRequirements(template.requirements || []);
+    toast({
+      title: "Template applied",
+      description: `Loaded ${template.requirements.length} document items from "${template.name}".`,
+      type: "info",
+    });
+  };
+
+  const handleFallbackChange = (selectedType: string) => {
     setServiceType(selectedType);
-    if (TEMPLATES[selectedType]) {
-      setRequirements(TEMPLATES[selectedType]);
+    if (FALLBACK_TEMPLATES[selectedType]) {
+      setRequirements(FALLBACK_TEMPLATES[selectedType]);
       setTitle(`${selectedType} - ${new Date().getFullYear()}`);
-      toast({ title: "Template loaded", description: `Applied ${TEMPLATES[selectedType].length} standard requirements for ${selectedType}.`, type: "info" });
+      toast({
+        title: "Template loaded",
+        description: `Applied ${FALLBACK_TEMPLATES[selectedType].length} requirements for ${selectedType}.`,
+        type: "info",
+      });
     }
   };
 
@@ -132,6 +155,24 @@ export function NewCaseModal({
         notes,
         requirements,
       });
+
+      // If user opted to save this checklist as a reusable template for other clients
+      if (saveAsTemplate) {
+        const tName = templateName.trim() || title.trim();
+        createChecklistTemplateAction({
+          name: tName,
+          serviceType: serviceType || "Custom Checklist",
+          requirements,
+        }).then((res) => {
+          if (res.success) {
+            toast({
+              title: "Template saved!",
+              description: `"${tName}" is now available in your template library for other clients.`,
+            });
+          }
+        }).catch((err) => console.warn("Auto save template error:", err));
+      }
+
       toast({ title: "Case created!", description: "Client collection link is active and ready." });
       onSuccess();
       onClose();
@@ -168,29 +209,90 @@ export function NewCaseModal({
         {/* Form Body */}
         <form onSubmit={handleSubmit}>
           <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-            {/* Quick 1-Click Template Selector */}
-            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-200/60">
-              <div className="flex items-center justify-between mb-2">
+            {/* 1-Click Checklist Template Selector */}
+            <div className="bg-neutral-50 rounded-xl p-3.5 border border-neutral-200/70 space-y-2.5">
+              <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-neutral-800 flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-neutral-700" />
-                  Quick Checklist Templates (1-Click Auto Fill):
+                  Apply Checklist Template (1-Click Auto Fill):
+                </span>
+                <span className="text-[10px] text-neutral-400">
+                  {templates.length} templates available
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {Object.keys(TEMPLATES).map((templateKey) => (
-                  <button
-                    key={templateKey}
-                    type="button"
-                    onClick={() => handleTemplateChange(templateKey)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                      serviceType === templateKey
-                        ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
-                        : "bg-white text-neutral-700 border-neutral-200/90 hover:bg-neutral-100"
-                    }`}
+
+              {/* Template dropdown selector */}
+              {templates.length > 0 && (
+                <div className="mb-2">
+                  <select
+                    onChange={(e) => {
+                      const selected = templates.find((t) => t.id === e.target.value);
+                      if (selected) handleTemplateSelect(selected);
+                    }}
+                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-neutral-900 font-medium"
+                    defaultValue=""
                   >
-                    {templateKey}
-                  </button>
-                ))}
+                    <option value="" disabled>
+                      -- Choose from your template library --
+                    </option>
+                    {templates.filter((t) => !t.is_system).length > 0 && (
+                      <optgroup label="🏢 Firm Custom Templates">
+                        {templates
+                          .filter((t) => !t.is_system)
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              ★ {t.name} ({t.requirements.length} docs)
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="📦 Standard Starter Templates">
+                      {templates
+                        .filter((t) => t.is_system)
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.requirements.length} docs)
+                          </option>
+                        ))}
+                    </optgroup>
+                  </select>
+                </div>
+              )}
+
+              {/* Quick Pills for fastest access */}
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {templates.length > 0
+                  ? templates.slice(0, 6).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => handleTemplateSelect(t)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                          serviceType === t.service_type || title.startsWith(t.name)
+                            ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
+                            : !t.is_system
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                            : "bg-white text-neutral-700 border-neutral-200/90 hover:bg-neutral-100"
+                        }`}
+                      >
+                        {!t.is_system && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                        <span>{t.name}</span>
+                      </button>
+                    ))
+                  : Object.keys(FALLBACK_TEMPLATES).map((templateKey) => (
+                      <button
+                        key={templateKey}
+                        type="button"
+                        onClick={() => handleFallbackChange(templateKey)}
+                        className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                          serviceType === templateKey
+                            ? "bg-neutral-900 text-white border-neutral-900 shadow-xs"
+                            : "bg-white text-neutral-700 border-neutral-200/90 hover:bg-neutral-100"
+                        }`}
+                      >
+                        {templateKey}
+                      </button>
+                    ))}
               </div>
             </div>
 
@@ -340,6 +442,35 @@ export function NewCaseModal({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Save as Template for other clients toggle */}
+              <div className="mt-4 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/80 space-y-2">
+                <label className="flex items-center gap-2 text-xs font-semibold text-emerald-900 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveAsTemplate}
+                    onChange={(e) => setSaveAsTemplate(e.target.checked)}
+                    className="rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                  />
+                  <BookmarkPlus className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Save this checklist as a reusable template for other clients</span>
+                </label>
+
+                {saveAsTemplate && (
+                  <div className="pt-1 pl-6 animate-in fade-in duration-150">
+                    <input
+                      type="text"
+                      placeholder={`Template Name (default: "${title || "Custom Checklist"}")`}
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      className="w-full text-xs bg-white border border-emerald-200 rounded-lg p-2 text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                    />
+                    <p className="text-[10px] text-emerald-700 mt-1">
+                      This checklist will be added to your firm's template library so you can reuse it for any client in 1 click.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

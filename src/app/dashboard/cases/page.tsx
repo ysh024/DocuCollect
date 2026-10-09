@@ -11,6 +11,7 @@ import {
   MessageSquareShare,
   Copy,
   Check,
+  Layers,
 } from "lucide-react";
 import { getDashboardData } from "@/app/actions/portal";
 import { CaseWithDetails, Client } from "@/types";
@@ -74,14 +75,23 @@ export default function CasesListPage() {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cases & Collection Requests</h1>
           <p className="text-xs text-slate-500 mt-1">Manage active client document requests, review cycles, and status.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsNewCaseOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Create New Case
-        </button>
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/dashboard/templates"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-300 shadow-2xs transition-colors"
+          >
+            <Layers className="w-3.5 h-3.5 text-neutral-500" />
+            <span>Checklist Templates</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setIsNewCaseOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Create New Case
+          </button>
+        </div>
       </div>
 
       {/* Filter & Search Toolbar */}

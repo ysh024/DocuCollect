@@ -87,3 +87,22 @@ export const PREDEFINED_REJECTION_REASONS: RejectionReasonOption[] = [
     template: "The statement or form is not for the requested financial period/year. Please provide the correct year's document.",
   },
 ];
+
+export interface TemplateRequirement {
+  name: string;
+  description: string;
+  is_required: boolean;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  organization_id: string | null;
+  name: string;
+  service_type: string;
+  description?: string | null;
+  requirements: TemplateRequirement[];
+  is_system: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
