@@ -17,12 +17,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen flex bg-[#fbfbfb] text-neutral-900 selection:bg-neutral-900 selection:text-white">
-      {/* Dynamic Minimalist Sidebar */}
+    <div className="h-screen w-full flex bg-[#fbfbfb] text-neutral-900 overflow-hidden selection:bg-neutral-900 selection:text-white">
+      {/* Fixed Non-Scrolling Sidebar */}
       <Sidebar />
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Scrollable Container */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* Top Navbar with Dynamic User & Sign Out */}
         <Header />
 

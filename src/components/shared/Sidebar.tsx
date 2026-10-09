@@ -71,9 +71,9 @@ export function Sidebar() {
   const isOnTrial = user?.subscription?.status === "trial";
 
   return (
-    <aside className="w-64 bg-white border-r border-neutral-200/80 flex flex-col min-h-screen shrink-0">
+    <aside className="w-64 bg-white border-r border-neutral-200/80 flex flex-col h-screen sticky top-0 shrink-0 z-20">
       {/* Brand */}
-      <div className="h-16 px-6 border-b border-neutral-100 flex items-center">
+      <div className="h-16 px-6 border-b border-neutral-100 flex items-center shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2.5 group">
           <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
             <Layers className="w-4 h-4" />
@@ -86,7 +86,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <div className="flex-1 px-3 py-4 space-y-6">
+      <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
         {/* Trial warning */}
         {isOnTrial && isTrialExpiringSoon && trialDaysLeft !== null && (
           <div className="px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
