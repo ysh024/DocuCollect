@@ -35,6 +35,7 @@ export function Sidebar() {
     fullName: string;
     organizationName: string;
     email: string;
+    logoUrl?: string | null;
     subscription?: { status: string; trialEndsAt: string | null; planDisplayName: string };
   } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -74,13 +75,25 @@ export function Sidebar() {
     <aside className="w-64 bg-white border-r border-neutral-200/80 flex flex-col h-screen sticky top-0 shrink-0 z-20">
       {/* Brand */}
       <div className="h-16 px-6 border-b border-neutral-100 flex items-center shrink-0">
-        <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
-            <Layers className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-sm font-semibold tracking-tight text-neutral-900">DocuCollect</span>
-            <span className="text-[10px] text-neutral-400 block -mt-0.5">Document Collection Portal</span>
+        <Link href="/dashboard" className="flex items-center gap-2.5 group min-w-0">
+          {user?.logoUrl ? (
+            <div className="w-8 h-8 rounded-lg border border-neutral-200 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white p-0.5">
+              <img
+                src={user.logoUrl}
+                alt={user.organizationName}
+                className="w-full h-full object-cover rounded-md"
+              />
+            </div>
+          ) : (
+            <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 shrink-0">
+              <Layers className="w-4 h-4" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <span className="text-sm font-semibold tracking-tight text-neutral-900 truncate block">
+              {user?.organizationName || "DocuCollect"}
+            </span>
+            <span className="text-[10px] text-neutral-400 block -mt-0.5">Document Portal</span>
           </div>
         </Link>
       </div>
@@ -148,9 +161,19 @@ export function Sidebar() {
       <div className="p-3 border-t border-neutral-100 space-y-2">
         {user ? (
           <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/60 flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
-              {getInitials(user.organizationName || "?")}
-            </div>
+            {user.logoUrl ? (
+              <div className="w-8 h-8 rounded-lg border border-neutral-200 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white p-0.5">
+                <img
+                  src={user.logoUrl}
+                  alt={user.organizationName}
+                  className="w-full h-full object-cover rounded-md"
+                />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                {getInitials(user.organizationName || "?")}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-neutral-900 truncate">{user.organizationName}</p>
               <p className="text-[10px] text-neutral-500 truncate">

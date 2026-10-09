@@ -20,6 +20,7 @@ export function Header() {
     fullName: string;
     email: string;
     organizationName: string;
+    logoUrl?: string | null;
   } | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -28,7 +29,7 @@ export function Header() {
 
   useEffect(() => {
     getCurrentUserAction().then((u) => {
-      if (u) setUser(u);
+      if (u) setUser(u as any);
     });
     getAdvisorNotificationsAction().then((res) => setNotifications(res));
   }, []);
@@ -66,9 +67,17 @@ export function Header() {
       {/* Left: page context */}
       <div className="flex items-center gap-2">
         {user ? (
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-neutral-100/80 text-neutral-700 text-xs border border-neutral-200/60 font-medium">
-            <Building2 className="w-3 h-3 text-neutral-500" />
-            <span className="truncate max-w-[180px]">{user.organizationName}</span>
+          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-neutral-100/90 text-neutral-800 text-xs border border-neutral-200/80 font-semibold shadow-2xs">
+            {user.logoUrl ? (
+              <img
+                src={user.logoUrl}
+                alt={user.organizationName}
+                className="w-4 h-4 rounded-sm object-cover border border-neutral-200"
+              />
+            ) : (
+              <Building2 className="w-3.5 h-3.5 text-neutral-500" />
+            )}
+            <span className="truncate max-w-[200px]">{user.organizationName}</span>
           </div>
         ) : null}
       </div>

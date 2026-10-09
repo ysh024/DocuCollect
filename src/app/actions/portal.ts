@@ -346,7 +346,9 @@ export async function getPortalData(token: string): Promise<ClientPortalData | n
       },
       organization: {
         name: org?.name || "Professional Advisory Firm",
-        logo_url: org?.logo_url || null,
+        logo_url: org?.logo_url
+          ? (org.logo_url.startsWith("logos/") ? `/api/logo/${org.id}` : org.logo_url)
+          : null,
         branding_color: org?.branding_color || "#171717",
       },
       requirements: reqs,

@@ -82,9 +82,19 @@ export default function ClientUploadPortalPage() {
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-              <FileCheck className="w-4 h-4" />
-            </div>
+            {organization.logo_url ? (
+              <div className="w-9 h-9 rounded-xl border border-neutral-200/80 bg-white p-0.5 shadow-xs shrink-0 overflow-hidden flex items-center justify-center">
+                <img
+                  src={organization.logo_url}
+                  alt={organization.name}
+                  className="w-full h-full object-cover rounded-[10px]"
+                />
+              </div>
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                <FileCheck className="w-4 h-4" />
+              </div>
+            )}
             <div>
               <h1 className="text-xs sm:text-sm font-bold text-neutral-900 leading-tight">{organization.name}</h1>
               <p className="text-[10px] text-neutral-500 flex items-center gap-1 font-medium">
@@ -319,7 +329,17 @@ export default function ClientUploadPortalPage() {
         </div>
 
         {/* 5. Minimal Footer */}
-        <div className="text-center text-[11px] text-neutral-400 space-y-1 pt-1">
+        <div className="text-center text-[11px] text-neutral-400 space-y-1.5 pt-2">
+          {organization.logo_url && (
+            <div className="flex items-center justify-center gap-1.5 pb-1">
+              <img
+                src={organization.logo_url}
+                alt={organization.name}
+                className="w-4 h-4 rounded-sm object-cover"
+              />
+              <span className="font-semibold text-neutral-600 text-[11px]">{organization.name}</span>
+            </div>
+          )}
           <p className="flex items-center justify-center gap-1">
             <Lock className="w-3 h-3 text-emerald-600" />
             <span>Encrypted with TLS 1.3 • Confidential Document Collection</span>

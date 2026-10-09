@@ -14,6 +14,7 @@ import {
   getCurrentUser,
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { uploadFileToStorage, isS3Configured } from "@/lib/storage";
 
 // =====================================================================
 // EMAIL OTP DELIVERY
@@ -526,6 +527,90 @@ export async function updateFirmSettingsAction(data: {
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to update settings" };
+  }
+}
+
+/**
+ * Upload Firm Logo to Storage and link to Organization
+ */
+export async function uploadFirmLogoAction({
+  logoBase64,
+  mimeType = "image/webp",
+}: {
+  logoBase64: string;
+  mimeType?: string;
+}) {
+  const session = await getSession();
+  if (!session?.organizationId) {
+    return { success: false, error: "UNAUTHENTICATED" };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const rawBase64 = logoBase64.replace(/^data:[A-Za-z-+\/]+;base64,/, "");
+    const buffer = Buffer.from(rawBase64, "base64");
+
+    let logoRecord = logoBase64; // Default fallback to compressed data URL
+
+    // If S3 storage is available, upload directly to Neon Object Storage
+    if (isS3Configured()) {
+      const storagePath = `logos/${session.organizationId}/logo-${Date.now()}.webp`;
+      const uploadRes = await uploadFileToStorage({
+        storagePath,
+        fileBuffer: buffer,
+        mimeType: mimeType || "image/webp",
+      });
+
+      if (uploadRes.success) {
+        logoRecord = storagePath;
+      }
+    }
+
+    // Update organization with logo
+    await sql`
+      UPDATE public.organizations
+      SET logo_url = ${logoRecord}, updated_at = now()
+      WHERE id = ${session.organizationId};
+    `;
+
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/cases");
+    revalidatePath("/dashboard/clients");
+
+    const serveUrl = `/api/logo/${session.organizationId}?v=${Date.now()}`;
+    return { success: true, logoUrl: serveUrl };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to upload logo" };
+  }
+}
+
+/**
+ * Remove Firm Logo from Organization
+ */
+export async function removeFirmLogoAction() {
+  const session = await getSession();
+  if (!session?.organizationId) {
+    return { success: false, error: "UNAUTHENTICATED" };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    await sql`
+      UPDATE public.organizations
+      SET logo_url = NULL, updated_at = now()
+      WHERE id = ${session.organizationId};
+    `;
+
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to remove logo" };
   }
 }
 

@@ -271,7 +271,7 @@ export async function getCurrentUser() {
     const users = await sql`
       SELECT 
         u.id, u.email, u.full_name, u.role, u.organization_id, u.phone, u.email_verified, u.last_login_at,
-        o.name as organization_name, o.branding_color, o.settings,
+        o.name as organization_name, o.branding_color, o.logo_url, o.settings,
         s.status as subscription_status, s.trial_ends_at,
         p.name as plan_name, p.display_name as plan_display_name, p.file_retention_days,
         p.max_clients, p.max_cases_per_client, p.max_storage_mb
@@ -295,6 +295,9 @@ export async function getCurrentUser() {
       emailVerified: u.email_verified || false,
       organizationId: u.organization_id,
       organizationName: u.organization_name || "Your Organization",
+      logoUrl: u.logo_url
+        ? (u.logo_url.startsWith("logos/") ? `/api/logo/${u.organization_id}` : u.logo_url)
+        : null,
       brandingColor: u.branding_color || "#171717",
       subscription: {
         status: u.subscription_status || "trial",
