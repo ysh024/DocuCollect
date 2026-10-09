@@ -29,7 +29,7 @@ interface CachedDashboardEntry {
 const dashboardMemoryCache = new Map<string, CachedDashboardEntry>();
 const DASHBOARD_CACHE_TTL = 15000; // 15 seconds fast in-memory cache
 
-export function invalidateDashboardCache(orgId?: string) {
+function invalidateDashboardCache(orgId?: string) {
   if (orgId) {
     dashboardMemoryCache.delete(orgId);
   } else {
