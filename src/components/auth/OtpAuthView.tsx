@@ -89,6 +89,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Origin": window.location.origin,
         },
         credentials: "include",
         body: JSON.stringify({

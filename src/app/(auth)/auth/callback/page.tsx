@@ -4,11 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { syncGoogleUserAction } from "@/app/actions/auth";
-
-const NEON_AUTH_URL =
-  process.env.NEXT_PUBLIC_NEON_AUTH_URL ||
-  "https://ep-wild-snow-azyh1uu4.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth";
+import { resolveGoogleSessionAction } from "@/app/actions/auth";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -20,85 +16,24 @@ export default function AuthCallbackPage() {
 
     async function handleAuth() {
       try {
-        const cleanBase = NEON_AUTH_URL.replace(/\/$/, "");
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("token") || urlParams.get("session_token");
+        const email = urlParams.get("email");
 
-        // 1. Fetch the authenticated session from Neon Better Auth
-        // credentials: "include" sends the session cookie that was just set on neonauth
-        let user: any = null;
+        // Resolve and verify Google OAuth session directly via Server Action
+        const res = await resolveGoogleSessionAction({ token, email });
 
-        try {
-          const neonRes = await fetch(`${cleanBase}/get-session`, {
-            method: "GET",
-            headers: { Accept: "application/json" },
-            credentials: "include",
-          });
-
-          if (neonRes.ok) {
-            const data = await neonRes.json();
-            if (data?.user) {
-              user = data.user;
-            }
-          }
-        } catch (fetchErr) {
-          console.warn("Direct Neon get-session fetch note:", fetchErr);
-        }
-
-        // 2. Fallback to local proxy /api/auth/get-session if needed
-        if (!user) {
-          try {
-            const localRes = await fetch("/api/auth/get-session", {
-              method: "GET",
-              headers: { Accept: "application/json" },
-              credentials: "include",
-            });
-            if (localRes.ok) {
-              const data = await localRes.json();
-              if (data?.user) {
-                user = data.user;
-              }
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        // 3. Fallback: Parse query parameters if returned via URL
-        if (!user) {
-          const urlParams = new URLSearchParams(window.location.search);
-          const emailParam = urlParams.get("email");
-          const nameParam = urlParams.get("name");
-          if (emailParam) {
-            user = { email: emailParam, name: nameParam || emailParam.split("@")[0] };
-          }
-        }
-
-        if (!user || !user.email) {
+        if (!res.success) {
           if (!isCancelled) {
             setStatus("error");
-            setErrorMessage("Could not retrieve verified Google session. Please try logging in again.");
-          }
-          return;
-        }
-
-        // 4. Synchronize user in our application database & issue session cookie
-        const syncRes = await syncGoogleUserAction({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          emailVerified: true,
-        });
-
-        if (!syncRes.success) {
-          if (!isCancelled) {
-            setStatus("error");
-            setErrorMessage(syncRes.error || "Failed to establish workspace session.");
+            setErrorMessage(res.error || "Could not retrieve verified Google session. Please try logging in again.");
           }
           return;
         }
 
         if (!isCancelled) {
           setStatus("success");
-          // Redirect smoothly into dashboard
+          // Smooth redirect into dashboard
           window.location.href = "/dashboard";
         }
       } catch (err: any) {

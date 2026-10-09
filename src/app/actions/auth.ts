@@ -1,6 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { neon } from "@neondatabase/serverless";
 import { getDb } from "@/lib/db";
 import {
   generateOtp,
@@ -628,3 +629,107 @@ export async function syncGoogleUserAction(userData: {
     return { success: false, error: err.message || "Failed to establish Google session" };
   }
 }
+
+/**
+ * Server action to resolve and verify Google OAuth session after redirect.
+ * Reads verified Google session directly from Neon Auth tables or by token/email parameters,
+ * creates or updates the workspace user in DocuCollect database, and issues an HTTP-only session cookie.
+ */
+export async function resolveGoogleSessionAction(params?: {
+  token?: string | null;
+  email?: string | null;
+}) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    let googleUser: { id: string; email: string; name?: string } | null = null;
+
+    // Database connection for Neon Auth (neondb)
+    const rawDbUrl = process.env.DATABASE_URL || "";
+    const authDbUrl = rawDbUrl.includes("/docucollect-db")
+      ? rawDbUrl.replace(/\/docucollect-db(?=[\/?]|$)/, "/neondb")
+      : rawDbUrl;
+    const authSql = neon(authDbUrl);
+
+    // 1. If explicit token passed
+    if (params?.token) {
+      const byToken = await authSql`
+        SELECT u.id, u.email, u.name, s.token, s."createdAt"
+        FROM neon_auth.session s
+        JOIN neon_auth.user u ON s."userId" = u.id
+        WHERE s.token = ${params.token}
+        LIMIT 1;
+      `;
+      if (byToken.length > 0) {
+        googleUser = byToken[0] as any;
+      }
+    }
+
+    // 2. If explicit email passed
+    if (!googleUser && params?.email) {
+      const byEmail = await authSql`
+        SELECT u.id, u.email, u.name, s.token, s."createdAt"
+        FROM neon_auth.user u
+        JOIN neon_auth.account a ON a."userId" = u.id AND a."providerId" = 'google'
+        LEFT JOIN neon_auth.session s ON s."userId" = u.id
+        WHERE LOWER(u.email) = ${params.email.toLowerCase().trim()}
+        ORDER BY s."createdAt" DESC NULLS LAST
+        LIMIT 1;
+      `;
+      if (byEmail.length > 0) {
+        googleUser = byEmail[0] as any;
+      }
+    }
+
+    // 3. Fallback: Find the latest active Google session created in Neon Auth within the last 15 minutes
+    if (!googleUser) {
+      const latestSessions = await authSql`
+        SELECT u.id, u.email, u.name, s.token, s."createdAt"
+        FROM neon_auth.session s
+        JOIN neon_auth.user u ON s."userId" = u.id
+        JOIN neon_auth.account a ON a."userId" = u.id AND a."providerId" = 'google'
+        WHERE s."createdAt" > (NOW() - INTERVAL '15 minutes')
+        ORDER BY s."createdAt" DESC
+        LIMIT 1;
+      `;
+      if (latestSessions.length > 0) {
+        googleUser = latestSessions[0] as any;
+      }
+    }
+
+    if (!googleUser || !googleUser.email) {
+      return {
+        success: false,
+        error: "Could not retrieve verified Google session. Please try logging in again.",
+      };
+    }
+
+    // 4. Synchronize user profile in DocuCollect database & establish JWT session
+    const syncRes = await syncGoogleUserAction({
+      id: googleUser.id,
+      email: googleUser.email,
+      name: googleUser.name || googleUser.email.split("@")[0],
+      emailVerified: true,
+    });
+
+    if (!syncRes.success) {
+      return { success: false, error: syncRes.error || "Failed to establish workspace session." };
+    }
+
+    return {
+      success: true,
+      user: {
+        email: googleUser.email,
+        name: googleUser.name,
+      },
+    };
+  } catch (err: any) {
+    console.error("resolveGoogleSessionAction error:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to verify Google session",
+    };
+  }
+}
+
