@@ -28,13 +28,16 @@ import { getDashboardData } from "@/app/actions/portal";
 import { TemplateEditorModal } from "@/components/templates/TemplateEditorModal";
 import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { useToast } from "@/components/ui/Toast";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
+let globalTemplatesCache: ChecklistTemplate[] | null = null;
 
 export default function ChecklistTemplatesPage() {
   const { toast } = useToast();
+  const { clients } = useDashboardData();
 
-  const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [templates, setTemplates] = useState<ChecklistTemplate[]>(globalTemplatesCache || []);
+  const [loading, setLoading] = useState(!globalTemplatesCache);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "custom" | "system">("all");
@@ -48,16 +51,12 @@ export default function ChecklistTemplatesPage() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
+    if (!silent && !globalTemplatesCache) setLoading(true);
     try {
-      const [tpls, dashData] = await Promise.all([
-        getChecklistTemplatesAction(),
-        getDashboardData(),
-      ]);
+      const tpls = await getChecklistTemplatesAction();
+      globalTemplatesCache = tpls;
       setTemplates(tpls);
-      if (dashData?.clients) {
-        setClients(dashData.clients);
-      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -66,7 +65,7 @@ export default function ChecklistTemplatesPage() {
   };
 
   useEffect(() => {
-    loadData();
+    loadData(Boolean(globalTemplatesCache));
   }, []);
 
   const handleDeleteTemplate = async (template: ChecklistTemplate) => {

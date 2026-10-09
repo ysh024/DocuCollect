@@ -130,6 +130,9 @@ export async function setSessionCookie(token: string) {
   });
 }
 
+const verifiedUserCache = new Map<string, number>();
+const VERIFICATION_CACHE_TTL = 300000; // 5 minutes
+
 /**
  * Get current session user from cookie.
  * Supports both DocuCollect JWT sessions and Neon Better Auth sessions (Google OAuth).
@@ -144,6 +147,12 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
     if (token) {
       const verified = await verifySessionToken(token);
       if (verified) {
+        // Fast path: if verified within 5 minutes, skip database query
+        const lastVerifiedTime = verifiedUserCache.get(verified.userId);
+        if (lastVerifiedTime && Date.now() - lastVerifiedTime < VERIFICATION_CACHE_TTL) {
+          return verified;
+        }
+
         const sql = getDb();
         if (sql) {
           const userRows = await sql`
@@ -152,6 +161,7 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
           if (userRows.length > 0 && !userRows[0].email_verified) {
             return null; // Unverified users cannot enter dashboard
           }
+          verifiedUserCache.set(verified.userId, Date.now());
         }
         return verified;
       }

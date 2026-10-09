@@ -29,23 +29,13 @@ const navItems = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
 export function Sidebar() {
   const pathname = usePathname();
   const { toast } = useToast();
-  const [user, setUser] = useState<{
-    fullName: string;
-    organizationName: string;
-    email: string;
-    logoUrl?: string | null;
-    subscription?: { status: string; trialEndsAt: string | null; planDisplayName: string };
-  } | null>(null);
+  const { user } = useDashboardData();
   const [loggingOut, setLoggingOut] = useState(false);
-
-  useEffect(() => {
-    getCurrentUserAction().then((u) => {
-      if (u) setUser(u as any);
-    });
-  }, []);
 
   const handleSignOut = async () => {
     setLoggingOut(true);
@@ -123,6 +113,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={true}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150",
                   isActive

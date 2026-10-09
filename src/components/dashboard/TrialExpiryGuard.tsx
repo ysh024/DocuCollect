@@ -16,37 +16,19 @@ import {
 import { getSubscriptionAction, redeemLicenseKeyAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
 
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
 export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
-  const [subscription, setSubscription] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const lastFetchedRef = useRef<number>(0);
+  const { subscription: contextSub, refresh } = useDashboardData();
+  const [localSub, setLocalSub] = useState<any>(null);
+  const subscription = localSub || contextSub;
 
   // License key activation
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [licenseKey, setLicenseKey] = useState("");
   const [activating, setActivating] = useState(false);
-
-  const loadSub = async (force = false) => {
-    const now = Date.now();
-    if (!force && lastFetchedRef.current && now - lastFetchedRef.current < 60000) {
-      return;
-    }
-    try {
-      const sub = await getSubscriptionAction();
-      setSubscription(sub);
-      lastFetchedRef.current = Date.now();
-    } catch {
-      // Ignore
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSub();
-  }, [pathname]);
 
   const handleQuickActivate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +44,7 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
         toast({ title: "Account Upgraded!", description: res.message });
         setLicenseKey("");
         setShowCodeInput(false);
-        await loadSub(true);
+        await refresh();
       } else {
         toast({ title: "Redemption Failed", description: res.error || "Invalid license key" });
       }
@@ -71,7 +53,7 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (loading || !subscription) {
+  if (!subscription) {
     return <>{children}</>;
   }
 

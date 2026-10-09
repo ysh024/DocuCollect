@@ -27,25 +27,15 @@ import { formatDate, formatBytes } from "@/lib/utils";
 import { NewClientModal } from "@/components/dashboard/NewClientModal";
 import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
 import { useToast } from "@/components/ui/Toast";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function ClientsPage() {
   const { toast } = useToast();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [cases, setCases] = useState<CaseWithDetails[]>([]);
+  const { clients, cases, refresh } = useDashboardData();
   const [search, setSearch] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [vaultClient, setVaultClient] = useState<Client | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ doc: Document; reqName: string; caseId?: string } | null>(null);
-
-  const loadData = async () => {
-    const res = await getDashboardData();
-    setClients(res.clients);
-    setCases(res.cases);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const filtered = clients.filter((c) => {
     return (
@@ -335,7 +325,7 @@ export default function ClientsPage() {
           caseId={previewDoc.caseId}
           isOpen={true}
           onClose={() => setPreviewDoc(null)}
-          onStatusUpdated={loadData}
+          onStatusUpdated={() => refresh()}
         />
       )}
 
@@ -343,7 +333,7 @@ export default function ClientsPage() {
       <NewClientModal
         isOpen={isNewClientOpen}
         onClose={() => setIsNewClientOpen(false)}
-        onSuccess={loadData}
+        onSuccess={() => refresh()}
       />
     </div>
   );

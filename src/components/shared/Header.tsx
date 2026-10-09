@@ -14,25 +14,14 @@ interface NotificationItem {
   type: string;
 }
 
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
 export function Header() {
   const { toast } = useToast();
-  const [user, setUser] = useState<{
-    fullName: string;
-    email: string;
-    organizationName: string;
-    logoUrl?: string | null;
-  } | null>(null);
+  const { user, notifications } = useDashboardData();
   const [loggingOut, setLoggingOut] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    getCurrentUserAction().then((u) => {
-      if (u) setUser(u as any);
-    });
-    getAdvisorNotificationsAction().then((res) => setNotifications(res));
-  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

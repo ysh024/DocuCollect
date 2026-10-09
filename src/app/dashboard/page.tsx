@@ -32,23 +32,13 @@ import { NewClientModal } from "@/components/dashboard/NewClientModal";
 import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
 import { useToast } from "@/components/ui/Toast";
 
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
 export default function DashboardOverviewPage() {
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [data, setData] = useState<{
-    metrics: {
-      totalClients: number;
-      activeCases: number;
-      completedCases: number;
-      pendingDocuments: number;
-      casesPendingUpload: number;
-      documentsAwaitingReview: number;
-      casesAwaitingReview: number;
-    };
-    clients: Client[];
-    cases: CaseWithDetails[];
-  } | null>(null);
+  const { data, user: userProfile, loading, refresh } = useDashboardData();
 
   const [filter, setFilter] = useState<"all" | "pending" | "under_review" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -57,21 +47,10 @@ export default function DashboardOverviewPage() {
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ fullName: string; organizationName: string } | null>(null);
 
   const [previewDoc, setPreviewDoc] = useState<{ doc: Document; reqName: string; caseId?: string } | null>(null);
 
-  const loadData = async () => {
-    const res = await getDashboardData();
-    setData(res);
-  };
-
   useEffect(() => {
-    loadData();
-    getCurrentUserAction().then((u) => {
-      if (u) setUserProfile({ fullName: u.fullName, organizationName: u.organizationName });
-    });
-
     // Keyboard shortcut '/' to focus search
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
@@ -538,7 +517,7 @@ export default function DashboardOverviewPage() {
           caseId={previewDoc.caseId}
           isOpen={true}
           onClose={() => setPreviewDoc(null)}
-          onStatusUpdated={() => loadData()}
+          onStatusUpdated={() => refresh()}
         />
       )}
 
@@ -548,7 +527,7 @@ export default function DashboardOverviewPage() {
           caseData={selectedCaseForShare}
           isOpen={true}
           onClose={() => setSelectedCaseForShare(null)}
-          onLinkRenewed={() => loadData()}
+          onLinkRenewed={() => refresh()}
         />
       )}
 
@@ -565,7 +544,7 @@ export default function DashboardOverviewPage() {
           clients={data.clients}
           isOpen={isNewCaseOpen}
           onClose={() => setIsNewCaseOpen(false)}
-          onSuccess={() => loadData()}
+          onSuccess={() => refresh()}
         />
       )}
 
@@ -573,7 +552,7 @@ export default function DashboardOverviewPage() {
         <NewClientModal
           isOpen={isNewClientOpen}
           onClose={() => setIsNewClientOpen(false)}
-          onSuccess={() => loadData()}
+          onSuccess={() => refresh()}
         />
       )}
     </div>

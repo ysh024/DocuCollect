@@ -22,11 +22,33 @@ async function getAuthenticatedOrgId(): Promise<string> {
   return session.organizationId;
 }
 
-export async function getDashboardData() {
+interface CachedDashboardEntry {
+  data: any;
+  timestamp: number;
+}
+const dashboardMemoryCache = new Map<string, CachedDashboardEntry>();
+const DASHBOARD_CACHE_TTL = 15000; // 15 seconds fast in-memory cache
+
+export function invalidateDashboardCache(orgId?: string) {
+  if (orgId) {
+    dashboardMemoryCache.delete(orgId);
+  } else {
+    dashboardMemoryCache.clear();
+  }
+}
+
+export async function getDashboardData(options?: { forceFresh?: boolean }) {
   const sql = getDb();
   if (!sql) throw new Error("Neon Database is not connected. Please verify DATABASE_URL in .env.local.");
 
   const orgId = await getAuthenticatedOrgId();
+
+  if (!options?.forceFresh) {
+    const cached = dashboardMemoryCache.get(orgId);
+    if (cached && Date.now() - cached.timestamp < DASHBOARD_CACHE_TTL) {
+      return cached.data;
+    }
+  }
 
   // Parallel fetch: run all independent queries concurrently using Promise.all
   // Crucially excludes file_data (base64 string) so network payloads remain tiny (<5KB instead of multi-megabytes)
@@ -167,7 +189,7 @@ export async function getDashboardData() {
 
   const sub = subRows[0] as any;
 
-  return {
+  const result = {
     isLiveDb: true,
     metrics: {
       totalClients,
@@ -188,6 +210,9 @@ export async function getDashboardData() {
     clients,
     cases,
   };
+
+  dashboardMemoryCache.set(orgId, { data: result, timestamp: Date.now() });
+  return result;
 }
 
 export async function getCaseDetails(caseId: string): Promise<CaseWithDetails | null> {
@@ -454,6 +479,7 @@ export async function createClientAction(formData: {
     RETURNING *;
   `;
 
+  invalidateDashboardCache(orgId);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/clients");
   return { success: true, client: clients[0] };
@@ -505,6 +531,7 @@ export async function createCaseAction(payload: {
     );
   `;
 
+  invalidateDashboardCache(orgId);
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/cases");
   return { success: true, case: newCase };
@@ -541,7 +568,7 @@ export async function reviewDocumentAction(
   const sql = getDb();
   if (!sql) throw new Error("Database not connected");
 
-  await getAuthenticatedOrgId();
+  const orgId = await getAuthenticatedOrgId();
 
   const newStatus = action === "approve" ? "approved" : "rejected";
   const reason = action === "reject" ? (rejectionReason || "Document rejected by advisor.") : null;
@@ -580,6 +607,7 @@ export async function reviewDocumentAction(
     WHERE id = ${caseId} AND status != 'archived';
   `;
 
+  invalidateDashboardCache(orgId);
   revalidatePath(`/dashboard/cases/${caseId}`);
   revalidatePath("/dashboard");
   return { success: true };
@@ -700,6 +728,7 @@ export async function clientUploadDocumentAction(
     console.warn("Activity log error:", logErr);
   }
 
+  if (c.organization_id) invalidateDashboardCache(c.organization_id);
   revalidatePath(`/upload/${token}`);
   revalidatePath(`/dashboard/cases/${c.id}`);
   revalidatePath("/dashboard");
@@ -820,6 +849,7 @@ export async function deleteClientAction(clientId: string) {
     await sql`DELETE FROM public.cases WHERE client_id = ${clientId} AND organization_id = ${orgId};`;
     await sql`DELETE FROM public.clients WHERE id = ${clientId} AND organization_id = ${orgId};`;
 
+    invalidateDashboardCache(orgId);
     revalidatePath("/dashboard/clients");
     revalidatePath("/dashboard");
     return { success: true };
@@ -971,6 +1001,7 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
       WHERE id = ${key.id};
     `;
 
+    invalidateDashboardCache(session.organizationId);
     revalidatePath("/dashboard/billing");
     revalidatePath("/dashboard");
 
@@ -1179,6 +1210,7 @@ export async function activateSubscriptionAction({
       `;
     }
 
+    if (targetOrgId) invalidateDashboardCache(targetOrgId);
     revalidatePath("/dashboard/billing");
     revalidatePath("/dashboard");
     return {

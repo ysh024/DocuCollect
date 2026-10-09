@@ -18,12 +18,10 @@ import { CaseWithDetails, Client } from "@/types";
 import { getCaseStatusBadge, formatDate } from "@/lib/utils";
 import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
+import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function CasesListPage() {
-  const [data, setData] = useState<{
-    cases: CaseWithDetails[];
-    clients: Client[];
-  } | null>(null);
+  const { data, loading, refresh } = useDashboardData();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -31,19 +29,10 @@ export default function CasesListPage() {
   const [selectedCaseForShare, setSelectedCaseForShare] = useState<CaseWithDetails | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const loadData = async () => {
-    const res = await getDashboardData();
-    setData(res);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
   if (!data) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -206,7 +195,7 @@ export default function CasesListPage() {
           clients={data.clients}
           isOpen={isNewCaseOpen}
           onClose={() => setIsNewCaseOpen(false)}
-          onSuccess={() => loadData()}
+          onSuccess={() => refresh()}
         />
       )}
 
@@ -215,7 +204,7 @@ export default function CasesListPage() {
           caseData={selectedCaseForShare}
           isOpen={true}
           onClose={() => setSelectedCaseForShare(null)}
-          onLinkRenewed={() => loadData()}
+          onLinkRenewed={() => refresh()}
         />
       )}
     </div>

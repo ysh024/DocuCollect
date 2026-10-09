@@ -25,13 +25,16 @@ import {
 } from "@/app/actions/auth";
 import { SquareLogoCropperModal } from "@/components/settings/SquareLogoCropperModal";
 
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
 export default function SettingsPage() {
   const { toast } = useToast();
-  const [user, setUser] = useState<any>(null);
-  const [orgName, setOrgName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const { user: contextUser, refresh } = useDashboardData();
+  const [user, setUser] = useState<any>(contextUser || null);
+  const [orgName, setOrgName] = useState(contextUser?.organizationName || "");
+  const [phone, setPhone] = useState(contextUser?.phone || "");
+  const [email, setEmail] = useState(contextUser?.email || "");
+  const [logoUrl, setLogoUrl] = useState<string | null>(contextUser?.logoUrl || null);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
   const [maxFileSize, setMaxFileSize] = useState("10");
@@ -41,16 +44,24 @@ export default function SettingsPage() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    getCurrentUserAction().then((u) => {
-      if (u) {
-        setUser(u);
-        setOrgName(u.organizationName || "");
-        setEmail(u.email || "");
-        setPhone(u.phone || "");
-        setLogoUrl(u.logoUrl || null);
-      }
-    });
-  }, []);
+    if (contextUser) {
+      setUser(contextUser);
+      setOrgName(contextUser.organizationName || "");
+      setEmail(contextUser.email || "");
+      setPhone(contextUser.phone || "");
+      setLogoUrl(contextUser.logoUrl || null);
+    } else {
+      getCurrentUserAction().then((u) => {
+        if (u) {
+          setUser(u);
+          setOrgName(u.organizationName || "");
+          setEmail(u.email || "");
+          setPhone(u.phone || "");
+          setLogoUrl(u.logoUrl || null);
+        }
+      });
+    }
+  }, [contextUser]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

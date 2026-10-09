@@ -37,10 +37,15 @@ const BANK_HOLDER = process.env.NEXT_PUBLIC_BANK_HOLDER || "DocuCollect Technolo
 const BANK_ACCOUNT = process.env.NEXT_PUBLIC_BANK_ACCOUNT || "3982001100234";
 const BANK_IFSC = process.env.NEXT_PUBLIC_BANK_IFSC || "SBIN0001234";
 
+import { useDashboardData } from "@/contexts/DashboardDataContext";
+
+let globalPlansCache: any[] | null = null;
+
 export default function BillingPage() {
   const { toast } = useToast();
-  const [subscription, setSubscription] = useState<any>(null);
-  const [plans, setPlans] = useState<any[]>([]);
+  const { subscription: contextSub, refresh } = useDashboardData();
+  const [subscription, setSubscription] = useState<any>(contextSub || null);
+  const [plans, setPlans] = useState<any[]>(globalPlansCache || []);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // License Key Redemption
@@ -48,17 +53,25 @@ export default function BillingPage() {
   const [redeeming, setRedeeming] = useState(false);
 
   const loadData = async () => {
-    const [sub, pl] = await Promise.all([
-      getSubscriptionAction(),
-      getAllPlansAction(),
-    ]);
-    if (sub) setSubscription(sub);
-    if (pl) setPlans(pl);
+    try {
+      const [sub, pl] = await Promise.all([
+        getSubscriptionAction(),
+        !globalPlansCache ? getAllPlansAction() : Promise.resolve(globalPlansCache),
+      ]);
+      if (sub) setSubscription(sub);
+      if (pl) {
+        globalPlansCache = pl;
+        setPlans(pl);
+      }
+    } catch (err) {
+      console.warn("Billing data fetch error:", err);
+    }
   };
 
   useEffect(() => {
+    if (contextSub) setSubscription(contextSub);
     loadData();
-  }, []);
+  }, [contextSub]);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
