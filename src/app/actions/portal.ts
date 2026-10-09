@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { generateUploadToken, hashToken } from "@/lib/tokens";
 import { generateStoragePath, uploadFileToStorage } from "@/lib/storage";
 import { CaseWithDetails, Client, ClientPortalData, DocumentRequirement, Document } from "@/types";
+import crypto from "crypto";
 
 /**
  * Strict session check — throws UNAUTHENTICATED if no session
@@ -862,8 +863,232 @@ export async function getAllPlansAction() {
 }
 
 /**
+ * Redeem a single-use license key / voucher code
+ * Client-facing: users do NOT need an admin password, they only redeem the unique key they were issued.
+ * Single-use: once redeemed, the key is permanently locked to this organization and cannot be reused or shared.
+ */
+export async function redeemLicenseKeyAction({ code }: { code: string }) {
+  if (!code || !code.trim()) {
+    return { success: false, error: "Please enter a valid license key." };
+  }
+
+  const cleanCode = code.trim().toUpperCase();
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  const session = await getSession();
+  if (!session?.organizationId) {
+    return { success: false, error: "You must be signed in to your account to redeem a license key." };
+  }
+
+  try {
+    // 1. Look up the license key
+    const keyRows = await sql`
+      SELECT * FROM public.license_keys 
+      WHERE UPPER(code) = ${cleanCode}
+      LIMIT 1;
+    `;
+
+    if (keyRows.length === 0) {
+      return { 
+        success: false, 
+        error: "Invalid license key. Please check the code format (e.g., DOCU-PRO-YR-XXXX-XXXX) or contact support." 
+      };
+    }
+
+    const key = keyRows[0];
+
+    // 2. Enforce single-use restriction
+    if (key.status === "redeemed") {
+      const redeemedDate = key.redeemed_at 
+        ? new Date(key.redeemed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+        : "earlier";
+      return {
+        success: false,
+        error: `This license key was already redeemed on ${redeemedDate} and cannot be reused or shared with other accounts.`,
+      };
+    }
+
+    if (key.status === "revoked") {
+      return {
+        success: false,
+        error: "This license key is no longer valid or has been revoked by administration.",
+      };
+    }
+
+    // 3. Find the associated plan
+    const planRows = await sql`
+      SELECT id, name, display_name FROM public.plans WHERE name = ${key.plan_name} LIMIT 1;
+    `;
+    if (planRows.length === 0) {
+      return { success: false, error: `Configured plan "${key.plan_name}" not found in system.` };
+    }
+    const plan = planRows[0];
+
+    // 4. Calculate subscription duration
+    const days = key.period === "yearly" ? 365 : 30;
+    const currentPeriodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+    // 5. Update or insert the subscription for this organization
+    const existing = await sql`
+      SELECT id FROM public.subscriptions WHERE organization_id = ${session.organizationId} LIMIT 1;
+    `;
+
+    if (existing.length > 0) {
+      await sql`
+        UPDATE public.subscriptions
+        SET plan_id = ${plan.id},
+            status = 'active',
+            trial_ends_at = NULL,
+            current_period_start = now(),
+            current_period_end = ${currentPeriodEnd},
+            payment_method = 'license_key',
+            payment_notes = ${'Redeemed single-use voucher: ' + cleanCode},
+            activated_by = 'license_voucher',
+            updated_at = now()
+        WHERE id = ${existing[0].id};
+      `;
+    } else {
+      await sql`
+        INSERT INTO public.subscriptions (
+          organization_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, payment_method, payment_notes, activated_by
+        ) VALUES (
+          ${session.organizationId}, ${plan.id}, 'active', NULL, now(), ${currentPeriodEnd}, 'license_key', ${'Redeemed single-use voucher: ' + cleanCode}, 'license_voucher'
+        );
+      `;
+    }
+
+    // 6. Permanently mark key as redeemed to prevent sharing / reuse
+    await sql`
+      UPDATE public.license_keys
+      SET status = 'redeemed',
+          redeemed_by_org_id = ${session.organizationId},
+          redeemed_by_user_id = ${session.userId || null},
+          redeemed_by_email = ${session.email || null},
+          redeemed_at = now()
+      WHERE id = ${key.id};
+    `;
+
+    revalidatePath("/dashboard/billing");
+    revalidatePath("/dashboard");
+
+    const periodLabel = key.period === "yearly" ? "1 Year" : "30 Days";
+    return {
+      success: true,
+      message: `🎉 Success! Your account has been upgraded to ${plan.display_name} (${periodLabel})!`,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to redeem license key." };
+  }
+}
+
+/**
+ * Generate a new single-use license key (Admin only)
+ * The admin generates this key after receiving customer payment and gives it to the customer.
+ */
+export async function generateLicenseKeyAction({
+  adminSecret,
+  planName,
+  period = "monthly",
+  notes = "",
+}: {
+  adminSecret: string;
+  planName: "starter" | "pro";
+  period: "monthly" | "yearly";
+  notes?: string;
+}) {
+  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
+  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
+    return { success: false, error: "Invalid Admin Secret Key." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  try {
+    const planTag = planName.toUpperCase() === "PRO" ? "PRO" : "START";
+    const periodTag = period === "yearly" ? "YR" : "MO";
+    const part1 = crypto.randomBytes(3).toString("hex").toUpperCase();
+    const part2 = crypto.randomBytes(3).toString("hex").toUpperCase();
+    const code = `DOCU-${planTag}-${periodTag}-${part1}-${part2}`;
+
+    const inserted = await sql`
+      INSERT INTO public.license_keys (
+        code, plan_name, period, notes, status, created_by
+      ) VALUES (
+        ${code}, ${planName}, ${period}, ${notes || "Generated via Admin Billing Tool"}, 'active', 'admin'
+      )
+      RETURNING *;
+    `;
+
+    return {
+      success: true,
+      key: inserted[0],
+      message: `License key generated successfully! Send this single-use key to the client.`,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to generate license key." };
+  }
+}
+
+/**
+ * Fetch all generated license keys with redemption history (Admin only)
+ */
+export async function getLicenseKeysAction({ adminSecret }: { adminSecret: string }) {
+  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
+  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
+    return { success: false, error: "Invalid Admin Secret Key." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  try {
+    const rows = await sql`
+      SELECT id, code, plan_name, period, status, redeemed_by_email, redeemed_at, notes, created_at
+      FROM public.license_keys
+      ORDER BY created_at DESC
+      LIMIT 100;
+    `;
+    return { success: true, keys: rows as any[] };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to fetch license keys." };
+  }
+}
+
+/**
+ * Revoke an active license key so it cannot be redeemed (Admin only)
+ */
+export async function revokeLicenseKeyAction({
+  adminSecret,
+  keyId,
+}: {
+  adminSecret: string;
+  keyId: string;
+}) {
+  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
+  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
+    return { success: false, error: "Invalid Admin Secret Key." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  try {
+    await sql`
+      UPDATE public.license_keys
+      SET status = 'revoked'
+      WHERE id = ${keyId} AND status = 'active';
+    `;
+    return { success: true, message: "License key revoked." };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to revoke key." };
+  }
+}
+
+/**
  * Admin action to activate or upgrade a client's plan manually
- * Validates against ADMIN_SECRET (defaulting to a secure fallback) or session role
+ * Validates against ADMIN_SECRET (defaulting to a secure fallback)
  */
 export async function activateSubscriptionAction({
   userEmail,
@@ -962,3 +1187,4 @@ export async function activateSubscriptionAction({
     return { success: false, error: err.message || "Failed to activate subscription" };
   }
 }
+

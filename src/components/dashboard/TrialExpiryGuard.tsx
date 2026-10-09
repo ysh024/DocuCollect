@@ -13,7 +13,7 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react";
-import { getSubscriptionAction, activateSubscriptionAction } from "@/app/actions/portal";
+import { getSubscriptionAction, redeemLicenseKeyAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
 
 export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
@@ -23,9 +23,9 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const lastFetchedRef = useRef<number>(0);
 
-  // Quick code activation
+  // License key activation
   const [showCodeInput, setShowCodeInput] = useState(false);
-  const [adminSecret, setAdminSecret] = useState("");
+  const [licenseKey, setLicenseKey] = useState("");
   const [activating, setActivating] = useState(false);
 
   const loadSub = async (force = false) => {
@@ -50,25 +50,21 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
 
   const handleQuickActivate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminSecret.trim()) return;
+    if (!licenseKey.trim()) return;
 
     setActivating(true);
     try {
-      const res = await activateSubscriptionAction({
-        adminSecret: adminSecret.trim(),
-        planName: "starter",
-        period: "monthly",
-        paymentMethod: "upi",
-        paymentNotes: "Activated via Paywall Lockout Screen",
+      const res = await redeemLicenseKeyAction({
+        code: licenseKey.trim(),
       });
 
       if (res.success) {
-        toast({ title: "Account Renewed!", description: res.message });
-        setAdminSecret("");
+        toast({ title: "Account Upgraded!", description: res.message });
+        setLicenseKey("");
         setShowCodeInput(false);
         await loadSub(true);
       } else {
-        toast({ title: "Activation Failed", description: res.error || "Invalid secret" });
+        toast({ title: "Redemption Failed", description: res.error || "Invalid license key" });
       }
     } finally {
       setActivating(false);
@@ -148,24 +144,24 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
               className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 inline-flex items-center gap-1.5 transition"
             >
               <KeyRound className="w-3.5 h-3.5" />
-              {showCodeInput ? "Hide activation code input" : "Have an administrator activation code?"}
+              {showCodeInput ? "Hide license key input" : "Have a one-time license key or voucher?"}
             </button>
 
             {showCodeInput && (
               <form onSubmit={handleQuickActivate} className="mt-4 max-w-sm mx-auto flex gap-2">
                 <input
-                  type="password"
-                  placeholder="Enter admin secret..."
-                  value={adminSecret}
-                  onChange={(e) => setAdminSecret(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                  type="text"
+                  placeholder="e.g. DOCU-PRO-YR-..."
+                  value={licenseKey}
+                  onChange={(e) => setLicenseKey(e.target.value.toUpperCase())}
+                  className="flex-1 px-3 py-2 border border-neutral-300 rounded-lg text-xs font-mono uppercase focus:outline-none focus:ring-2 focus:ring-neutral-900"
                 />
                 <button
                   type="submit"
-                  disabled={activating || !adminSecret.trim()}
+                  disabled={activating || !licenseKey.trim()}
                   className="px-4 py-2 bg-neutral-900 text-white text-xs font-bold rounded-lg hover:bg-neutral-800 transition disabled:opacity-50"
                 >
-                  {activating ? "Activating..." : "Unlock"}
+                  {activating ? "Redeeming..." : "Redeem"}
                 </button>
               </form>
             )}

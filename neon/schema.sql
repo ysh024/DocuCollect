@@ -207,6 +207,23 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 6b. Single-Use License Keys / Vouchers (Prevents key-sharing, enables one-time plan activation)
+CREATE TABLE IF NOT EXISTS public.license_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(64) UNIQUE NOT NULL,
+    plan_name VARCHAR(32) NOT NULL,
+    period VARCHAR(16) NOT NULL DEFAULT 'monthly',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    redeemed_by_org_id UUID REFERENCES public.organizations(id) ON DELETE SET NULL,
+    redeemed_by_user_id TEXT REFERENCES public.users(id) ON DELETE SET NULL,
+    redeemed_by_email VARCHAR(255),
+    redeemed_at TIMESTAMPTZ,
+    notes TEXT,
+    created_by VARCHAR(255) DEFAULT 'admin',
+    created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_license_keys_code ON public.license_keys (UPPER(code));
+
 -- 7. Application Users Profile (Linked to Better Auth & Organizations)
 CREATE TABLE IF NOT EXISTS public.users (
     id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,  -- Matches Better Auth user.id
