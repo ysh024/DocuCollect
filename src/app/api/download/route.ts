@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, isNeonConnected } from "@/lib/db";
-import { getSignedStorageDownloadUrl, isS3Configured } from "@/lib/storage";
+import { getSignedStorageDownloadUrl, getFileStreamFromStorage, isS3Configured } from "@/lib/storage";
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
           doc = docs[0];
         }
 
-        // 1. If stored in Neon Object Storage (S3), redirect directly to signed URL
+        // 1. Direct secure redirect to signed cloud storage URL
         const targetPath = doc?.storage_path || filePath;
         if (targetPath && isS3Configured()) {
           const signedUrl = await getSignedStorageDownloadUrl(
@@ -33,34 +33,24 @@ export async function GET(req: NextRequest) {
           if (signedUrl && signedUrl.startsWith("http")) {
             return NextResponse.redirect(signedUrl);
           }
-        }
 
-        // 2. Fallback: If legacy base64 data exists in database
-        if (doc && doc.file_data) {
-          let base64Data = doc.file_data;
-          let mimeType = doc.mime_type || "application/octet-stream";
-
-          if (base64Data.startsWith("data:")) {
-            const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-            if (matches && matches.length === 3) {
-              mimeType = matches[1];
-              base64Data = matches[2];
-            }
+          // 2. Direct streaming fallback from Neon Object Storage
+          const s3Obj = await getFileStreamFromStorage(targetPath);
+          if (s3Obj && s3Obj.Body) {
+            const stream = (s3Obj.Body as any).transformToWebStream();
+            return new Response(stream, {
+              status: 200,
+              headers: {
+                "Content-Type": s3Obj.ContentType || doc?.mime_type || "application/octet-stream",
+                "Content-Disposition": `inline; filename="${doc?.file_name || fileName}"`,
+                ...(s3Obj.ContentLength ? { "Content-Length": s3Obj.ContentLength.toString() } : {}),
+                "Cache-Control": "private, max-age=3600",
+              },
+            });
           }
-
-          const fileBuffer = Buffer.from(base64Data, "base64");
-          return new Response(fileBuffer, {
-            status: 200,
-            headers: {
-              "Content-Type": mimeType,
-              "Content-Disposition": `inline; filename="${doc.file_name || fileName}"`,
-              "Content-Length": fileBuffer.length.toString(),
-              "Cache-Control": "private, max-age=3600",
-            },
-          });
         }
       } catch (err) {
-        console.warn("Error fetching document from Neon:", err);
+        console.warn("Error fetching document from storage:", err);
       }
     }
   }

@@ -552,9 +552,8 @@ export async function uploadFirmLogoAction({
     const rawBase64 = logoBase64.replace(/^data:[A-Za-z-+\/]+;base64,/, "");
     const buffer = Buffer.from(rawBase64, "base64");
 
-    let logoRecord = logoBase64; // Default fallback to compressed data URL
+    let logoRecord: string;
 
-    // If S3 storage is available, upload directly to Neon Object Storage
     if (isS3Configured()) {
       const storagePath = `logos/${session.organizationId}/logo-${Date.now()}.webp`;
       const uploadRes = await uploadFileToStorage({
@@ -563,9 +562,12 @@ export async function uploadFirmLogoAction({
         mimeType: mimeType || "image/webp",
       });
 
-      if (uploadRes.success) {
-        logoRecord = storagePath;
+      if (!uploadRes.success) {
+        return { success: false, error: uploadRes.error || "Failed to upload logo to cloud storage." };
       }
+      logoRecord = storagePath;
+    } else {
+      return { success: false, error: "Cloud storage is not configured for logo uploads." };
     }
 
     // Update organization with logo

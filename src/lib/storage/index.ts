@@ -137,3 +137,24 @@ export async function deleteFileFromStorage(storagePath: string): Promise<boolea
     return false;
   }
 }
+
+/**
+ * Fetches file stream and metadata directly from Neon Object Storage
+ */
+export async function getFileStreamFromStorage(storagePath: string) {
+  if (!isS3Configured()) return null;
+  try {
+    const s3 = getS3Client();
+    const bucket = getStorageBucket();
+    const res = await s3.send(
+      new GetObjectCommand({
+        Bucket: bucket,
+        Key: storagePath,
+      })
+    );
+    return res;
+  } catch (err) {
+    console.warn("Failed to get file stream from storage:", err);
+    return null;
+  }
+}

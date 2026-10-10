@@ -830,44 +830,50 @@ export async function clientUploadDocumentAction(
     mimeType: fileInfo.type,
   });
 
-  // 2. Upload file binary directly to Neon Object Storage
-  let s3Uploaded = false;
-  if (fileInfo.data) {
-    try {
-      let fileBuffer: Buffer;
-      if (fileInfo.data.startsWith("data:")) {
-        const commaIdx = fileInfo.data.indexOf(",");
-        const base64Data = commaIdx !== -1 ? fileInfo.data.slice(commaIdx + 1) : fileInfo.data;
-        fileBuffer = Buffer.from(base64Data, "base64");
-      } else {
-        fileBuffer = Buffer.from(fileInfo.data, "base64");
-      }
-
-      const uploadRes = await uploadFileToStorage({
-        storagePath,
-        fileBuffer,
-        mimeType: fileInfo.type,
-      });
-
-      if (uploadRes.success) {
-        s3Uploaded = true;
-      } else {
-        console.warn("Storage upload failed, fallback to DB:", uploadRes.error);
-      }
-    } catch (uploadErr) {
-      console.warn("Storage upload exception, fallback to DB:", uploadErr);
-    }
+  // 2. Upload file binary directly to Neon Object Storage (Never store base64 in database)
+  if (!fileInfo.data) {
+    return { success: false, error: "No file content received for upload." };
   }
 
-  // 3. Insert record: file_data is NULL when stored on S3, protecting DB performance & quotas
+  try {
+    let fileBuffer: Buffer;
+    if (fileInfo.data.startsWith("data:")) {
+      const commaIdx = fileInfo.data.indexOf(",");
+      const base64Data = commaIdx !== -1 ? fileInfo.data.slice(commaIdx + 1) : fileInfo.data;
+      fileBuffer = Buffer.from(base64Data, "base64");
+    } else {
+      fileBuffer = Buffer.from(fileInfo.data, "base64");
+    }
+
+    const uploadRes = await uploadFileToStorage({
+      storagePath,
+      fileBuffer,
+      mimeType: fileInfo.type,
+    });
+
+    if (!uploadRes.success) {
+      console.error("Storage upload failed:", uploadRes.error);
+      return {
+        success: false,
+        error: uploadRes.error || "Failed to upload document to cloud storage. Please try again.",
+      };
+    }
+  } catch (uploadErr: any) {
+    console.error("Storage upload exception:", uploadErr);
+    return {
+      success: false,
+      error: uploadErr.message || "Cloud storage upload failed. Please try again.",
+    };
+  }
+
+  // 3. Insert record: only stores document metadata, keeping PostgreSQL lightweight and fast
   const newDocs = await sql`
     INSERT INTO public.documents (
-      requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, file_data, auto_delete_at
+      requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at
     ) VALUES (
       ${requirementId}, ${c.id}, ${c.client_id}, ${version}, ${fileInfo.name},
       ${storagePath},
       ${fileInfo.size}, ${fileInfo.type}, 'under_review', 'client',
-      ${s3Uploaded ? null : fileInfo.data || null},
       (now() + (${Number(retentionDays) || 7} * interval '1 day'))
     )
     RETURNING id, requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at, uploaded_at;
