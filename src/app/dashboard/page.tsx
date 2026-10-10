@@ -351,31 +351,29 @@ export default function DashboardOverviewPage() {
           </div>
         </div>
 
-        {/* Table Content with stable fixed column widths & minimum height */}
+        {/* Table Content with responsive fluid columns & zero horizontal scroll */}
         <div className="overflow-x-auto min-h-[320px]">
-          <table className="w-full text-left text-xs table-fixed min-w-[1040px]">
+          <table className="w-full text-left text-xs table-fixed">
             <colgroup>
-              <col className="w-[23%]" />
-              <col className="w-[12%]" />
-              <col className="w-[13%]" />
+              <col className="w-[28%]" />
+              <col className="w-[18%]" />
+              <col className="w-[15%]" />
               <col className="w-[20%]" />
-              <col className="w-[10%]" />
-              <col className="w-[22%]" />
+              <col className="w-[19%]" />
             </colgroup>
             <thead className="bg-neutral-50/60 border-b border-neutral-100 text-neutral-400 font-medium text-[11px]">
               <tr>
                 <th className="py-3 px-5 truncate">Case & Client</th>
-                <th className="py-3 px-4 truncate">Service</th>
+                <th className="py-3 px-4 truncate">Service & Due</th>
                 <th className="py-3 px-4 truncate">Status</th>
                 <th className="py-3 px-4 truncate">Checklist Progress & Docs</th>
-                <th className="py-3 px-4 truncate">Due Date</th>
                 <th className="py-3 px-5 text-right truncate">Quick Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100/80">
               {filteredCases.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center">
+                  <td colSpan={5} className="py-16 text-center">
                     <div className="max-w-xs mx-auto space-y-2">
                       <div className="w-10 h-10 rounded-xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto">
                         <Search className="w-4 h-4" />
@@ -433,7 +431,13 @@ export default function DashboardOverviewPage() {
                         </Link>
                       </td>
 
-                      <td className="py-3.5 px-4 text-neutral-600 font-medium truncate">{c.service_type}</td>
+                      <td className="py-3.5 px-4 min-w-0">
+                        <span className="text-neutral-800 font-medium truncate block">{c.service_type}</span>
+                        <div className="flex items-center gap-1 text-[11px] text-neutral-400 mt-0.5 truncate">
+                          <Clock className="w-2.5 h-2.5 shrink-0" />
+                          <span className="truncate">Due {formatDate(c.due_date)}</span>
+                        </div>
+                      </td>
 
                       <td className="py-3.5 px-4">
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${badge.className}`}>
@@ -477,18 +481,14 @@ export default function DashboardOverviewPage() {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-neutral-500 text-[11px] truncate">
-                        {formatDate(c.due_date)}
-                      </td>
-
                       <td className="py-3.5 px-5 text-right">
-                        <div className="flex items-center justify-end gap-1.5 flex-nowrap shrink-0">
+                        <div className="flex items-center justify-end gap-1 flex-nowrap shrink-0">
                           {/* Direct Pop-Up View Document Icon */}
                           {latestCaseDoc && (
                             <button
                               type="button"
                               onClick={() => setPreviewDoc({ doc: latestCaseDoc.doc, reqName: latestCaseDoc.reqName, caseId: c.id })}
-                              title={`Direct View Document: ${latestCaseDoc.doc.file_name}`}
+                              title={`Direct View: ${latestCaseDoc.doc.file_name}`}
                               className="w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200/60 flex items-center justify-center transition-all cursor-pointer shrink-0"
                             >
                               <Eye className="w-3.5 h-3.5" />

@@ -124,7 +124,7 @@ export default function ClientsPage() {
       {/* Clients Table */}
       <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs table-fixed min-w-[960px]">
+          <table className="w-full text-left text-xs table-fixed">
             <colgroup>
               <col className="w-[24%]" />
               <col className="w-[17%]" />
