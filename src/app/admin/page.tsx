@@ -13,6 +13,7 @@ import {
   Building2,
   Ticket,
   Lock,
+  Mail,
   ArrowRight,
   ExternalLink,
   Search,
@@ -42,6 +43,7 @@ export default function AdminPortalPage() {
 
   // Authentication State
   const [adminSecret, setAdminSecret] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -91,26 +93,30 @@ export default function AdminPortalPage() {
   // Check stored admin session
   useEffect(() => {
     const savedSecret = sessionStorage.getItem("dc_admin_secret");
+    const savedEmail = sessionStorage.getItem("dc_admin_email");
     if (savedSecret) {
       setAdminSecret(savedSecret);
-      verifyAndLoad(savedSecret);
+      if (savedEmail) setAdminEmail(savedEmail);
+      verifyAndLoad(savedSecret, savedEmail || undefined);
     }
   }, []);
 
-  const verifyAndLoad = async (secret: string) => {
+  const verifyAndLoad = async (secret: string, email?: string) => {
     setAuthLoading(true);
     try {
-      const res = await getAdminOverviewAction({ adminSecret: secret });
+      const res = await getAdminOverviewAction({ adminSecret: secret, adminEmail: email });
       if (res.success) {
         setIsAuthenticated(true);
         sessionStorage.setItem("dc_admin_secret", secret);
+        if (email) sessionStorage.setItem("dc_admin_email", email);
         setStats(res.stats);
         setKeysList(res.keys || []);
         setRecentUsers(res.recentUsers || []);
         getPublicPaymentSettingsAction().then(setPaymentSettings).catch(console.error);
       } else {
         sessionStorage.removeItem("dc_admin_secret");
-        toast({ title: "Authentication Failed", description: res.error || "Invalid secret key" });
+        sessionStorage.removeItem("dc_admin_email");
+        toast({ title: "Authentication Failed", description: res.error || "Invalid secret key or email" });
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to authenticate" });
@@ -123,7 +129,7 @@ export default function AdminPortalPage() {
     e.preventDefault();
     setSavingPayment(true);
     try {
-      const res = await updatePaymentSettingsAction(adminSecret, paymentSettings);
+      const res = await updatePaymentSettingsAction(adminSecret, paymentSettings, adminEmail);
       if (res.success) {
         toast({ title: "Settings Saved!", description: "Public payment information updated in database." });
       } else {
@@ -138,14 +144,22 @@ export default function AdminPortalPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminSecret.trim()) return;
-    verifyAndLoad(adminSecret.trim());
+    if (!adminSecret.trim() || !adminEmail.trim()) {
+      toast({
+        title: "Admin Credentials Required",
+        description: "Please enter both Admin Secret and authorized Admin Email.",
+      });
+      return;
+    }
+    verifyAndLoad(adminSecret.trim(), adminEmail.trim());
   };
 
   const handleLogout = () => {
     sessionStorage.removeItem("dc_admin_secret");
+    sessionStorage.removeItem("dc_admin_email");
     setIsAuthenticated(false);
     setAdminSecret("");
+    setAdminEmail("");
     setLastGeneratedKey(null);
   };
 
@@ -153,7 +167,7 @@ export default function AdminPortalPage() {
     if (!adminSecret) return;
     setLoadingData(true);
     try {
-      const res = await getAdminOverviewAction({ adminSecret });
+      const res = await getAdminOverviewAction({ adminSecret, adminEmail });
       if (res.success) {
         setStats(res.stats);
         setKeysList(res.keys || []);
@@ -179,6 +193,7 @@ export default function AdminPortalPage() {
     try {
       const res = await generateLicenseKeyAction({
         adminSecret,
+        adminEmail,
         planName: genPlan,
         period: genPeriod,
         notes: genNotes.trim(),
@@ -189,7 +204,7 @@ export default function AdminPortalPage() {
         setGenNotes("");
         toast({ title: "Key Created!", description: res.key.code });
         // Refresh keys
-        const refreshed = await getLicenseKeysAction({ adminSecret });
+        const refreshed = await getLicenseKeysAction({ adminSecret, adminEmail });
         if (refreshed.success) setKeysList(refreshed.keys || []);
       } else {
         toast({ title: "Generation Failed", description: res.error });
@@ -205,10 +220,10 @@ export default function AdminPortalPage() {
   const handleRevoke = async (keyId: string) => {
     if (!confirm("Are you sure you want to deactivate this license key permanently?")) return;
     try {
-      const res = await revokeLicenseKeyAction({ adminSecret, keyId });
+      const res = await revokeLicenseKeyAction({ adminSecret, adminEmail, keyId });
       if (res.success) {
         toast({ title: "Key Revoked", description: "License key is now deactivated." });
-        const refreshed = await getLicenseKeysAction({ adminSecret });
+        const refreshed = await getLicenseKeysAction({ adminSecret, adminEmail });
         if (refreshed.success) setKeysList(refreshed.keys || []);
       } else {
         toast({ title: "Error", description: res.error });
@@ -225,6 +240,7 @@ export default function AdminPortalPage() {
     try {
       const res = await activateSubscriptionAction({
         adminSecret,
+        adminEmail,
         userEmail: directEmail.trim() || undefined,
         planName: directPlan,
         period: directPeriod,
@@ -262,6 +278,7 @@ export default function AdminPortalPage() {
     try {
       const res = await toggleUserDeactivationAction({
         adminSecret,
+        adminEmail,
         userId,
         deactivate,
       });
@@ -316,11 +333,28 @@ export default function AdminPortalPage() {
             </div>
             <h1 className="text-xl font-bold text-white tracking-tight">DocuCollect Admin Console</h1>
             <p className="text-xs text-neutral-400">
-              Restricted administrative authority. Enter your secret key to issue single-use license vouchers and manage accounts.
+              Restricted administrative authority. Enter your verified admin email and secret key to issue single-use license vouchers and manage accounts.
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                Authorized Admin Email
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="e.g. yashveer2024@gmail.com"
+                  className="w-full bg-neutral-800/90 border border-neutral-700 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 transition"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
                 Admin Secret Key
@@ -340,7 +374,7 @@ export default function AdminPortalPage() {
 
             <button
               type="submit"
-              disabled={authLoading || !adminSecret.trim()}
+              disabled={authLoading || !adminSecret.trim() || !adminEmail.trim()}
               className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-xl text-xs transition disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20"
             >
               <span>{authLoading ? "Authenticating..." : "Authorize Access"}</span>
@@ -382,6 +416,13 @@ export default function AdminPortalPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {adminEmail && (
+              <div className="hidden sm:flex items-center gap-1.5 text-xs bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2.5 py-1 rounded-lg font-mono" title={`Authorized Admin: ${adminEmail}`}>
+                <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="truncate max-w-[220px]">{adminEmail}</span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={reloadData}

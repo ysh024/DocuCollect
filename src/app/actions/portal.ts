@@ -1225,23 +1225,78 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
 }
 
 /**
+ * Strict Dual-Factor Admin Verification
+ * Validates both:
+ * 1. ADMIN_SECRET against process.env.ADMIN_SECRET
+ * 2. Admin Email against allowed admin emails in process.env.ADMIN_EMAIL
+ * Also allows detecting admin email from verified user session if not passed directly.
+ */
+export async function verifyAdminAuthorization(
+  adminSecret?: string,
+  adminEmail?: string
+): Promise<{ authorized: boolean; error?: string; email?: string }> {
+  const EXPECTED_SECRET = (process.env.ADMIN_SECRET || "admin123").trim();
+
+  if (!adminSecret || adminSecret.trim() !== EXPECTED_SECRET) {
+    return { authorized: false, error: "Invalid Admin Secret Key." };
+  }
+
+  // Allowed admin emails from environment (supports comma-separated list)
+  const rawAdminEmails = process.env.ADMIN_EMAIL || "yashveer2024@gmail.com,amankumarak5933485@gmail.com";
+  const allowedAdminEmails = rawAdminEmails
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  let candidateEmail = adminEmail ? adminEmail.trim().toLowerCase() : "";
+
+  // If candidate email not explicitly provided, attempt to detect from authenticated user session
+  if (!candidateEmail) {
+    try {
+      const session = await getSession();
+      if (session?.email) {
+        candidateEmail = session.email.trim().toLowerCase();
+      }
+    } catch {}
+  }
+
+  if (!candidateEmail) {
+    return {
+      authorized: false,
+      error: "Admin email verification required. Please provide your authorized admin email address.",
+    };
+  }
+
+  if (!allowedAdminEmails.includes(candidateEmail)) {
+    return {
+      authorized: false,
+      error: `Access Denied: The email "${candidateEmail}" does not have administrative privileges.`,
+    };
+  }
+
+  return { authorized: true, email: candidateEmail };
+}
+
+/**
  * Generate a new single-use license key (Admin only)
  * The admin generates this key after receiving customer payment and gives it to the customer.
  */
 export async function generateLicenseKeyAction({
   adminSecret,
+  adminEmail,
   planName,
   period = "monthly",
   notes = "",
 }: {
   adminSecret: string;
+  adminEmail?: string;
   planName: "starter" | "pro";
   period: "monthly" | "yearly";
   notes?: string;
 }) {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Invalid Admin Secret Key." };
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
   }
 
   const sql = getDb();
@@ -1258,7 +1313,7 @@ export async function generateLicenseKeyAction({
       INSERT INTO public.license_keys (
         code, plan_name, period, notes, status, created_by
       ) VALUES (
-        ${code}, ${planName}, ${period}, ${notes || "Generated via Admin Billing Tool"}, 'active', 'admin'
+        ${code}, ${planName}, ${period}, ${notes || "Generated via Admin Billing Tool"}, 'active', ${auth.email || "admin"}
       )
       RETURNING *;
     `;
@@ -1276,10 +1331,16 @@ export async function generateLicenseKeyAction({
 /**
  * Fetch all generated license keys with redemption history (Admin only)
  */
-export async function getLicenseKeysAction({ adminSecret }: { adminSecret: string }) {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Invalid Admin Secret Key." };
+export async function getLicenseKeysAction({
+  adminSecret,
+  adminEmail,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
   }
 
   const sql = getDb();
@@ -1303,14 +1364,16 @@ export async function getLicenseKeysAction({ adminSecret }: { adminSecret: strin
  */
 export async function revokeLicenseKeyAction({
   adminSecret,
+  adminEmail,
   keyId,
 }: {
   adminSecret: string;
+  adminEmail?: string;
   keyId: string;
 }) {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Invalid Admin Secret Key." };
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
   }
 
   const sql = getDb();
@@ -1330,7 +1393,7 @@ export async function revokeLicenseKeyAction({
 
 /**
  * Admin action to activate or upgrade a client's plan manually
- * Validates against ADMIN_SECRET (defaulting to a secure fallback)
+ * Validates against ADMIN_SECRET + ADMIN_EMAIL
  */
 export async function activateSubscriptionAction({
   userEmail,
@@ -1338,6 +1401,7 @@ export async function activateSubscriptionAction({
   planName,
   period = "monthly",
   adminSecret,
+  adminEmail,
   paymentMethod = "upi",
   paymentNotes = "",
 }: {
@@ -1346,12 +1410,13 @@ export async function activateSubscriptionAction({
   planName: string;
   period?: "monthly" | "yearly";
   adminSecret: string;
+  adminEmail?: string;
   paymentMethod?: string;
   paymentNotes?: string;
 }) {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Invalid admin activation code. Please check your secret key." };
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
   }
 
   const sql = getDb();
@@ -1404,8 +1469,8 @@ export async function activateSubscriptionAction({
             current_period_start = now(),
             current_period_end = ${currentPeriodEnd},
             payment_method = ${paymentMethod},
-            payment_notes = ${paymentNotes || `Manual admin activation (${period})`},
-            activated_by = 'admin',
+            payment_notes = ${paymentNotes || `Manual admin activation (${period}) by ${auth.email}`},
+            activated_by = ${auth.email || "admin"},
             updated_at = now()
         WHERE id = ${existing[0].id};
       `;
@@ -1414,7 +1479,7 @@ export async function activateSubscriptionAction({
         INSERT INTO public.subscriptions (
           organization_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, payment_method, payment_notes, activated_by
         ) VALUES (
-          ${targetOrgId}, ${plan.id}, 'active', NULL, now(), ${currentPeriodEnd}, ${paymentMethod}, ${paymentNotes || `Manual admin activation (${period})`}, 'admin'
+          ${targetOrgId}, ${plan.id}, 'active', NULL, now(), ${currentPeriodEnd}, ${paymentMethod}, ${paymentNotes || `Manual admin activation (${period}) by ${auth.email}`}, ${auth.email || "admin"}
         );
       `;
     }
@@ -1434,10 +1499,16 @@ export async function activateSubscriptionAction({
 /**
  * Full admin overview for the dedicated Admin Panel
  */
-export async function getAdminOverviewAction({ adminSecret }: { adminSecret: string }) {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Invalid Admin Secret Key." };
+export async function getAdminOverviewAction({
+  adminSecret,
+  adminEmail,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
   }
 
   const sql = getDb();
@@ -1480,6 +1551,8 @@ export async function getAdminOverviewAction({ adminSecret }: { adminSecret: str
     return { success: false, error: err.message || "Failed to load admin overview." };
   }
 }
+
+
 
 export interface PublicPaymentSettings {
   upi_id: string;
@@ -1528,11 +1601,12 @@ export async function getPublicPaymentSettingsAction(): Promise<PublicPaymentSet
 
 export async function updatePaymentSettingsAction(
   adminSecret: string,
-  settings: Partial<PublicPaymentSettings>
+  settings: Partial<PublicPaymentSettings>,
+  adminEmail?: string
 ): Promise<{ success: boolean; error?: string; settings?: PublicPaymentSettings }> {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (!adminSecret || adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Invalid Admin Secret Key." };
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error || "Unauthorized. Invalid Admin Credentials." };
   }
 
   const sql = getDb();
@@ -1560,20 +1634,22 @@ export async function updatePaymentSettingsAction(
 
 /**
  * Admin Action: Deactivate or reactivate an account.
- * Accessible ONLY from the protected Admin Panel with valid ADMIN_SECRET.
+ * Accessible ONLY from the protected Admin Panel with valid ADMIN_SECRET and authorized ADMIN_EMAIL.
  */
 export async function toggleUserDeactivationAction({
   adminSecret,
+  adminEmail,
   userId,
   deactivate,
 }: {
   adminSecret: string;
+  adminEmail?: string;
   userId: string;
   deactivate: boolean;
 }) {
-  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
-  if (!adminSecret || adminSecret.trim() !== EXPECTED_SECRET.trim()) {
-    return { success: false, error: "Unauthorized. Invalid Admin Secret Key." };
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error || "Unauthorized. Invalid Admin Credentials." };
   }
 
   const sql = getDb();
