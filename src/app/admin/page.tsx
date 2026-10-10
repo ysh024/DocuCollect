@@ -318,7 +318,7 @@ export default function AdminPortalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-16">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 pb-16 overflow-y-scroll [scrollbar-gutter:stable]">
       {/* Top Navbar */}
       <header className="bg-neutral-900 border-b border-neutral-800 sticky top-0 z-30 shadow-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
@@ -405,7 +405,7 @@ export default function AdminPortalPage() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 overflow-x-auto">
+        <div className="flex items-center gap-2 border-b border-neutral-800 pb-2 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab("generate")}
@@ -472,8 +472,10 @@ export default function AdminPortalPage() {
           </button>
         </div>
 
-        {/* WORKSPACE 1: Generate License Key */}
-        {activeTab === "generate" && (
+        {/* Tab Workspaces Container with stable minimum height */}
+        <div className="min-h-[580px]">
+          {/* WORKSPACE 1: Generate License Key */}
+          {activeTab === "generate" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-6">
             <div>
               <h2 className="text-base font-bold text-white flex items-center gap-2">
@@ -1050,6 +1052,7 @@ export default function AdminPortalPage() {
             </form>
           </div>
         )}
+        </div>
       </main>
     </div>
   );
