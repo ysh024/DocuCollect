@@ -37,16 +37,18 @@ export type DashboardTab =
   | "clients"
   | "audit"
   | "billing"
-  | "settings";
+  | "settings"
+  | "subroute";
 
 export function pathToDashboardTab(pathname: string): DashboardTab {
-  if (pathname.startsWith("/dashboard/cases")) return "cases";
-  if (pathname.startsWith("/dashboard/templates")) return "templates";
-  if (pathname.startsWith("/dashboard/clients")) return "clients";
-  if (pathname.startsWith("/dashboard/audit")) return "audit";
-  if (pathname.startsWith("/dashboard/billing")) return "billing";
-  if (pathname.startsWith("/dashboard/settings")) return "settings";
-  return "overview";
+  if (pathname === "/dashboard/cases") return "cases";
+  if (pathname === "/dashboard/templates") return "templates";
+  if (pathname === "/dashboard/clients") return "clients";
+  if (pathname === "/dashboard/audit") return "audit";
+  if (pathname === "/dashboard/billing") return "billing";
+  if (pathname === "/dashboard/settings") return "settings";
+  if (pathname === "/dashboard" || pathname === "/dashboard/") return "overview";
+  return "subroute";
 }
 
 export function dashboardTabToPath(tab: DashboardTab): string {
