@@ -32,7 +32,7 @@ const navItems: { href: string; tab: DashboardTab; label: string; icon: any }[] 
 export function Sidebar() {
   const pathname = usePathname();
   const { toast } = useToast();
-  const { user, activeTab, navigateToTab } = useDashboardData();
+  const { user } = useDashboardData();
 
   const getInitials = (name: string) => {
     if (!name) return "?";
@@ -54,10 +54,6 @@ export function Sidebar() {
       <div className="h-16 px-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center shrink-0">
         <Link
           href="/dashboard"
-          onClick={(e) => {
-            e.preventDefault();
-            navigateToTab("overview");
-          }}
           className="flex items-center gap-2.5 group min-w-0"
         >
           {user?.logoUrl ? (
@@ -90,13 +86,12 @@ export function Sidebar() {
             <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Trial expires in {trialDaysLeft}d</p>
-              <button
-                type="button"
-                onClick={() => navigateToTab("billing")}
+              <Link
+                href="/dashboard/billing"
                 className="text-[10px] text-amber-700 dark:text-amber-400 underline cursor-pointer"
               >
                 View plans →
-              </button>
+              </Link>
             </div>
           </div>
         )}
@@ -107,16 +102,15 @@ export function Sidebar() {
           </p>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.tab;
+            const isActive =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname === item.href || (pathname?.startsWith(item.href + "/") ?? false);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 prefetch={true}
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigateToTab(item.tab);
-                }}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer",
                   isActive
@@ -137,10 +131,7 @@ export function Sidebar() {
           </p>
           <Link
             href="/dashboard/cases"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateToTab("cases");
-            }}
+            prefetch={true}
             className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group cursor-pointer"
           >
             <span>Active Checklists</span>
@@ -148,10 +139,7 @@ export function Sidebar() {
           </Link>
           <Link
             href="/dashboard/clients"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateToTab("clients");
-            }}
+            prefetch={true}
             className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group cursor-pointer"
           >
             <span>Client Vault</span>
@@ -165,10 +153,7 @@ export function Sidebar() {
         {user ? (
           <Link
             href="/dashboard/settings"
-            onClick={(e) => {
-              e.preventDefault();
-              navigateToTab("settings");
-            }}
+            prefetch={true}
             title="Manage Workspace Settings"
             className="p-2.5 bg-neutral-50 hover:bg-neutral-100/90 dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center gap-2.5 transition-colors group cursor-pointer"
           >

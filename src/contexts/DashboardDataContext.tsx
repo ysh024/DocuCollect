@@ -11,7 +11,7 @@ import React, {
 import { CaseWithDetails, Client } from "@/types";
 import { getDashboardData, getAdvisorNotificationsAction } from "@/app/actions/portal";
 import { getCurrentUserAction } from "@/app/actions/auth";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export interface DashboardMetrics {
   totalClients: number;
@@ -107,6 +107,7 @@ const DashboardDataContext = createContext<DashboardContextValue | null>(null);
 
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
     if (typeof window !== "undefined") {
       return pathToDashboardTab(window.location.pathname);
@@ -137,15 +138,13 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     const targetPath = target.startsWith("/dashboard") ? target : dashboardTabToPath(tab);
 
     setActiveTab(tab);
-    if (typeof window !== "undefined" && window.location.pathname !== targetPath) {
-      window.history.pushState(null, "", targetPath);
-    }
+    router.push(targetPath);
     // Instantly scroll content to top
     if (typeof window !== "undefined") {
       const scrollEl = document.getElementById("dashboard-scroll-container");
       if (scrollEl) scrollEl.scrollTop = 0;
     }
-  }, []);
+  }, [router]);
 
   const [data, setData] = useState<DashboardData | null>(globalDashboardCache);
   const [user, setUser] = useState<any | null>(globalUserCache);

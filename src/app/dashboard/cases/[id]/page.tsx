@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -34,7 +34,9 @@ import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function CaseDetailPage() {
   const params = useParams();
-  const rawId = params?.id;
+  const pathname = usePathname();
+  const pathnameId = pathname?.match(/\/dashboard\/cases\/([^/?#]+)/)?.[1];
+  const rawId = params?.id || pathnameId;
   const caseId = Array.isArray(rawId) ? rawId[0] : (rawId as string);
 
   const { toast } = useToast();
@@ -62,11 +64,11 @@ export default function CaseDetailPage() {
 
   // Sync cache if available
   useEffect(() => {
-    if (cachedCase && !caseData) {
+    if (cachedCase && (!caseData || caseData.id !== cachedCase.id)) {
       setCaseData(cachedCase);
       setLoading(false);
     }
-  }, [cachedCase, caseData]);
+  }, [cachedCase]);
 
   const loadCase = async () => {
     if (!caseId) return;
@@ -88,7 +90,7 @@ export default function CaseDetailPage() {
       if (serverRes) {
         setCaseData(serverRes);
         setErrorMessage(null);
-      } else if (!cachedCase) {
+      } else if (!cachedCase && !caseData) {
         setErrorMessage("Case not found or access restricted.");
       }
     } catch (err: any) {
@@ -102,7 +104,9 @@ export default function CaseDetailPage() {
   };
 
   useEffect(() => {
-    loadCase();
+    if (caseId) {
+      loadCase();
+    }
   }, [caseId]);
 
   // Document Review helper via direct API
