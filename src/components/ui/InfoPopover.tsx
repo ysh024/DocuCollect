@@ -130,7 +130,7 @@ export function RequirementsPopover({
     "Ensure documents are crisp and legible",
     "Capture all 4 corners in good lighting",
     "Avoid flash glare and extreme tilt",
-    "Supported: PDF, JPG, PNG up to 25MB",
+    "Supported: PDF, JPG, PNG up to 10MB",
   ],
   buttonLabel = "Guidelines",
   align = "right",

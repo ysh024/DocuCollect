@@ -104,7 +104,16 @@ export default function ClientUploadPortalPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <RequirementsPopover buttonLabel="Photo Tips" />
+            <RequirementsPopover
+              title="Tips for Clear Document Photos"
+              buttonLabel="Photo Tips"
+              items={[
+                "Maximum file size is 10 MB per document (PDF, JPG, PNG)",
+                "Place document on a flat surface in good lighting without shadows",
+                "Ensure all 4 corners and borders are inside the frame",
+                "Make sure names, numbers, and dates are sharp and readable",
+              ]}
+            />
             <ThemeToggle />
             <div className="text-right pl-2 border-l border-neutral-200 dark:border-neutral-700">
               <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate max-w-[120px]">{client.name}</p>
@@ -169,21 +178,9 @@ export default function ClientUploadPortalPage() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
               Documents to Provide ({requirements.length})
             </h3>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full border border-neutral-200/80 dark:border-neutral-700">
-                Max 10 MB / file
-              </span>
-              <RequirementsPopover
-                title="Tips for Clear Document Photos"
-                buttonLabel="Photo Tips"
-                items={[
-                  "Maximum file size is 10 MB per document (PDF, JPG, PNG)",
-                  "Place document on a flat surface in good lighting without shadows",
-                  "Ensure all 4 corners and borders are inside the frame",
-                  "Make sure names, numbers, and dates are sharp and readable",
-                ]}
-              />
-            </div>
+            <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full border border-neutral-200/80 dark:border-neutral-700">
+              Max 10 MB / file
+            </span>
           </div>
 
           {requirements.map((req, idx) => {
