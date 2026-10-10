@@ -836,8 +836,9 @@ export async function clientUploadDocumentAction(
     try {
       let fileBuffer: Buffer;
       if (fileInfo.data.startsWith("data:")) {
-        const matches = fileInfo.data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-        fileBuffer = Buffer.from(matches ? matches[2] : fileInfo.data, "base64");
+        const commaIdx = fileInfo.data.indexOf(",");
+        const base64Data = commaIdx !== -1 ? fileInfo.data.slice(commaIdx + 1) : fileInfo.data;
+        fileBuffer = Buffer.from(base64Data, "base64");
       } else {
         fileBuffer = Buffer.from(fileInfo.data, "base64");
       }
@@ -850,6 +851,8 @@ export async function clientUploadDocumentAction(
 
       if (uploadRes.success) {
         s3Uploaded = true;
+      } else {
+        console.warn("Storage upload failed, fallback to DB:", uploadRes.error);
       }
     } catch (uploadErr) {
       console.warn("Storage upload exception, fallback to DB:", uploadErr);
@@ -867,7 +870,7 @@ export async function clientUploadDocumentAction(
       ${s3Uploaded ? null : fileInfo.data || null},
       (now() + (${Number(retentionDays) || 7} * interval '1 day'))
     )
-    RETURNING *;
+    RETURNING id, requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at, uploaded_at;
   `;
 
   await sql`
@@ -902,7 +905,21 @@ export async function clientUploadDocumentAction(
   revalidatePath(`/upload/${token}`);
   revalidatePath(`/dashboard/cases/${c.id}`);
   revalidatePath("/dashboard");
-  return { success: true, document: newDocs[0] };
+  return {
+    success: true,
+    document: {
+      id: newDocs[0].id,
+      requirement_id: newDocs[0].requirement_id,
+      case_id: newDocs[0].case_id,
+      client_id: newDocs[0].client_id,
+      version: newDocs[0].version,
+      file_name: newDocs[0].file_name,
+      file_size: newDocs[0].file_size,
+      mime_type: newDocs[0].mime_type,
+      status: newDocs[0].status,
+      uploaded_at: newDocs[0].uploaded_at,
+    },
+  };
 }
 
 export async function raiseClientQueryAction(token: string, requirementId: string, message: string) {
