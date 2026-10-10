@@ -369,14 +369,19 @@ export default function BillingPage() {
                   <div>
                     {!isCurrent ? (
                       <a
-                        href={`mailto:${contactEmail}?subject=DocuCollect Upgrade - ${plan.display_name}&body=Hi,%0A%0AI would like to upgrade to the ${plan.display_name} plan.%0A%0AAccount Email: ${subscription?.email || ""}%0APeriod: Monthly / Yearly%0APayment will be completed via UPI / Bank Transfer.%0A%0AThanks`}
-                        className="w-full text-center py-2 rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-800 transition flex items-center justify-center gap-1 cursor-pointer"
+                        href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                          `Hello DocuCollect! I would like to upgrade my account (${subscription?.email || ""}) to the *${plan.display_name}* plan (${plan.price_monthly ? `₹${plan.price_monthly}/month` : ""}). Please share UPI payment details and issue my activation voucher key.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full text-center py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs hover:shadow"
                       >
-                        <span>Upgrade to {plan.display_name}</span>
-                        <ChevronRight className="w-3 h-3" />
+                        <MessageSquare className="w-3.5 h-3.5 text-white" />
+                        <span>Upgrade via WhatsApp</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </a>
                     ) : (
-                      <div className="w-full text-center py-2 rounded-lg bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
+                      <div className="w-full text-center py-2.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold border border-emerald-200">
                         Current Active Plan
                       </div>
                     )}
@@ -400,12 +405,12 @@ export default function BillingPage() {
                 Payment & Upgrade Channels
               </h2>
               <p className="text-xs text-neutral-500 mt-0.5">
-                Pay via your preferred method and submit proof to receive your activation voucher.
+                Pay via UPI or Net Banking and share screenshot on WhatsApp to receive your instant activation voucher key.
               </p>
             </div>
             <InfoPopover
               title="Official Payment Gateway"
-              text="Payment channels are verified by DocuCollect administrators. After payment, send confirmation to immediately obtain your license key."
+              text="Payment channels are verified by DocuCollect administrators. After payment, send confirmation on WhatsApp to immediately obtain your license voucher."
             />
           </div>
 
@@ -417,10 +422,10 @@ export default function BillingPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
                       <QrCode className="w-4 h-4 text-emerald-600" />
-                      UPI Payment
+                      UPI Payment (First Priority)
                     </span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded">
-                      Instant
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                      Instant Approval
                     </span>
                   </div>
                   <p className="text-xs text-neutral-500 mb-2">
@@ -443,8 +448,23 @@ export default function BillingPage() {
                   </div>
                 </div>
 
-                <div className="text-[11px] text-neutral-500">
-                  💡 Mention your registered email address ({subscription?.email || "account"}) in payment remarks.
+                <div className="space-y-2">
+                  <div className="text-[11px] text-neutral-500">
+                    💡 Mention your registered email ({subscription?.email || "account"}) in UPI remarks.
+                  </div>
+
+                  <a
+                    href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
+                      `Hello DocuCollect! I have made payment via UPI to ${upiId} for subscription upgrade.\n\nAccount Email: ${subscription?.email || ""}\nSending payment screenshot now. Please dispatch my activation voucher key.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>Send UPI Screenshot on WhatsApp</span>
+                    <ExternalLink className="w-3 h-3 opacity-80" />
+                  </a>
                 </div>
               </div>
             )}
@@ -512,35 +532,29 @@ export default function BillingPage() {
 
           {/* WhatsApp Proof Submission */}
           {paymentSettings?.show_whatsapp && (
-            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                  <MessageSquare className="w-4 h-4" />
+            <div className="p-4 bg-emerald-50/90 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <MessageSquare className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-neutral-900">Send Payment Proof to Receive Voucher</p>
+                  <p className="text-xs font-bold text-neutral-900">Instant Plan Approval on WhatsApp</p>
                   <p className="text-[11px] text-neutral-600">
-                    Send screenshot via WhatsApp to get your unique single-use activation voucher.
+                    Send your UPI transfer screenshot on WhatsApp to receive your single-use activation voucher key instantly.
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                 <a
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition"
                 >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>WhatsApp Admin</span>
-                  <ExternalLink className="w-3 h-3 opacity-70" />
-                </a>
-                <a
-                  href={`mailto:${contactEmail}?subject=DocuCollect Payment Proof&body=Hi, I have completed the payment. Please issue my license key for email: ${subscription?.email || ""}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-lg text-xs font-semibold transition"
-                >
-                  <span>Email Proof</span>
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Send Proof on WhatsApp</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                 </a>
               </div>
             </div>

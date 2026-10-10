@@ -110,7 +110,7 @@ const faqs = [
   },
   {
     q: "How do I activate a paid plan?",
-    a: "Contact us via the email on your dashboard settings page. Share your payment details (UPI/bank transfer), and we'll activate your plan within 24 hours. Online payment via UPI QR is coming soon.",
+    a: "Complete your payment via UPI in your dashboard Billing page and share the screenshot via WhatsApp. You will immediately receive a single-use license voucher key to instantly unlock your plan.",
   },
 ];
 

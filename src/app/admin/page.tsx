@@ -68,6 +68,7 @@ export default function AdminPortalPage() {
   const [generating, setGenerating] = useState(false);
   const [lastGeneratedKey, setLastGeneratedKey] = useState<any>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [dispatchPhone, setDispatchPhone] = useState("");
 
   // Direct Activation Form
   const [directEmail, setDirectEmail] = useState("");
@@ -665,22 +666,40 @@ export default function AdminPortalPage() {
                     <Copy className="w-4 h-4" />
                     <span>{copiedKey === "Key" ? "Copied!" : "Copy Key"}</span>
                   </button>
+                </div>
 
-                  <a
-                    href={`https://wa.me/?text=${encodeURIComponent(
-                      `Hello! Here is your one-time DocuCollect license key: ${lastGeneratedKey.code} (${lastGeneratedKey.plan_name.toUpperCase()} - ${lastGeneratedKey.period.toUpperCase()}). Please redeem it on your Billing page to activate your plan.`
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full sm:w-auto px-4 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 border border-neutral-700"
-                  >
-                    <MessageSquare className="w-4 h-4 text-emerald-400" />
-                    <span>Share on WhatsApp</span>
-                  </a>
+                <div className="p-3 bg-neutral-900/90 rounded-xl border border-neutral-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Send Voucher on WhatsApp (Primary Channel)</span>
+                    </label>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <input
+                      type="tel"
+                      value={dispatchPhone}
+                      onChange={(e) => setDispatchPhone(e.target.value)}
+                      placeholder="Customer WhatsApp Number (e.g. +91 98765 43210)"
+                      className="w-full sm:flex-1 bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                    />
+                    <a
+                      href={`https://wa.me/${dispatchPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                        `Hello! Here is your one-time DocuCollect license voucher key: *${lastGeneratedKey.code}* (${lastGeneratedKey.plan_name.toUpperCase()} - ${lastGeneratedKey.period.toUpperCase()}).\n\nPlease redeem it on your DocuCollect Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span>Dispatch on WhatsApp</span>
+                      <ExternalLink className="w-3 h-3 opacity-80" />
+                    </a>
+                  </div>
                 </div>
 
                 <p className="text-[11px] text-neutral-400">
-                  💡 Send this key to the customer. When they redeem it on their Billing page, their account will be upgraded instantly and the key will expire automatically.
+                  💡 Send this key to the customer via WhatsApp. When they enter it under "Redeem Key / Voucher" on their Billing page, their plan activates instantly.
                 </p>
               </div>
             )}
@@ -803,6 +822,20 @@ export default function AdminPortalPage() {
                             >
                               <Copy className="w-3.5 h-3.5" />
                             </button>
+
+                            {k.status === "active" && (
+                              <a
+                                href={`https://wa.me/?text=${encodeURIComponent(
+                                  `Hello! Here is your one-time DocuCollect license voucher key: *${k.code}* (${k.plan_name.toUpperCase()} - ${k.period.toUpperCase()}).\n\nPlease redeem it on your Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 hover:bg-emerald-950/80 rounded text-emerald-400 hover:text-emerald-300 transition"
+                                title="Send Key on WhatsApp"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                              </a>
+                            )}
 
                             {k.status === "active" && (
                               <button
