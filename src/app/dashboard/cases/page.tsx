@@ -75,24 +75,24 @@ export default function CasesListPage() {
       </div>
 
       {/* Filter & Search Toolbar */}
-      <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-neutral-400 dark:text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by case title, client name, or reference..."
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+            className="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg pl-9 pr-4 py-2 text-xs text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-neutral-800"
           />
         </div>
 
         <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
+          <Filter className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
           >
             <option value="all">All Statuses</option>
             <option value="waiting_for_client">Waiting for Client</option>
@@ -107,17 +107,17 @@ export default function CasesListPage() {
       {!data ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-48 bg-white rounded-2xl border border-slate-200/80 p-5 space-y-3 animate-pulse">
-              <div className="w-1/2 h-4 bg-slate-200 rounded" />
-              <div className="w-3/4 h-3 bg-slate-100 rounded" />
-              <div className="w-full h-12 bg-slate-50 rounded" />
+            <div key={i} className="h-48 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-5 space-y-3 animate-pulse">
+              <div className="w-1/2 h-4 bg-neutral-200 dark:bg-neutral-800 rounded" />
+              <div className="w-3/4 h-3 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+              <div className="w-full h-12 bg-neutral-50 dark:bg-neutral-800/40 rounded" />
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200/80 p-8">
-          <p className="text-sm font-semibold text-slate-700">No cases match the selected filter</p>
-          <p className="text-xs text-slate-400 mt-1">Try switching filters or creating a new case.</p>
+        <div className="col-span-full py-16 text-center bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-8">
+          <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">No cases match the selected filter</p>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">Try switching filters or creating a new case.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -131,46 +131,46 @@ export default function CasesListPage() {
             return (
               <div
                 key={c.id}
-                className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 group"
+                className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 group"
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-mono text-[11px] font-semibold text-slate-500">{c.reference_number}</span>
+                    <span className="font-mono text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">{c.reference_number}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badge.className}`}>
                       {badge.label}
                     </span>
                   </div>
 
                   <Link href={`/dashboard/cases/${c.id}`} className="block mt-2">
-                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {c.title}
                     </h3>
-                    <p className="text-xs text-slate-600 font-medium mt-0.5">{c.client.name}</p>
+                    <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium mt-0.5">{c.client.name}</p>
                   </Link>
 
-                  <p className="text-[11px] text-slate-500 mt-1">Service: {c.service_type}</p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1">Service: {c.service_type}</p>
                 </div>
 
                 {/* Progress */}
-                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                <div className="space-y-1.5 pt-2 border-t border-neutral-100 dark:border-neutral-800">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-medium text-slate-600">{approvedCount} of {totalReqs} approved</span>
-                    <span className="font-bold text-slate-800">{percentage}%</span>
+                    <span className="font-medium text-neutral-600 dark:text-neutral-400">{approvedCount} of {totalReqs} approved</span>
+                    <span className="font-bold text-neutral-800 dark:text-neutral-200">{percentage}%</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
+                  <div className="w-full bg-neutral-100 dark:bg-neutral-800 rounded-full h-1.5 overflow-hidden flex">
                     <div className="bg-emerald-500 h-full" style={{ width: `${(approvedCount / (totalReqs || 1)) * 100}%` }} />
                     <div className="bg-purple-500 h-full" style={{ width: `${(underReviewCount / (totalReqs || 1)) * 100}%` }} />
                   </div>
                 </div>
 
                 {/* Footer Actions */}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                <div className="flex items-center justify-between pt-3 border-t border-neutral-100 dark:border-neutral-800 text-xs">
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => setSelectedCaseForShare(c)}
                       title="WhatsApp Share"
-                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
                     >
                       <MessageSquareShare className="w-3.5 h-3.5" />
                     </button>
@@ -178,15 +178,15 @@ export default function CasesListPage() {
                       type="button"
                       onClick={() => handleCopyLink(c)}
                       title="Copy Link"
-                      className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                      className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer"
                     >
-                      {copiedId === c.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedId === c.id ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
                   </div>
 
                   <Link
                     href={`/dashboard/cases/${c.id}`}
-                    className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700 text-xs"
+                    className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 text-xs"
                   >
                     <span>Open Case</span>
                     <ChevronRight className="w-3.5 h-3.5" />
