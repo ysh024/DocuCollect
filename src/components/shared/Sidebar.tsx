@@ -10,13 +10,11 @@ import {
   Layers,
   Settings,
   ArrowUpRight,
-  LogOut,
   CreditCard,
   ShieldCheck,
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getCurrentUserAction, handleLogoutAction } from "@/app/actions/auth";
 import { useToast } from "@/components/ui/Toast";
 
 const navItems = [
@@ -35,18 +33,6 @@ export function Sidebar() {
   const pathname = usePathname();
   const { toast } = useToast();
   const { user } = useDashboardData();
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  const handleSignOut = async () => {
-    setLoggingOut(true);
-    toast({ title: "Signing out...", description: "Clearing active session." });
-    try {
-      await handleLogoutAction();
-      window.location.href = "/login";
-    } catch {
-      window.location.href = "/login";
-    }
-  };
 
   const getInitials = (name: string) => {
     if (!name) return "?";
@@ -149,10 +135,14 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* User + Sign Out */}
-      <div className="p-3 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
+      {/* Workspace Status Card (Settings Link) */}
+      <div className="p-3 border-t border-neutral-100 dark:border-neutral-800">
         {user ? (
-          <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center gap-2.5">
+          <Link
+            href="/dashboard/settings"
+            title="Manage Workspace Settings"
+            className="p-2.5 bg-neutral-50 hover:bg-neutral-100/90 dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center gap-2.5 transition-colors group cursor-pointer"
+          >
             {user.logoUrl ? (
               <div className="w-8 h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white dark:bg-neutral-800 p-0.5">
                 <img
@@ -167,27 +157,19 @@ export function Sidebar() {
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{user.organizationName}</p>
+              <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate group-hover:text-neutral-950 dark:group-hover:text-white">
+                {user.organizationName}
+              </p>
               <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
                 {isOnTrial
                   ? `Trial · ${trialDaysLeft ?? "?"} days left`
                   : user.subscription?.planDisplayName || "Active"}
               </p>
             </div>
-          </div>
+          </Link>
         ) : (
           <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 h-14 animate-pulse" />
         )}
-
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={loggingOut}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 border border-rose-200/60 dark:border-rose-900/40 transition-all cursor-pointer disabled:opacity-50"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>{loggingOut ? "Signing Out..." : "Sign Out"}</span>
-        </button>
       </div>
     </aside>
   );

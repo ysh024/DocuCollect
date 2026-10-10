@@ -9,7 +9,6 @@ import {
   Database,
   Shield,
   ExternalLink,
-  LogOut,
   FileText,
   Phone,
   Image as ImageIcon,
@@ -24,7 +23,6 @@ import { useToast } from "@/components/ui/Toast";
 import {
   getCurrentUserAction,
   updateFirmSettingsAction,
-  handleLogoutAction,
   removeFirmLogoAction,
 } from "@/app/actions/auth";
 import { SquareLogoCropperModal } from "@/components/settings/SquareLogoCropperModal";
@@ -43,7 +41,6 @@ export default function SettingsPage() {
   const [removingLogo, setRemovingLogo] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     if (contextUser) {
@@ -102,34 +99,15 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSignOut = async () => {
-    setLoggingOut(true);
-    try {
-      await handleLogoutAction();
-      window.location.href = "/login";
-    } catch {
-      window.location.href = "/login";
-    }
-  };
-
   return (
     <div className="space-y-6 w-full pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-neutral-900">Settings</h1>
-          <p className="text-xs text-neutral-500 mt-0.5">
+          <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">Settings</h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             Manage your firm profile, contact details, and document policies.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={loggingOut}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors self-start cursor-pointer"
-        >
-          <LogOut className="w-3.5 h-3.5" />
-          <span>{loggingOut ? "Signing Out..." : "Sign Out"}</span>
-        </button>
       </div>
 
       {/* Security & Infrastructure Status */}
