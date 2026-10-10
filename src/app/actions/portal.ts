@@ -830,7 +830,15 @@ export async function clientUploadDocumentAction(
     mimeType: fileInfo.type,
   });
 
-  // 2. Upload file binary directly to Neon Object Storage (Never store base64 in database)
+  // 2. Strict file size and binary validation (10 MB ceiling)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+  if (fileInfo.size > MAX_FILE_SIZE) {
+    return {
+      success: false,
+      error: `File exceeds the 10 MB upload limit (${(fileInfo.size / (1024 * 1024)).toFixed(1)} MB). Please choose a file under 10 MB.`,
+    };
+  }
+
   if (!fileInfo.data) {
     return { success: false, error: "No file content received for upload." };
   }
@@ -843,6 +851,13 @@ export async function clientUploadDocumentAction(
       fileBuffer = Buffer.from(base64Data, "base64");
     } else {
       fileBuffer = Buffer.from(fileInfo.data, "base64");
+    }
+
+    if (fileBuffer.length > MAX_FILE_SIZE) {
+      return {
+        success: false,
+        error: `Decoded file size exceeds the 10 MB upload limit (${(fileBuffer.length / (1024 * 1024)).toFixed(1)} MB). Please select a file under 10 MB.`,
+      };
     }
 
     const uploadRes = await uploadFileToStorage({

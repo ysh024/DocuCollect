@@ -43,8 +43,9 @@ export function FileUploadZone({
       return;
     }
 
-    if (file.size > 25 * 1024 * 1024) {
-      setError("File size exceeds 25 MB limit.");
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB limit
+    if (file.size > MAX_FILE_SIZE) {
+      setError("File size exceeds 10 MB limit. Please select a smaller file.");
       return;
     }
 
@@ -170,7 +171,7 @@ export function FileUploadZone({
                 <p className="text-[11px] font-semibold text-neutral-800">
                   {isReplacement ? "Upload replacement file" : "Select or drag file"}
                 </p>
-                <p className="text-[10px] text-neutral-400">PDF, JPG, PNG up to 25 MB</p>
+                <p className="text-[10px] text-neutral-400">PDF, JPG, PNG up to 10 MB</p>
               </div>
             </div>
 

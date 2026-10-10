@@ -167,15 +167,21 @@ export default function ClientUploadPortalPage() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
               Documents to Provide ({requirements.length})
             </h3>
-            <RequirementsPopover
-              title="Tips for Clear Document Photos"
-              buttonLabel="Photo Tips"
-              items={[
-                "Place document on a flat surface in good lighting without shadows",
-                "Ensure all 4 corners and borders are inside the frame",
-                "Make sure names, numbers, and dates are sharp and readable",
-              ]}
-            />
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200/80">
+                Max 10 MB / file
+              </span>
+              <RequirementsPopover
+                title="Tips for Clear Document Photos"
+                buttonLabel="Photo Tips"
+                items={[
+                  "Maximum file size is 10 MB per document (PDF, JPG, PNG)",
+                  "Place document on a flat surface in good lighting without shadows",
+                  "Ensure all 4 corners and borders are inside the frame",
+                  "Make sure names, numbers, and dates are sharp and readable",
+                ]}
+              />
+            </div>
           </div>
 
           {requirements.map((req, idx) => {

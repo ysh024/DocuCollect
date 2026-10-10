@@ -38,6 +38,8 @@ export function InteractiveFileUpload({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB limit
+
   const handleFile = (file: File) => {
     setError(null);
 
@@ -47,8 +49,8 @@ export function InteractiveFileUpload({
       return;
     }
 
-    if (file.size > 25 * 1024 * 1024) {
-      setError("File exceeds the 25 MB limit.");
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File exceeds the 10 MB limit (${formatBytes(file.size)}). Please select a file under 10 MB.`);
       return;
     }
 
@@ -157,7 +159,7 @@ export function InteractiveFileUpload({
               handleFile(e.dataTransfer.files[0]);
             }
           }}
-          className={`w-full py-3 px-4 rounded-xl border border-dashed text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+          className={`w-full py-3 px-4 rounded-xl border border-dashed text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
             isDragging
               ? "border-emerald-500 bg-emerald-50 text-emerald-800"
               : isReplacement
@@ -165,8 +167,11 @@ export function InteractiveFileUpload({
               : "border-neutral-300 bg-neutral-50/70 hover:bg-neutral-100 text-neutral-700"
           }`}
         >
-          <FileUp className="w-4 h-4 text-neutral-500" />
-          <span>{isReplacement ? "Tap to upload corrected file or photo" : "Tap to choose file or photo"}</span>
+          <div className="flex items-center gap-2">
+            <FileUp className="w-4 h-4 text-neutral-500" />
+            <span>{isReplacement ? "Tap to upload corrected file or photo" : "Tap to choose file or photo"}</span>
+          </div>
+          <span className="text-[10px] text-neutral-400 font-normal">PDF, JPG, PNG up to 10 MB</span>
         </button>
       ) : (
         /* Compact File Confirmation Card */
