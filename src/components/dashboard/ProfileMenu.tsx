@@ -151,7 +151,7 @@ export function ProfileMenu() {
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl">
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-xl border border-neutral-200/60 dark:border-neutral-800">
               {themeOptions.map((opt) => {
                 const Icon = opt.icon;
                 const isSelected = theme === opt.value;
@@ -162,8 +162,8 @@ export function ProfileMenu() {
                     onClick={() => setTheme(opt.value)}
                     className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white shadow-2xs border border-neutral-200/80 dark:border-neutral-700"
-                        : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700/60"
+                        ? "bg-white text-neutral-900 shadow-sm border border-neutral-200 dark:!bg-[#2e333b] dark:!text-white dark:!border-neutral-600"
+                        : "text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" />

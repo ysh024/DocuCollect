@@ -10,11 +10,194 @@
     color-scheme: dark;
   }
   body {
-    @apply bg-[#fafafa] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased selection:bg-neutral-900 selection:text-white dark:selection:bg-neutral-100 dark:selection:text-neutral-900;
+    @apply bg-[#fafafa] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 antialiased selection:bg-neutral-900 selection:text-white dark:selection:bg-neutral-100 dark:selection:text-neutral-900 transition-colors duration-150;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* =========================================================================
+   COMPREHENSIVE DARK MODE HARMONIZATION
+   Prevents inconsistent mixed black/white elements across all dashboard pages,
+   cards, tables, form controls, and dialogs.
+   ========================================================================= */
+
+/* Dark Mode Canvas & Card Surfaces */
+.dark body,
+.dark .bg-\[\#fafafa\],
+.dark .bg-\[\#fbfbfb\] {
+  background-color: #0c0d0e !important;
+  color: #f3f4f6 !important;
+}
+
+.dark .bg-white {
+  background-color: #151719 !important;
+}
+
+.dark .bg-neutral-50,
+.dark .bg-neutral-50\/60,
+.dark .bg-neutral-50\/80,
+.dark .bg-neutral-50\/90 {
+  background-color: #1b1e22 !important;
+}
+
+.dark .bg-neutral-100,
+.dark .bg-neutral-100\/70,
+.dark .bg-neutral-100\/80,
+.dark .bg-neutral-100\/90 {
+  background-color: #24282f !important;
+}
+
+.dark .bg-neutral-200,
+.dark .bg-neutral-200\/60,
+.dark .bg-neutral-200\/70 {
+  background-color: #2d333b !important;
+}
+
+/* Dark Mode Borders & Dividers */
+.dark .border-neutral-100,
+.dark .border-neutral-200,
+.dark .border-neutral-200\/60,
+.dark .border-neutral-200\/80,
+.dark .border-neutral-200\/90,
+.dark .border-neutral-300 {
+  border-color: #262a30 !important;
+}
+
+.dark .divide-neutral-100,
+.dark .divide-neutral-100\/80,
+.dark .divide-neutral-200 {
+  border-color: #262a30 !important;
+}
+
+/* Dark Mode Text Colors */
+.dark .text-neutral-900 {
+  color: #f9fafb !important;
+}
+
+.dark .text-neutral-800 {
+  color: #e5e7eb !important;
+}
+
+.dark .text-neutral-700 {
+  color: #d1d5db !important;
+}
+
+.dark .text-neutral-600 {
+  color: #9ca3af !important;
+}
+
+.dark .text-neutral-500 {
+  color: #858d99 !important;
+}
+
+.dark .text-neutral-400 {
+  color: #6b7280 !important;
+}
+
+/* Dark Mode Hovers */
+.dark .hover\:bg-neutral-50:hover,
+.dark .hover\:bg-neutral-50\/60:hover,
+.dark .hover\:bg-neutral-50\/80:hover {
+  background-color: #20242a !important;
+}
+
+.dark .hover\:bg-neutral-100:hover,
+.dark .hover\:bg-neutral-100\/70:hover,
+.dark .hover\:bg-neutral-200:hover {
+  background-color: #2a3038 !important;
+}
+
+.dark .hover\:text-neutral-900:hover {
+  color: #ffffff !important;
+}
+
+.dark .hover\:text-neutral-800:hover {
+  color: #f3f4f6 !important;
+}
+
+/* Form Inputs, Selects & Textareas in Dark Mode */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea {
+  background-color: #191c20 !important;
+  color: #f9fafb !important;
+  border-color: #2f353d !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #5c6370 !important;
+}
+
+/* Primary Action Buttons in Dark Mode (High contrast white pill on dark canvas) */
+.dark button.bg-neutral-900,
+.dark a.bg-neutral-900 {
+  background-color: #f9fafb !important;
+  color: #111827 !important;
+  border-color: #f9fafb !important;
+}
+
+.dark button.bg-neutral-900:hover,
+.dark a.bg-neutral-900:hover {
+  background-color: #e5e7eb !important;
+}
+
+.dark button.bg-neutral-900 svg,
+.dark a.bg-neutral-900 svg {
+  color: #111827 !important;
+}
+
+/* Status Badges & Accents in Dark Mode */
+.dark .bg-emerald-50,
+.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.14) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+.dark .text-emerald-700,
+.dark .text-emerald-800 {
+  color: #34d399 !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+.dark .text-amber-700,
+.dark .text-amber-800 {
+  color: #fbbf24 !important;
+}
+
+.dark .bg-rose-50,
+.dark .bg-rose-100 {
+  background-color: rgba(244, 63, 94, 0.14) !important;
+  border-color: rgba(244, 63, 94, 0.3) !important;
+}
+.dark .text-rose-700,
+.dark .text-rose-800 {
+  color: #fb7185 !important;
+}
+
+.dark .bg-indigo-50,
+.dark .bg-indigo-100 {
+  background-color: rgba(99, 102, 241, 0.14) !important;
+  border-color: rgba(99, 102, 241, 0.3) !important;
+}
+.dark .text-indigo-700,
+.dark .text-indigo-800 {
+  color: #a5b4fc !important;
+}
+
+.dark .bg-blue-50,
+.dark .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.14) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+.dark .text-blue-600,
+.dark .text-blue-700 {
+  color: #93c5fd !important;
 }
 
 /* Minimalist Scrollbar */
@@ -34,16 +217,19 @@
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #2a3038;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #3b424e;
 }
 
 .shadow-subtle {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 4px -1px rgba(0, 0, 0, 0.02);
 }
 
-.dark .shadow-subtle {
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 1px 4px -1px rgba(0, 0, 0, 0.3);
+.dark .shadow-subtle,
+.dark .shadow-sm,
+.dark .shadow-md,
+.dark .shadow-xl {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5) !important;
 }
