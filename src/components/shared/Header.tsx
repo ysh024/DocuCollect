@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Bell, Building2, MessageSquare, FileUp, Clock } from "lucide-react";
+import { Bell, Building2, MessageSquare, FileUp, Clock, Key } from "lucide-react";
 import { ProfileMenu } from "@/components/dashboard/ProfileMenu";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { RedeemVoucherModal } from "@/components/dashboard/RedeemVoucherModal";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export function Header() {
   const { user, notifications } = useDashboardData();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showRedeemModal, setShowRedeemModal] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,6 +50,17 @@ export function Header() {
         {/* Right: Quick actions, notifications, and clean profile menu */}
         <div className="flex items-center gap-2.5 sm:gap-3">
           
+          {/* Quick Redeem Activation Key / Voucher */}
+          <button
+            type="button"
+            onClick={() => setShowRedeemModal(true)}
+            title="Redeem Activation Key / Voucher"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-2xs hover:shadow-xs group"
+          >
+            <Key className="w-3.5 h-3.5 text-amber-500 transition-transform group-hover:rotate-12" />
+            <span className="hidden sm:inline">Redeem Key</span>
+          </button>
+
           {/* Quick 1-Click Dark/Light Mode Switcher */}
           <ThemeToggle />
 
@@ -117,6 +130,12 @@ export function Header() {
 
         </div>
       </div>
+
+      {/* Redeem Voucher / Activation Key Modal Window */}
+      <RedeemVoucherModal
+        isOpen={showRedeemModal}
+        onClose={() => setShowRedeemModal(false)}
+      />
     </header>
   );
 }

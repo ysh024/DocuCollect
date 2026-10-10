@@ -15,7 +15,9 @@ import {
   Building2,
   Sparkles,
   ExternalLink,
+  Key,
 } from "lucide-react";
+import { RedeemVoucherModal } from "./RedeemVoucherModal";
 import { useTheme, Theme } from "@/contexts/ThemeContext";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { handleLogoutAction } from "@/app/actions/auth";
@@ -27,6 +29,7 @@ export function ProfileMenu() {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside or escape key
@@ -192,6 +195,17 @@ export function ProfileMenu() {
               <CreditCard className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
               <span>Subscription & Billing</span>
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setIsRedeemModalOpen(true);
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors text-left cursor-pointer"
+            >
+              <Key className="w-4 h-4 text-amber-500" />
+              <span>Redeem Activation Key</span>
+            </button>
             <Link
               href="/dashboard/audit"
               onClick={() => setIsOpen(false)}
@@ -216,6 +230,12 @@ export function ProfileMenu() {
           </div>
         </div>
       )}
+
+      {/* Fast Redeem Voucher Modal */}
+      <RedeemVoucherModal
+        isOpen={isRedeemModalOpen}
+        onClose={() => setIsRedeemModalOpen(false)}
+      />
     </div>
   );
 }

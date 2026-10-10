@@ -1196,6 +1196,7 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
     return {
       success: true,
       message: `🎉 Success! Your account has been upgraded to ${plan.display_name} (${periodLabel})!`,
+      planName: plan.display_name as string,
     };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to redeem license key." };

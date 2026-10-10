@@ -19,7 +19,9 @@ import {
   HardDrive,
   Calendar,
   Ticket,
+  Key,
 } from "lucide-react";
+import { RedeemVoucherModal } from "@/components/dashboard/RedeemVoucherModal";
 import { InfoPopover } from "@/components/ui/InfoPopover";
 import {
   getSubscriptionAction,
@@ -45,6 +47,7 @@ export default function BillingPage() {
   // License Key Redemption
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -144,22 +147,34 @@ export default function BillingPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Billing & Subscriptions</h1>
+            <h1 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">Billing & Subscriptions</h1>
             <span
               className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
                 isActive
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
                   : isTrial
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-rose-50 text-rose-700 border-rose-200"
+                  ? "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                  : "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800"
               }`}
             >
               {subscription?.plan_display_name || "Free Trial"}
             </span>
           </div>
-          <p className="text-xs text-neutral-500 mt-0.5">
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             Manage your subscription tier, track client quotas, and upgrade your account.
           </p>
+        </div>
+
+        {/* Top Right: Fast Redeem Activation Key / Voucher Button */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsRedeemModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-bold text-xs rounded-xl shadow-xs hover:shadow transition-all cursor-pointer group"
+          >
+            <Key className="w-3.5 h-3.5 text-amber-400 dark:text-amber-600 transition-transform group-hover:rotate-12" />
+            <span>Redeem Key / Voucher</span>
+          </button>
         </div>
       </div>
 
@@ -577,6 +592,12 @@ export default function BillingPage() {
           </button>
         </form>
       </div>
+
+      {/* Redeem Voucher / Activation Key Modal Window */}
+      <RedeemVoucherModal
+        isOpen={isRedeemModalOpen}
+        onClose={() => setIsRedeemModalOpen(false)}
+      />
     </div>
   );
 }
