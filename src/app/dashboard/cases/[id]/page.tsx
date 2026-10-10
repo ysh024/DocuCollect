@@ -302,7 +302,7 @@ export default function CaseDetailPage() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
           >
             <MessageSquareShare className="w-3.5 h-3.5 text-emerald-400 dark:text-white" />
-            <span>Share WhatsApp</span>
+            <span>Share / Forward on WhatsApp</span>
           </button>
         </div>
       </div>

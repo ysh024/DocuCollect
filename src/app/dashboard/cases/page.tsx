@@ -169,7 +169,7 @@ export default function CasesListPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedCaseForShare(c)}
-                      title="WhatsApp Share"
+                      title="Share / Forward on WhatsApp"
                       className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
                     >
                       <MessageSquareShare className="w-3.5 h-3.5" />
