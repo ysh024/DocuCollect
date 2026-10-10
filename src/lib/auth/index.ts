@@ -268,6 +268,22 @@ export async function requireSession(): Promise<SessionPayload> {
 export async function logoutUser() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
+  invalidateUserCache();
+}
+
+interface CachedUserEntry {
+  user: any;
+  timestamp: number;
+}
+const userProfileCache = new Map<string, CachedUserEntry>();
+const USER_PROFILE_CACHE_TTL = 60000; // 60 seconds
+
+export function invalidateUserCache(userId?: string) {
+  if (userId) {
+    userProfileCache.delete(userId);
+  } else {
+    userProfileCache.clear();
+  }
 }
 
 /**
@@ -277,6 +293,11 @@ export async function logoutUser() {
 export async function getCurrentUser() {
   const session = await getSession();
   if (!session?.userId) return null;
+
+  const cached = userProfileCache.get(session.userId);
+  if (cached && Date.now() - cached.timestamp < USER_PROFILE_CACHE_TTL) {
+    return cached.user;
+  }
 
   const sql = getDb();
   if (!sql) return null;
@@ -300,7 +321,7 @@ export async function getCurrentUser() {
     if (users.length === 0) return null;
     const u = users[0] as any;
 
-    return {
+    const userObj = {
       id: u.id,
       email: u.email,
       fullName: u.full_name || u.email.split("@")[0],
@@ -324,6 +345,9 @@ export async function getCurrentUser() {
         maxStorageMb: u.max_storage_mb || 500,
       },
     };
+
+    userProfileCache.set(session.userId, { user: userObj, timestamp: Date.now() });
+    return userObj;
   } catch (err) {
     console.error("Error getting current user:", err);
     return null;

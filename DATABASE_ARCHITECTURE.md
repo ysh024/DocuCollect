@@ -383,14 +383,18 @@ To apply updates to Neon directly:
 node -e "const fs = require('fs'); const { neon } = require('@neondatabase/serverless'); const sql = neon(process.env.DATABASE_URL); sql.query(fs.readFileSync('neon/schema.sql', 'utf8')).then(() => console.log('Schema Updated!'));"
 ```
 
-### 9.2 How to Activate Plans for Paying Clients (Without Razorpay)
-When a client pays via UPI or Bank Transfer:
-1. Open `/dashboard/billing`.
-2. Click **"Redeem / Admin Activation"**.
-3. Enter the `ADMIN_SECRET` (configured in `.env.local` as `ADMIN_SECRET=admin123`).
-4. Enter the user's registered email, select the plan (Starter / Pro), and billing cycle (Monthly / Yearly).
-5. Click **"Activate Plan Instantly"**.
-   - The system immediately updates `public.subscriptions`, removes trial restrictions, and expands their client limit.
+### 9.2 How to Activate Plans for Paying Clients
+DocuCollect supports two complementary plan activation methods:
+
+#### Method A: Super Admin Control Center (`/admin`)
+1. Log in with an account having `role = 'owner'` or `role = 'admin'` and navigate to `/admin`.
+2. **Registered Users Tab:** View all signed-up consultants, their organization, trial expiration, and one-click account lock/unlock toggles.
+3. **Payments & Subscriptions Tab:** View payment submissions, inspect UPI transaction screenshots, and generate single-use voucher codes (e.g., `DOCU-START-30D`, `DOCU-PRO-365D`) to instantly unlock client accounts.
+
+#### Method B: Billing Dashboard Voucher Redemption
+1. The consultant navigates to `/dashboard/billing`.
+2. Enters their single-use voucher key into the **"Redeem Plan Voucher"** field.
+3. The server action verifies the voucher, marks it `is_redeemed = true`, and instantly unlocks their plan tier and capacity limits.
 
 ### 9.3 Connecting Resend / SMTP for Real Inboxes
 When you are ready to send live verification emails:

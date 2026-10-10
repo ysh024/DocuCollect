@@ -1,284 +1,320 @@
-# Client Document Collection Portal — Architecture Specification
+# DocuCollect — Complete Application Architecture Specification
 
-## 1. Executive Summary & Core Objectives
-The **Client Document Collection Portal** solves the chaotic document collection workflow typical of professional service firms (CAs, Tax consultants, Loan officers, Legal advisors). It eliminates unstructured WhatsApp/Email file dumps by providing:
-- A structured, white-label client upload portal accessed via cryptographically secure single-use/revocable links.
-- Real-time document checklists with validation, instant review (Approve/Reject with feedback), version retention, and completion gating.
-- Full audit trails and notification dispatching.
+> **System Version:** 3.0 (Production Architecture)  
+> **Framework:** Next.js 15 (App Router, React 19, Server Actions)  
+> **Database:** Neon Serverless PostgreSQL with Connection Pooling  
+> **Storage:** Neon S3 Object Storage (`@aws-sdk/client-s3`)  
+> **Auth Engines:** Neon Managed Better Auth (Google OAuth) + Salted Bcrypt & Email OTP + Stateless JWT  
+> **Primary Audience:** Chartered Accountants (CAs), Tax Consultants, Advocates, Legal Advisors, Corporate Agencies  
+
+---
+
+## 1. Executive Summary & Problem Space
+
+Professional service firms—particularly Chartered Accountants, tax practitioners, and law firms in India—frequently struggle with unstructured client document collection. Critical KYC, financial filings, and audit records arrive piecemeal across unorganized WhatsApp chats, disparate email chains, and photo dumps.
+
+### Problems Solved by DocuCollect:
+1. **WhatsApp & Email Chaos:** Scattered documents lead to missed deadlines, lost attachments, and unverified files.
+2. **Client Login Friction:** Requiring clients to create an account, remember passwords, or download an app leads to massive friction and abandoned requests.
+3. **Storage & Security Liabilities:** Storing multi-gigabyte client tax files permanently creates legal liabilities and database bloat.
+4. **Lack of Structured Review:** Advisors lack clear visibility into which specific documents are missing, approved, or pending revisions.
+
+### DocuCollect Solution:
+DocuCollect provides an enterprise-grade, link-based document collection portal:
+- **Zero-Friction Client Portal:** Clients click an encrypted WhatsApp link and upload directly from their phone camera or computer with **no account creation, no password, and no app install**.
+- **Structured Dynamic Checklists:** Cases define exact required and optional files with instant status tags (*Missing*, *Under Review*, *Approved*, *Rejected*).
+- **CA Review & Verification Suite:** Instant in-browser PDF/image preview, 1-click approvals, and customizable rejection templates.
+- **In-Grid Client Dossier & Vault:** Embedded responsive client management without disruptive modal popups.
+- **Automated Lifecycle & Storage Purge:** S3 object storage keeps databases light, and automated cron jobs permanently purge files after retention periods (7, 30, or 90 days).
+- **SaaS Monetization & 30-Day Free Trial:** Zero-risk trial gating with manual UPI payment workflows and single-use voucher unlock keys.
 
 ---
 
 ## 2. System Architecture & Topology
 
 ```mermaid
-flowchart TD
-    subgraph Client Layer
-        BrowserClient["Client Portal (/upload/[token])\n(No Login Required)"]
-        BrowserAdmin["Admin Dashboard (/dashboard)\n(Supabase Auth Session)"]
+flowchart TB
+    subgraph ClientLayer ["1. Client Interaction Layer"]
+        PublicClient["Client Mobile / Web Browser\n/upload/[token]\n(Zero Login Friction)"]
+        AdvisorPortal["Advisor / CA Dashboard\n/dashboard/*\n(Secure Session Guarded)"]
+        AdminConsole["Super Admin Panel\n/admin\n(Owner / Admin Guarded)"]
     end
 
-    subgraph Next.js App Router Backend
-        ServerActions["Server Actions & API Routes\n- Token Verification\n- Upload URL Generation\n- Document Review / Approval\n- Case & Client Management"]
-        SupabaseSSR["@supabase/ssr Auth & Client Helpers\n- User Context\n- Service Role (Server-Only Token Verification)"]
+    subgraph EdgeLayer ["2. Edge & Routing Layer (Next.js 15 App Router)"]
+        EdgeMiddleware["src/middleware.ts\n- Route Protection\n- Session Cookie Verification\n- Public Path Bypasses"]
+        ThemeEngine["Theme Engine\n- localStorage Sync\n- SSR Safe Hydration\n- Dual Light / Dark Tokens"]
     end
 
-    subgraph Supabase BaaS
-        SupabaseAuth["Supabase Auth (Admin GoTrue)"]
-        PostgresDB[("Supabase PostgreSQL DB\n(RLS, Enums, Audit Triggers)")]
-        PrivateStorage[("Supabase Storage\n(Private Bucket: 'client-documents')")]
+    subgraph ApplicationBackend ["3. Application & Server Action Layer"]
+        AuthActions["src/app/actions/auth.ts\n- Email OTP Sign-in / Sign-up\n- Password Reset Workflows\n- Session Token Minting (JWT)"]
+        PortalActions["src/app/actions/portal.ts\n- Token Verification\n- Presigned S3 Upload URLs\n- Doc Review & Auto-State Calc\n- In-Grid Client Dossier Queries"]
+        TemplateActions["src/app/actions/templates.ts\n- CA Checklist Templates\n- Preset Requirements"]
+        DownloadAPI["src/app/api/download/route.ts\n- Authenticated S3 Streaming\n- Presigned Read URLs (1hr TTL)"]
+        CronAPI["src/app/api/cron/cleanup/route.ts\n- 7/30/90 Day Auto-Purge\n- S3 Delete & DB Pruning"]
+        AdminAPI["src/app/api/admin/*\n- User Management\n- Plan Voucher Key Generation"]
     end
 
-    subgraph Notification Service
-        ResendAPI["Resend Email API / WhatsApp Web Click-to-Chat"]
+    subgraph AuthEngines ["4. Identity & Authentication Engine"]
+        NeonBetterAuth["Neon Managed Better Auth\n(Google OAuth 2.0 PKCE)"]
+        AppBcryptAuth["Application Auth Engine\n(10-Round Salted Bcrypt + JWT)"]
     end
 
-    BrowserAdmin -->|Auth Session| ServerActions
-    BrowserClient -->|Bearer / Token Param| ServerActions
-    ServerActions --> SupabaseAuth
-    ServerActions --> PostgresDB
-    ServerActions -->|Signed URLs (Read/Write)| PrivateStorage
-    ServerActions --> ResendAPI
+    subgraph DataStorage ["5. Persistence & Cloud Infrastructure"]
+        NeonPostgres[("Neon Serverless PostgreSQL\n- Pooled Connections\n- Row-Level Security (RLS)\n- Audit Logs & Cascade Rules")]
+        NeonS3[("Neon S3 Object Storage\n- Multi-Tenant Directory Paths\n- Presigned Direct Streaming\n- Zero Server Memory Overhead")]
+    end
+
+    PublicClient -->|Token Parameter| EdgeMiddleware
+    AdvisorPortal -->|Session Cookie| EdgeMiddleware
+    AdminConsole -->|Admin Cookie| EdgeMiddleware
+
+    EdgeMiddleware --> ApplicationBackend
+    ApplicationBackend --> AuthActions
+    ApplicationBackend --> PortalActions
+    ApplicationBackend --> TemplateActions
+    ApplicationBackend --> DownloadAPI
+    ApplicationBackend --> CronAPI
+    ApplicationBackend --> AdminAPI
+
+    AuthActions --> NeonBetterAuth
+    AuthActions --> AppBcryptAuth
+    AuthActions --> NeonPostgres
+
+    PortalActions --> NeonPostgres
+    PortalActions --> NeonS3
+
+    DownloadAPI --> NeonS3
+    CronAPI --> NeonS3
+    CronAPI --> NeonPostgres
 ```
 
 ---
 
-## 3. Database Schema Design (PostgreSQL / Supabase)
+## 3. Detailed Data Flow & Component Workflows
 
-### 3.1 Entity Relationship Diagram
+### 3.1 Client Upload Journey (Zero-Password Link)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Client (Mobile Browser)
+    actor CA as CA / Consultant
+    participant Web as Next.js Server Actions
+    participant DB as Neon PostgreSQL
+    participant S3 as Neon S3 Storage
+
+    CA->>Web: Create Client & Case with Checklist
+    Web->>DB: INSERT into clients, cases, document_requirements
+    Web->>DB: INSERT into upload_links (SHA-256 token hash)
+    Web-->>CA: Return WhatsApp shareable link (e.g. /upload/tok_abc123)
+    CA->>Client: Send link via WhatsApp Web Click-to-Chat
+    Client->>Web: Access /upload/tok_abc123
+    Web->>DB: Verify token hash, active status, and expiry
+    DB-->>Web: Return Case requirements, firm logo & colors
+    Web-->>Client: Render Mobile Checklist UI (4-color status cards)
+    Client->>Web: Upload File for Requirement (e.g. Bank Statement)
+    Web->>S3: Generate Presigned PutObjectCommand (10-minute expiry)
+    S3-->>Web: Presigned S3 Upload URL
+    Web-->>Client: Return Presigned S3 URL
+    Client->>S3: Direct binary stream upload (Zero Next.js memory usage)
+    Client->>Web: Notify upload complete with metadata
+    Web->>DB: INSERT into documents (storage_path, size, mime_type)
+    Web->>DB: UPDATE document_requirements SET status = 'under_review'
+    Web->>DB: Recalculate Case status -> 'under_review'
+    Web->>DB: INSERT into activity_logs
+    Web-->>CA: Real-time notification badge on Dashboard
+```
+
+---
+
+### 3.2 CA Review, In-Grid Dossier & Verification Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor CA as CA / Consultant
+    participant UI as Dashboard Clients Page
+    participant Web as Server Actions
+    participant DB as Neon PostgreSQL
+    participant S3 as Neon S3 Storage
+
+    CA->>UI: Clicks Cases Badge or Vault on Client row
+    Note over UI: In-Grid Dossier expands directly inside the table row.<br/>Zero modal popups. Side-by-side or tabbed grid.
+    UI->>Web: getClientWithDossierAction(clientId)
+    Web->>DB: Fetch Client cases, checklist requirements & uploaded files
+    DB-->>UI: Populate In-Grid Case list & Document Vault
+    CA->>UI: Clicks "Preview File"
+    UI->>Web: Request preview presigned URL
+    Web->>S3: Generate GetObjectCommand presigned URL (1hr TTL)
+    S3-->>UI: Stream PDF / Image into in-browser preview drawer
+    alt Approve Document
+        CA->>UI: Clicks "Approve"
+        UI->>Web: reviewDocumentAction(docId, 'approved')
+        Web->>DB: UPDATE documents SET status = 'approved'
+        Web->>DB: UPDATE document_requirements SET status = 'approved'
+        Web->>DB: Check if all required docs approved -> Auto-complete Case
+    else Reject Document with Reason
+        CA->>UI: Selects Rejection Reason (e.g. 'Blurry / Unreadable Scan')
+        UI->>Web: reviewDocumentAction(docId, 'rejected', reason)
+        Web->>DB: UPDATE documents SET status = 'rejected', rejection_reason = reason
+        Web->>DB: UPDATE document_requirements SET status = 'rejected'
+        Web->>DB: Set Case status -> 'waiting_for_client'
+    end
+    Web->>DB: INSERT into activity_logs
+    Web-->>UI: Real-time UI refresh with updated status badge
+```
+
+---
+
+## 4. Entity Relationship Model & Relational Schema
 
 ```mermaid
 erDiagram
-    ORGANIZATIONS ||--o{ USERS : "has members"
+    ORGANIZATIONS ||--o{ USERS : "employs"
     ORGANIZATIONS ||--o{ CLIENTS : "owns"
     ORGANIZATIONS ||--o{ CASES : "manages"
-    ORGANIZATIONS ||--o{ ACTIVITY_LOGS : "logs"
+    ORGANIZATIONS ||--o{ CHECKLIST_TEMPLATES : "creates"
+    ORGANIZATIONS ||--o{ ACTIVITY_LOGS : "records"
+    ORGANIZATIONS ||--o{ VOUCHERS : "redeems"
 
-    CLIENTS ||--o{ CASES : "has"
+    CLIENTS ||--o{ CASES : "associated with"
+    CLIENTS ||--o{ DOCUMENTS : "owns uploaded"
+
     CASES ||--o{ DOCUMENT_REQUIREMENTS : "defines"
     CASES ||--o{ UPLOAD_LINKS : "generates"
     CASES ||--o{ ACTIVITY_LOGS : "tracks"
 
     DOCUMENT_REQUIREMENTS ||--o{ DOCUMENTS : "collects versions"
-    DOCUMENTS ||--o{ ACTIVITY_LOGS : "audits"
+    DOCUMENTS ||--o{ ACTIVITY_LOGS : "logs events"
 ```
 
-### 3.2 Tables & Attributes
+### 4.1 Schema Tables Reference
 
-1. **`organizations`**
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `name` (TEXT, NOT NULL)
-   - `slug` (TEXT, UNIQUE)
-   - `logo_url` (TEXT)
-   - `branding_color` (TEXT, DEFAULT '#2563eb')
-   - `settings` (JSONB: default link expiry, max file size, allowed MIME types)
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
-   - `updated_at` (TIMESTAMPTZ, DEFAULT `now()`)
-
-2. **`users`** (Profiles linked to `auth.users`)
-   - `id` (UUID, PK, REFERENCES `auth.users(id)` ON DELETE CASCADE)
-   - `organization_id` (UUID, FK -> `organizations.id`, NOT NULL)
-   - `full_name` (TEXT, NOT NULL)
-   - `email` (TEXT, NOT NULL)
-   - `role` (TEXT, DEFAULT 'admin', CHECK `role IN ('owner', 'admin', 'staff')`)
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
-   - `updated_at` (TIMESTAMPTZ, DEFAULT `now()`)
-
-3. **`clients`**
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `organization_id` (UUID, FK -> `organizations.id`, NOT NULL)
-   - `name` (TEXT, NOT NULL)
-   - `email` (TEXT)
-   - `phone` (TEXT, NOT NULL)
-   - `alternate_phone` (TEXT)
-   - `company` (TEXT)
-   - `client_ref_id` (TEXT)
-   - `address` (TEXT)
-   - `notes` (TEXT)
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
-   - `updated_at` (TIMESTAMPTZ, DEFAULT `now()`)
-
-4. **`cases`**
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `organization_id` (UUID, FK -> `organizations.id`, NOT NULL)
-   - `client_id` (UUID, FK -> `clients.id` ON DELETE CASCADE, NOT NULL)
-   - `title` (TEXT, NOT NULL)
-   - `service_type` (TEXT NOT NULL, e.g., 'ITR Filing', 'GST Registration', 'Home Loan', 'Audit')
-   - `reference_number` (TEXT, NOT NULL)
-   - `status` (`case_status` ENUM: `'draft'`, `'active'`, `'waiting_for_client'`, `'under_review'`, `'completed'`, `'archived'`)
-   - `due_date` (DATE)
-   - `notes` (TEXT)
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
-   - `updated_at` (TIMESTAMPTZ, DEFAULT `now()`)
-
-5. **`document_requirements`**
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `case_id` (UUID, FK -> `cases.id` ON DELETE CASCADE, NOT NULL)
-   - `name` (TEXT, NOT NULL, e.g., 'PAN Card', 'Form 16', 'Bank Statement (6 Months)')
-   - `description` (TEXT)
-   - `is_required` (BOOLEAN, DEFAULT true)
-   - `allowed_types` (TEXT[], DEFAULT `ARRAY['application/pdf', 'image/jpeg', 'image/png', 'image/webp']`)
-   - `max_size_mb` (INTEGER, DEFAULT 25)
-   - `status` (`requirement_status` ENUM: `'not_uploaded'`, `'uploaded'`, `'under_review'`, `'approved'`, `'rejected'`)
-   - `sort_order` (INTEGER, DEFAULT 0)
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
-   - `updated_at` (TIMESTAMPTZ, DEFAULT `now()`)
-
-6. **`documents`** (File uploads & version retention)
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `requirement_id` (UUID, FK -> `document_requirements.id` ON DELETE CASCADE, NOT NULL)
-   - `case_id` (UUID, FK -> `cases.id` ON DELETE CASCADE, NOT NULL)
-   - `client_id` (UUID, FK -> `clients.id`, NOT NULL)
-   - `version` (INTEGER, DEFAULT 1)
-   - `file_name` (TEXT, NOT NULL)
-   - `storage_path` (TEXT, NOT NULL)
-   - `file_size` (BIGINT, NOT NULL)
-   - `mime_type` (TEXT, NOT NULL)
-   - `status` (`document_status` ENUM: `'under_review'`, `'approved'`, `'rejected'`)
-   - `rejection_reason` (TEXT)
-   - `uploaded_by_type` (TEXT, DEFAULT 'client')
-   - `uploaded_at` (TIMESTAMPTZ, DEFAULT `now()`)
-   - `reviewed_at` (TIMESTAMPTZ)
-   - `reviewed_by` (UUID, REFERENCES `users(id)`)
-
-7. **`upload_links`**
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `case_id` (UUID, FK -> `cases.id` ON DELETE CASCADE, NOT NULL)
-   - `token_hash` (TEXT, NOT NULL, UNIQUE) -- SHA-256 hash of plaintext token
-   - `token_prefix` (TEXT, NOT NULL) -- First 6 chars for identification
-   - `expires_at` (TIMESTAMPTZ)
-   - `revoked_at` (TIMESTAMPTZ)
-   - `last_used_at` (TIMESTAMPTZ)
-   - `created_by` (UUID, REFERENCES `users(id)`)
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
-
-8. **`activity_logs`**
-   - `id` (UUID, PK, `gen_random_uuid()`)
-   - `organization_id` (UUID, FK -> `organizations.id`, NOT NULL)
-   - `case_id` (UUID, FK -> `cases.id` ON DELETE CASCADE)
-   - `document_id` (UUID, FK -> `documents.id` ON DELETE SET NULL)
-   - `actor_type` (`actor_type` ENUM: `'admin'`, `'client'`, `'system'`)
-   - `actor_id` (TEXT) -- user_id if admin, token_id/client_id if client
-   - `action` (TEXT NOT NULL, e.g., 'case_created', 'link_generated', 'document_uploaded', 'document_approved', 'document_rejected', 'case_completed')
-   - `metadata` (JSONB DEFAULT '{}')
-   - `created_at` (TIMESTAMPTZ, DEFAULT `now()`)
+| Table | Primary Key | Key Columns | Purpose |
+| :--- | :--- | :--- | :--- |
+| **`organizations`** | `id` (UUID) | `name`, `slug`, `logo_url`, `branding_color`, `plan`, `trial_expires_at`, `is_locked`, `storage_used_bytes` | Multi-tenant root isolation entity. Controls 30-day trial status and plan tier. |
+| **`users`** | `id` (UUID) | `organization_id`, `email`, `full_name`, `password_hash`, `role`, `email_verified` | Consultant and staff profiles with role-based access. |
+| **`clients`** | `id` (UUID) | `organization_id`, `name`, `email`, `phone`, `company`, `address`, `notes` | Client dossier records owned by a firm. |
+| **`cases`** | `id` (UUID) | `organization_id`, `client_id`, `title`, `service_type`, `reference_number`, `status`, `due_date` | Service engagements (e.g., ITR Filing, GST Audit, Company Setup). |
+| **`document_requirements`**| `id` (UUID) | `case_id`, `name`, `description`, `is_required`, `allowed_types`, `max_size_mb`, `status`, `sort_order` | Individual checklist items needed for a case. |
+| **`documents`** | `id` (UUID) | `requirement_id`, `case_id`, `client_id`, `version`, `file_name`, `storage_path`, `file_size`, `status`, `expires_at` | Uploaded physical file metadata pointing to Neon S3 storage. |
+| **`upload_links`** | `id` (UUID) | `case_id`, `token_hash`, `token_prefix`, `expires_at`, `revoked_at`, `last_used_at` | Cryptographic upload links shared with clients. |
+| **`checklist_templates`** | `id` (UUID) | `organization_id`, `name`, `service_type`, `requirements` (JSONB) | Pre-built reusable checklist templates for CAs. |
+| **`activity_logs`** | `id` (UUID) | `organization_id`, `case_id`, `document_id`, `actor_type`, `action`, `metadata` | Comprehensive audit trail of every system action. |
+| **`vouchers`** | `id` (UUID) | `code`, `plan`, `duration_days`, `is_redeemed`, `redeemed_by_org_id`, `created_at` | Single-use activation vouchers issued by Super Admins. |
 
 ---
 
-## 4. State Transition Models
+## 5. Storage Architecture & Directory Partitioning
 
-### 4.1 Document Requirement Status Flow
+DocuCollect stores zero binary files in the database. All documents stream directly to **Neon S3 Object Storage** using multi-tenant directory partitioning.
+
+### 5.1 Object Key Convention
+```
+org-{orgId:0-12}/{clientId:0-12}/{caseId:0-12}/{requirementId:0-12}/v{version}_{sanitized_filename}
+```
+*Example:*  
+`org-e82a19b8cf1a/cl_92f1b80a/cs_119ab48f/rq_4810dc2e/v1_bank_statement_2025_26.pdf`
+
+### 5.2 Storage Security Matrix
+- **Bucket Visibility:** Completely private (`public = false`).
+- **Direct Streaming:** Direct presigned S3 URLs prevent server memory bottleneck.
+- **Short-Lived Presigned URLs:**
+  - **Upload URL:** 10 minutes TTL.
+  - **Download / Preview URL:** 1 hour TTL.
+- **Sanitization:** Special characters and path traversal sequences (`../`) are stripped before generating storage keys.
+
+---
+
+## 6. Security & Multi-Tenancy Architecture
+
+```
+[ Request Origin: Client / Advisor ]
+               │
+               ▼
+┌────────────────────────────────────────────────────────┐
+│ 1. Edge Route Middleware (src/middleware.ts)           │
+│    - Blocks unauthenticated access to /dashboard/*     │
+│    - Blocks non-admin access to /admin                 │
+│    - Verifies JWT and Better Auth session cookies      │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 2. Identity & Trial Guard (src/lib/auth)               │
+│    - requireSession(): Extracts authenticated user ID  │
+│    - TrialExpiryGuard: Verifies 30-day trial status    │
+│    - Locks uploads if plan expired                     │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 3. Organization Scoping in Server Actions              │
+│    - getAuthenticatedOrgId(): Resolves organization_id │
+│    - Enforces WHERE organization_id = $orgId on queries│
+│    - Prevents cross-tenant data leakage                │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 4. Cryptographic Link Verification (Public Uploads)   │
+│    - Computes SHA-256 hash of incoming plaintext token │
+│    - Compares against stored token_hash in upload_links│
+│    - Validates revoked_at IS NULL AND expires_at > now │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│ 5. Database Row-Level Security (PostgreSQL)            │
+│    - current_org_id() session parameter                │
+│    - Hard SQL-level tenant isolation                   │
+└────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Automated Retention & Auto-Purge Lifecycle
+
+To keep storage usage lean and protect sensitive financial records, DocuCollect features an automated retention engine:
+
+### 7.1 Retention Policies by Plan
+- **Free Trial Plan:** **7-day** retention.
+- **Starter Plan:** **30-day** retention.
+- **Professional Plan:** **90-day** retention.
+
+### 7.2 Cron Purge Flow (`/api/cron/cleanup`)
 ```mermaid
-stateDiagram-v2
-    [*] --> not_uploaded: Requirement Created
-    not_uploaded --> uploaded: Client Uploads File
-    uploaded --> under_review: Admin Views / Queue Active
-    under_review --> approved: Admin Approves
-    under_review --> rejected: Admin Rejects (Reason Provided)
-    rejected --> uploaded: Client Uploads Replacement (New Version)
-    approved --> [*]
-```
-
-### 4.2 Case Status Flow & Completion Logic
-```mermaid
-stateDiagram-v2
-    [*] --> draft: Initial Creation
-    draft --> waiting_for_client: Upload Link Generated & Sent
-    waiting_for_client --> under_review: Client Uploads All / Key Documents
-    under_review --> waiting_for_client: Any Required Document Rejected
-    under_review --> completed: ALL Required Documents are 'approved'
-    completed --> archived: Post-Service Retention
-```
-
-> **Completion Invariant**: A Case can ONLY transition to `completed` if `COUNT(required requirements WHERE status != 'approved') == 0`. Optional documents (`is_required = false`) do not block completion.
-
----
-
-## 5. Security Architecture & Access Control
-
-### 5.1 Row-Level Security (RLS) Matrix
-- **Admin Users**: Authenticated via Supabase Auth. Every query is filtered through `organization_id = (SELECT organization_id FROM users WHERE id = auth.uid())`.
-- **Client Upload Portal**: No end-user account creation required. Access is protected by high-entropy unguessable access tokens (`nanoid(32)` or `crypto.randomBytes(32)`).
-  - Tokens are hashed in the database (`SHA-256`).
-  - Verification is performed **strictly server-side** via Next.js Server Actions / Route Handlers using the Supabase Service Role client.
-  - No database keys with write access are exposed to the client browser.
-
-### 5.2 Storage Security & Storage Paths
-- **Bucket**: `client-documents` (Private, `public = false`).
-- **Storage Path Convention**:
-  `{organization_id}/{client_id}/{case_id}/{requirement_id}/v{version}_{sanitized_filename}`
-- **Upload Flow**:
-  1. Client calls server action `getSignedUploadUrl({ token, requirementId, filename, mimeType, fileSize })`.
-  2. Server verifies token validity, expiration, revocation, and requirement constraints (MIME type, size).
-  3. Server creates document record in `under_review`/`uploaded` status and issues a 10-minute temporary Supabase Signed Upload URL.
-  4. Client browser uploads direct to Supabase Storage via signed URL (zero server bandwidth bottleneck).
-- **Download/Preview Flow**:
-  1. Admin or authorized client requests preview/download.
-  2. Server verifies caller permissions and issues a signed read URL with 5–15 minute TTL.
-
----
-
-## 6. Directory Structure
-
-```
-d:\code\File Organizor/
-├── .env.example
-├── .env.local
-├── package.json
-├── tsconfig.json
-├── tailwind.config.ts
-├── postcss.config.mjs
-├── next.config.ts
-├── supabase/
-│   ├── migrations/
-│   │   └── 20261007000000_initial_schema.sql
-│   └── seed.sql
-├── src/
-│   ├── app/
-│   │   ├── layout.tsx
-│   │   ├── page.tsx
-│   │   ├── (auth)/
-│   │   │   └── login/
-│   │   │       └── page.tsx
-│   │   ├── dashboard/
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── clients/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [id]/page.tsx
-│   │   │   ├── cases/
-│   │   │   │   ├── page.tsx
-│   │   │   │   └── [id]/page.tsx
-│   │   │   └── settings/
-│   │   │       └── page.tsx
-│   │   ├── upload/
-│   │   │   └── [token]/
-│   │   │       └── page.tsx
-│   │   └── api/
-│   │       └── download/[documentId]/route.ts
-│   ├── components/
-│   │   ├── ui/ (Button, Dialog, Badge, Input, Card, Progress, etc.)
-│   │   ├── dashboard/ (CaseCard, StatWidgets, RecentActivity, ReviewModal)
-│   │   ├── client-portal/ (DocumentChecklist, FileUploader, StatusBanner)
-│   │   └── shared/ (Navbar, Sidebar, Logo, NotificationToast)
-│   ├── lib/
-│   │   ├── supabase/
-│   │   │   ├── client.ts (Browser client)
-│   │   │   ├── server.ts (Server Component / Action client)
-│   │   │   └── admin.ts (Service role privileged client)
-│   │   ├── tokens.ts (Crypto hashing and validation)
-│   │   ├── validations/ (Zod schemas for client, case, requirement, upload)
-│   │   ├── utils.ts (Formatting, cn helper, status badges)
-│   │   └── email.ts (Resend email dispatcher)
-│   └── types/
-│       ├── database.types.ts
-│       └── index.ts
+flowchart LR
+    CronTrigger["Cron Job Trigger\n(Vercel Cron / External Service)"]
+    CronTrigger --> QueryExp["Query documents WHERE\nexpires_at <= NOW()\nAND is_purged = false"]
+    QueryExp --> DeleteS3["DeleteObjectCommand\non Neon S3"]
+    DeleteS3 --> UpdateDB["UPDATE documents\nSET is_purged = true,\nstorage_path = NULL"]
+    UpdateDB --> LogAudit["INSERT into activity_logs\n('document_auto_purged')"]
 ```
 
 ---
 
-## 7. Next Steps & Implementation Roadmap
-1. Write Database Migration SQL with complete RLS and Triggers.
-2. Initialize Next.js project with Tailwind CSS, Lucide icons, and dependencies.
-3. Configure Supabase client libraries (Client, Server, Admin) and TypeScript Database definitions.
-4. Implement Admin Auth & Dashboard (Clients, Cases, Document Requirements, Review UI).
-5. Implement Client Upload Portal with Drag-and-Drop, Real-time Status, and Direct Storage Uploads.
+## 8. Billing, Monetization & Super Admin Console
+
+1. **30-Day Free Trial:** Every newly registered and verified consultant workspace receives an automatic 30-day full access trial (up to 10 active clients).
+2. **Trial Expiration Guard (`TrialExpiryGuard`):** When the trial expires:
+   - Dashboard views remain readable.
+   - Creating new cases and sharing active upload links is paused.
+   - User is guided to the **Billing** dashboard.
+3. **Manual UPI / Bank Transfer Payment Workflow:**
+   - User views the official UPI QR code and bank account details.
+   - User completes payment and submits payment proof.
+4. **Super Admin Control Center (`/admin`):**
+   - **Registered Users Tab:** View all signed-up consultants, organization names, email verification status, trial expiration dates, and one-click account lock/unlock toggles.
+   - **Payments & Subscriptions Tab:** View payment submissions and generate single-use voucher codes (e.g. `DOCU-START-30D`, `DOCU-PRO-365D`) to instantly unlock client plans.
+
+---
+
+## 9. Appearance & Theme Architecture (Light & Dark)
+
+DocuCollect implements an interactive dual-theme design system:
+- **Theme Provider (`src/contexts/ThemeContext.tsx`):** Coordinates `light`, `dark`, and `system` preferences, synchronized with `localStorage` and OS media queries.
+- **1-Click Theme Switcher (`src/components/ui/ThemeToggle.tsx`):** Available in the public Navbar, Pricing, Auth, and Dashboard headers.
+- **CSS Token Harmonization (`src/app/globals.css`):**
+  - Fallback dark rules use `:not([class*="dark:"])` filters, ensuring explicit Tailwind utility classes take full precedence.
+  - Guarantees WCAG 4.5:1+ contrast across all pages, badges, and form elements in both themes.

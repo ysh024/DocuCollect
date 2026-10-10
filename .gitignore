@@ -43,3 +43,7 @@ Thumbs.db
 # Vercel deployment cache
 .vercel
 node_modules
+
+# Cloudflare & OpenNext build output
+.open-next/
+.wrangler/

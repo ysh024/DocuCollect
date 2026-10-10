@@ -96,12 +96,30 @@ const DEFAULT_METRICS: DashboardMetrics = {
   casesAwaitingReview: 0,
 };
 
-// Global in-memory cache shared across client-side page transitions
+// Global in-memory and session cache shared across client-side page transitions
+const SESSION_CACHE_KEY = "docucollect_dashboard_cache_v2";
+
+function getStoredCache(): DashboardData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+function setStoredCache(data: DashboardData) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(data));
+  } catch {}
+}
+
 let globalDashboardCache: DashboardData | null = null;
 let globalUserCache: any | null = null;
 let globalNotificationsCache: any[] = [];
 let lastFetchTimestamp = 0;
-const CACHE_FRESHNESS_MS = 25000; // 25 seconds
+const CACHE_FRESHNESS_MS = 45000; // 45 seconds
 
 const DashboardDataContext = createContext<DashboardContextValue | null>(null);
 
@@ -143,24 +161,28 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     }
   }, [router]);
 
-  const [data, setData] = useState<DashboardData | null>(globalDashboardCache);
+  const [data, setData] = useState<DashboardData | null>(() => {
+    return globalDashboardCache || getStoredCache();
+  });
   const [user, setUser] = useState<any | null>(globalUserCache);
   const [notifications, setNotifications] = useState<any[]>(globalNotificationsCache);
-  const [loading, setLoading] = useState<boolean>(!globalDashboardCache);
+  const [loading, setLoading] = useState<boolean>(() => {
+    return !globalDashboardCache && !getStoredCache();
+  });
   const fetchingRef = useRef(false);
 
-  const refresh = useCallback(async (silent = false) => {
+  const refresh = useCallback(async (silent = false, forceFresh = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
-    if (!silent && !globalDashboardCache) {
+    if (!silent && !globalDashboardCache && !getStoredCache()) {
       setLoading(true);
     }
 
     try {
       // Parallel fetch for user, dashboard data, and notifications
       const [dashRes, userRes, notifsRes] = await Promise.all([
-        getDashboardData({ forceFresh: !silent }),
+        getDashboardData({ forceFresh }),
         !globalUserCache ? getCurrentUserAction() : Promise.resolve(globalUserCache),
         globalNotificationsCache.length === 0
           ? getAdvisorNotificationsAction()
@@ -169,6 +191,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
       if (dashRes) {
         globalDashboardCache = dashRes;
+        setStoredCache(dashRes);
         setData(dashRes);
         lastFetchTimestamp = Date.now();
       }
@@ -191,9 +214,10 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
+    const hasCache = Boolean(globalDashboardCache || getStoredCache());
     const isStale = Date.now() - lastFetchTimestamp > CACHE_FRESHNESS_MS;
-    if (!globalDashboardCache || isStale) {
-      refresh(Boolean(globalDashboardCache));
+    if (!hasCache || isStale) {
+      refresh(hasCache, false);
     }
   }, [refresh]);
 
@@ -205,6 +229,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const updatedCases = prev.cases.map((c) => (c.id === caseId ? updater(c) : c));
         const updated = { ...prev, cases: updatedCases };
         globalDashboardCache = updated;
+        setStoredCache(updated);
         return updated;
       });
     },
@@ -224,6 +249,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         });
         const updated = { ...prev, cases: updatedCases };
         globalDashboardCache = updated;
+        setStoredCache(updated);
         return updated;
       });
     },

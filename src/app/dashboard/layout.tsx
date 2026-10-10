@@ -32,7 +32,7 @@ export default function DashboardLayout({
           <Header />
 
           {/* Content Area with Trial Expiry Guard and Native Next.js Page Routing */}
-          <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto">
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
             <TrialExpiryGuard>
               {children}
             </TrialExpiryGuard>
