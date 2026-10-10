@@ -124,15 +124,23 @@ export default function ClientsPage() {
       {/* Clients Table */}
       <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-subtle overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs table-fixed min-w-[960px]">
+            <colgroup>
+              <col className="w-[24%]" />
+              <col className="w-[17%]" />
+              <col className="w-[18%]" />
+              <col className="w-[16%]" />
+              <col className="w-[10%]" />
+              <col className="w-[15%]" />
+            </colgroup>
             <thead className="bg-neutral-50/80 border-b border-neutral-100 text-neutral-500 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="py-3.5 px-6">Client Name & Ref ID</th>
-                <th className="py-3.5 px-4">Contact & WhatsApp</th>
-                <th className="py-3.5 px-4">Email</th>
-                <th className="py-3.5 px-4">Entity / Company</th>
-                <th className="py-3.5 px-4">Active Engagements</th>
-                <th className="py-3.5 px-6 text-right">Document Vault & Actions</th>
+                <th className="py-3.5 px-6 truncate">Client Name & Ref ID</th>
+                <th className="py-3.5 px-4 truncate">Contact & WhatsApp</th>
+                <th className="py-3.5 px-4 truncate">Email</th>
+                <th className="py-3.5 px-4 truncate">Entity / Company</th>
+                <th className="py-3.5 px-4 truncate">Active Engagements</th>
+                <th className="py-3.5 px-6 text-right truncate">Document Vault & Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -143,34 +151,34 @@ export default function ClientsPage() {
 
                 return (
                   <tr key={client.id} className="hover:bg-neutral-50/60 transition-colors">
-                    <td className="py-4 px-6">
-                      <p className="font-semibold text-neutral-900 text-xs">{client.name}</p>
-                      <span className="font-mono text-[10px] text-neutral-400">{client.client_ref_id || client.id}</span>
+                    <td className="py-4 px-6 min-w-0">
+                      <p className="font-semibold text-neutral-900 text-xs truncate">{client.name}</p>
+                      <span className="font-mono text-[10px] text-neutral-400 truncate block">{client.client_ref_id || client.id}</span>
                     </td>
 
-                    <td className="py-4 px-4 text-neutral-700 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <Phone className="w-3.5 h-3.5 text-neutral-400" />
-                        <span>{client.phone}</span>
+                    <td className="py-4 px-4 text-neutral-700 font-medium truncate">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Phone className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                        <span className="truncate">{client.phone}</span>
                       </div>
                     </td>
 
-                    <td className="py-4 px-4 text-neutral-600">
+                    <td className="py-4 px-4 text-neutral-600 truncate">
                       {client.email ? (
-                        <div className="flex items-center gap-1.5">
-                          <Mail className="w-3.5 h-3.5 text-neutral-400" />
-                          <span className="truncate max-w-[160px]">{client.email}</span>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Mail className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span className="truncate">{client.email}</span>
                         </div>
                       ) : (
                         <span className="text-neutral-400 italic">No email</span>
                       )}
                     </td>
 
-                    <td className="py-4 px-4 text-neutral-700 font-medium">
+                    <td className="py-4 px-4 text-neutral-700 font-medium truncate">
                       {client.company ? (
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-neutral-400" />
-                          <span className="truncate max-w-[140px]">{client.company}</span>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Building2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span className="truncate">{client.company}</span>
                         </div>
                       ) : (
                         <span className="text-neutral-400 italic">—</span>
@@ -178,19 +186,19 @@ export default function ClientsPage() {
                     </td>
 
                     <td className="py-4 px-4">
-                      <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 font-semibold text-[10px] border border-neutral-200">
+                      <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 font-semibold text-[10px] border border-neutral-200 shrink-0">
                         {clientCases.length} Cases
                       </span>
                     </td>
 
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1.5 flex-nowrap shrink-0">
                         {/* Edit Client Details */}
                         <button
                           type="button"
                           onClick={() => setEditingClient(client)}
                           title="Edit client details"
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 text-xs font-semibold transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 text-xs font-semibold transition-colors cursor-pointer shrink-0"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                           <span>Edit</span>
@@ -200,7 +208,7 @@ export default function ClientsPage() {
                         <button
                           type="button"
                           onClick={() => setVaultClient(client)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
                         >
                           <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
                           <span>Vault ({clientDocs.length})</span>
@@ -211,7 +219,7 @@ export default function ClientsPage() {
                           href={`https://wa.me/${cleanPhone}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-colors"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-colors shrink-0"
                         >
                           <MessageSquareShare className="w-3.5 h-3.5" />
                         </a>

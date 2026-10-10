@@ -353,16 +353,16 @@ export default function DashboardOverviewPage() {
 
         {/* Table Content with stable fixed column widths & minimum height */}
         <div className="overflow-x-auto min-h-[320px]">
-          <table className="w-full text-left text-xs table-fixed">
+          <table className="w-full text-left text-xs table-fixed min-w-[1040px]">
             <colgroup>
-              <col className="w-[28%]" />
-              <col className="w-[14%]" />
-              <col className="w-[14%]" />
-              <col className="w-[22%]" />
-              <col className="w-[10%]" />
+              <col className="w-[23%]" />
               <col className="w-[12%]" />
+              <col className="w-[13%]" />
+              <col className="w-[20%]" />
+              <col className="w-[10%]" />
+              <col className="w-[22%]" />
             </colgroup>
-            <thead className="bg-neutral-50/50 border-b border-neutral-100 text-neutral-400 font-medium text-[11px]">
+            <thead className="bg-neutral-50/60 border-b border-neutral-100 text-neutral-400 font-medium text-[11px]">
               <tr>
                 <th className="py-3 px-5 truncate">Case & Client</th>
                 <th className="py-3 px-4 truncate">Service</th>
@@ -421,14 +421,14 @@ export default function DashboardOverviewPage() {
                   return (
                     <tr key={c.id} className="hover:bg-neutral-50/60 transition-colors group">
                       <td className="py-3.5 px-5 min-w-0">
-                        <Link href={`/dashboard/cases/${c.id}`} className="block">
+                        <Link href={`/dashboard/cases/${c.id}`} className="block group">
                           <span className="font-semibold text-neutral-900 group-hover:text-neutral-600 transition-colors truncate block">
                             {c.title}
                           </span>
                           <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 mt-0.5 truncate">
-                            <span>{c.client.name}</span>
-                            <span>•</span>
-                            <span className="font-mono">{c.reference_number}</span>
+                            <span className="truncate">{c.client.name}</span>
+                            <span className="shrink-0">•</span>
+                            <span className="font-mono shrink-0">{c.reference_number}</span>
                           </div>
                         </Link>
                       </td>
@@ -443,37 +443,36 @@ export default function DashboardOverviewPage() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <div className="w-36 space-y-1.5">
+                        <div className="w-full max-w-[210px] space-y-1.5">
                           <div className="flex items-center justify-between text-[10px] text-neutral-500 font-medium">
                             <span>{approvedReqs}/{totalReqs} approved</span>
-                            <span>{percentage}%</span>
+                            <span className="font-semibold text-neutral-700">{percentage}%</span>
                           </div>
-                          <div className="w-full bg-neutral-100 rounded-full h-1 overflow-hidden flex">
-                            <div className="bg-emerald-500 h-full" style={{ width: `${(approvedReqs / (totalReqs || 1)) * 100}%` }} />
-                            <div className="bg-indigo-500 h-full" style={{ width: `${(underReviewReqs / (totalReqs || 1)) * 100}%` }} />
+                          <div className="w-full bg-neutral-100 rounded-full h-1.5 overflow-hidden flex">
+                            <div className="bg-emerald-500 h-full transition-all" style={{ width: `${(approvedReqs / (totalReqs || 1)) * 100}%` }} />
+                            <div className="bg-indigo-500 h-full transition-all" style={{ width: `${(underReviewReqs / (totalReqs || 1)) * 100}%` }} />
                           </div>
 
-                          {/* Interactive mini doc tags or subtle placeholder */}
+                          {/* Interactive mini doc tag with count */}
                           {caseDocs.length > 0 ? (
-                            <div className="flex items-center gap-1 flex-wrap pt-0.5 h-5">
-                              {caseDocs.slice(0, 2).map(({ doc, reqName }) => (
-                                <button
-                                  key={doc.id}
-                                  type="button"
-                                  onClick={() => setPreviewDoc({ doc, reqName, caseId: c.id })}
-                                  title={`View ${doc.file_name} in Pop-up`}
-                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-medium transition-colors cursor-pointer"
-                                >
-                                  <Eye className="w-2.5 h-2.5 text-emerald-600" />
-                                  <span className="truncate max-w-[80px]">{doc.file_name}</span>
-                                </button>
-                              ))}
-                              {caseDocs.length > 2 && (
-                                <span className="text-[9px] text-neutral-400 font-mono">+{caseDocs.length - 2}</span>
+                            <div className="flex items-center gap-1 min-w-0">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewDoc({ doc: caseDocs[0].doc, reqName: caseDocs[0].reqName, caseId: c.id })}
+                                title={`View ${caseDocs[0].doc.file_name} in Pop-up`}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[10px] font-medium transition-colors cursor-pointer truncate max-w-[140px]"
+                              >
+                                <Eye className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                                <span className="truncate">{caseDocs[0].doc.file_name}</span>
+                              </button>
+                              {caseDocs.length > 1 && (
+                                <span className="text-[10px] text-neutral-400 font-mono font-medium shrink-0">
+                                  +{caseDocs.length - 1}
+                                </span>
                               )}
                             </div>
                           ) : (
-                            <p className="text-[10px] text-neutral-400 pt-0.5 italic h-5 flex items-center">Awaiting client files</p>
+                            <p className="text-[10px] text-neutral-400 italic">Awaiting client files</p>
                           )}
                         </div>
                       </td>
@@ -483,19 +482,17 @@ export default function DashboardOverviewPage() {
                       </td>
 
                       <td className="py-3.5 px-5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {/* Direct Pop-Up View Document Icon or spacer */}
-                          {latestCaseDoc ? (
+                        <div className="flex items-center justify-end gap-1.5 flex-nowrap shrink-0">
+                          {/* Direct Pop-Up View Document Icon */}
+                          {latestCaseDoc && (
                             <button
                               type="button"
                               onClick={() => setPreviewDoc({ doc: latestCaseDoc.doc, reqName: latestCaseDoc.reqName, caseId: c.id })}
                               title={`Direct View Document: ${latestCaseDoc.doc.file_name}`}
-                              className="w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-colors cursor-pointer"
+                              className="w-7 h-7 rounded-lg text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200/60 flex items-center justify-center transition-all cursor-pointer shrink-0"
                             >
                               <Eye className="w-3.5 h-3.5" />
                             </button>
-                          ) : (
-                            <div className="w-7 h-7 shrink-0" />
                           )}
 
                           {/* Send Smart Reminder */}
@@ -503,7 +500,7 @@ export default function DashboardOverviewPage() {
                             type="button"
                             onClick={() => setSelectedCaseForReminder(c)}
                             title="Send Smart Reminder"
-                            className="w-7 h-7 rounded-lg text-neutral-500 hover:text-amber-700 hover:bg-amber-50 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-lg text-neutral-500 hover:text-amber-700 hover:bg-amber-50 border border-transparent hover:border-amber-200/60 flex items-center justify-center transition-all cursor-pointer shrink-0"
                           >
                             <Bell className="w-3.5 h-3.5" />
                           </button>
@@ -513,7 +510,7 @@ export default function DashboardOverviewPage() {
                             type="button"
                             onClick={() => setSelectedCaseForShare(c)}
                             title="Share via WhatsApp"
-                            className="w-7 h-7 rounded-lg text-neutral-500 hover:text-emerald-700 hover:bg-emerald-50 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-lg text-neutral-500 hover:text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200/60 flex items-center justify-center transition-all cursor-pointer shrink-0"
                           >
                             <MessageSquareShare className="w-3.5 h-3.5" />
                           </button>
@@ -523,7 +520,7 @@ export default function DashboardOverviewPage() {
                             type="button"
                             onClick={() => handleCopyLink(c)}
                             title="Copy Upload Link"
-                            className="w-7 h-7 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-7 h-7 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 border border-transparent hover:border-neutral-200 flex items-center justify-center transition-all cursor-pointer shrink-0"
                           >
                             {copiedId === c.id ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
@@ -531,7 +528,7 @@ export default function DashboardOverviewPage() {
                           {/* Open Review */}
                           <Link
                             href={`/dashboard/cases/${c.id}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-neutral-100 hover:bg-neutral-900 hover:text-white text-neutral-700 font-medium rounded-lg transition-colors text-[11px]"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 text-white font-medium rounded-lg transition-colors text-[11px] shadow-2xs shrink-0"
                           >
                             <span>Review</span>
                             <ArrowUpRight className="w-3 h-3" />
