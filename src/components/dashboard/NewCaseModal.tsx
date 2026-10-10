@@ -16,6 +16,7 @@ interface NewCaseModalProps {
   onClose: () => void;
   onSuccess: () => void;
   initialTemplate?: ChecklistTemplate | null;
+  initialClientId?: string;
 }
 
 const FALLBACK_TEMPLATES: Record<
@@ -52,9 +53,10 @@ export function NewCaseModal({
   onClose,
   onSuccess,
   initialTemplate,
+  initialClientId,
 }: NewCaseModalProps) {
   const { toast } = useToast();
-  const [clientId, setClientId] = useState<string>(clients[0]?.id || "");
+  const [clientId, setClientId] = useState<string>(initialClientId || clients[0]?.id || "");
   const [title, setTitle] = useState<string>("ITR Filing FY 2025-26");
   const [serviceType, setServiceType] = useState<string>("ITR Filing");
   const [referenceNumber, setReferenceNumber] = useState<string>(`CASE-${Date.now().toString().slice(-4)}`);
@@ -84,7 +86,10 @@ export function NewCaseModal({
       setServiceType(initialTemplate.service_type || "Custom Checklist");
       setRequirements(initialTemplate.requirements || []);
     }
-  }, [initialTemplate, isOpen]);
+    if (initialClientId) {
+      setClientId(initialClientId);
+    }
+  }, [initialTemplate, initialClientId, isOpen]);
 
   if (!isOpen) return null;
 

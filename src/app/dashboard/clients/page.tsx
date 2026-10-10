@@ -21,13 +21,18 @@ import {
   CheckCircle,
   FileSpreadsheet,
   Pencil,
+  Briefcase,
+  ChevronRight,
+  Copy,
+  Check,
 } from "lucide-react";
 import { getDashboardData } from "@/app/actions/portal";
 import { Client, CaseWithDetails, Document } from "@/types";
-import { formatDate, formatBytes } from "@/lib/utils";
+import { formatDate, formatBytes, getCaseStatusBadge } from "@/lib/utils";
 import { NewClientModal } from "@/components/dashboard/NewClientModal";
 import { EditClientModal } from "@/components/dashboard/EditClientModal";
 import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
+import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
@@ -40,6 +45,10 @@ export default function ClientsPage() {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [vaultClient, setVaultClient] = useState<Client | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ doc: Document; reqName: string; caseId?: string } | null>(null);
+  const [selectedClientForCases, setSelectedClientForCases] = useState<Client | null>(null);
+  const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
+  const [newCaseClientId, setNewCaseClientId] = useState<string | undefined>(undefined);
+  const [copiedCaseId, setCopiedCaseId] = useState<string | null>(null);
 
   const filtered = clients.filter((c) => {
     return (
@@ -75,7 +84,7 @@ export default function ClientsPage() {
         <div>
           <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Clients & Document Storage Vault</h1>
           <p className="text-xs text-neutral-500 mt-0.5">
-            View client portfolios, access structured document vaults, download files, and initiate WhatsApp contact.
+            View client portfolios, access structured document vaults, download files, and track client cases.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start">
@@ -104,8 +113,8 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Search Toolbar */}
-      <div className="p-4 bg-white rounded-2xl border border-neutral-200/80 shadow-subtle flex items-center justify-between gap-4">
+      {/* Search Toolbar & Case Metrics */}
+      <div className="p-4 bg-white rounded-2xl border border-neutral-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -116,8 +125,13 @@ export default function ClientsPage() {
             className="w-full bg-neutral-50/80 border border-neutral-200/80 rounded-lg pl-8 pr-4 py-2 text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 focus:bg-white transition-all"
           />
         </div>
-        <div className="text-xs text-neutral-500 font-medium">
-          Showing {filtered.length} client portfolios
+        <div className="flex items-center gap-3 text-xs text-neutral-500 font-medium">
+          <span>Showing <strong>{filtered.length}</strong> clients</span>
+          <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+          <span className="flex items-center gap-1">
+            <Briefcase className="w-3.5 h-3.5 text-neutral-400" />
+            <strong>{cases.length}</strong> Total Cases
+          </span>
         </div>
       </div>
 
@@ -139,7 +153,7 @@ export default function ClientsPage() {
                 <th className="py-3.5 px-4 truncate">Contact & WhatsApp</th>
                 <th className="py-3.5 px-4 truncate">Email</th>
                 <th className="py-3.5 px-4 truncate">Entity / Company</th>
-                <th className="py-3.5 px-4 truncate">Active Engagements</th>
+                <th className="py-3.5 px-4 truncate">Cases Count</th>
                 <th className="py-3.5 px-6 text-right truncate">Document Vault & Actions</th>
               </tr>
             </thead>
@@ -151,9 +165,27 @@ export default function ClientsPage() {
 
                 return (
                   <tr key={client.id} className="hover:bg-neutral-50/60 transition-colors">
+                    {/* Clickable Client Name to view related cases */}
                     <td className="py-4 px-6 min-w-0">
-                      <p className="font-semibold text-neutral-900 text-xs truncate">{client.name}</p>
-                      <span className="font-mono text-[10px] text-neutral-400 truncate block">{client.client_ref_id || client.id}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClientForCases(client)}
+                        className="text-left group/client cursor-pointer focus:outline-none w-full"
+                        title={`Click to view all ${clientCases.length} related cases for ${client.name}`}
+                      >
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <p className="font-semibold text-neutral-900 group-hover/client:text-emerald-600 dark:group-hover/client:text-emerald-400 group-hover/client:underline text-xs truncate transition-colors">
+                            {client.name}
+                          </p>
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-neutral-100 group-hover/client:bg-emerald-50 text-neutral-600 group-hover/client:text-emerald-700 border border-neutral-200/80 group-hover/client:border-emerald-300 shrink-0 transition-colors">
+                            <Briefcase className="w-2.5 h-2.5 text-neutral-400 group-hover/client:text-emerald-600" />
+                            {clientCases.length}
+                          </span>
+                        </div>
+                        <span className="font-mono text-[10px] text-neutral-400 truncate block mt-0.5">
+                          {client.client_ref_id || client.id}
+                        </span>
+                      </button>
                     </td>
 
                     <td className="py-4 px-4 text-neutral-700 font-medium truncate">
@@ -185,10 +217,17 @@ export default function ClientsPage() {
                       )}
                     </td>
 
+                    {/* Clickable Cases Count Badge */}
                     <td className="py-4 px-4">
-                      <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700 font-semibold text-[10px] border border-neutral-200 shrink-0">
-                        {clientCases.length} Cases
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedClientForCases(client)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 hover:bg-emerald-50 text-neutral-700 hover:text-emerald-700 font-semibold text-[10px] border border-neutral-200 hover:border-emerald-300 transition-colors cursor-pointer shrink-0 group shadow-2xs"
+                        title={`View all ${clientCases.length} cases for ${client.name}`}
+                      >
+                        <Briefcase className="w-3 h-3 text-neutral-500 group-hover:text-emerald-600 transition-colors" />
+                        <span>{clientCases.length} {clientCases.length === 1 ? "Case" : "Cases"}</span>
+                      </button>
                     </td>
 
                     <td className="py-4 px-6 text-right">
@@ -386,6 +425,259 @@ export default function ClientsPage() {
           onSuccess={() => refresh()}
         />
       )}
+
+      {/* Client Related Cases Modal Window */}
+      {selectedClientForCases && (() => {
+        const relatedCases = cases.filter((c) => c.client_id === selectedClientForCases.id);
+        const relatedDocs = getClientDocuments(selectedClientForCases.id);
+        const waitingCount = relatedCases.filter((c) => c.status === "waiting_for_client").length;
+        const inReviewCount = relatedCases.filter((c) => c.status === "under_review").length;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 overflow-hidden flex flex-col max-h-[85vh]">
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-neutral-900">{selectedClientForCases.name}</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700 border border-neutral-200">
+                        {relatedCases.length} {relatedCases.length === 1 ? "Case" : "Cases"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      {selectedClientForCases.company || "Individual Portfolio"} • {selectedClientForCases.phone} {selectedClientForCases.email ? `• ${selectedClientForCases.email}` : ""}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCaseClientId(selectedClientForCases.id);
+                      setIsNewCaseOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Case</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedClientForCases(null)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sub-bar: Overview Metrics */}
+              <div className="px-6 py-2.5 bg-neutral-50/40 border-b border-neutral-100 grid grid-cols-3 gap-3 text-center text-xs">
+                <div className="p-1.5 rounded-lg bg-white border border-neutral-100 shadow-2xs">
+                  <p className="text-[10px] text-neutral-400 font-medium">Total Cases</p>
+                  <p className="font-bold text-neutral-900 text-sm">{relatedCases.length}</p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-white border border-neutral-100 shadow-2xs">
+                  <p className="text-[10px] text-amber-600 font-medium">Waiting for Client</p>
+                  <p className="font-bold text-neutral-900 text-sm">{waitingCount}</p>
+                </div>
+                <div className="p-1.5 rounded-lg bg-white border border-neutral-100 shadow-2xs">
+                  <p className="text-[10px] text-indigo-600 font-medium">Under Review</p>
+                  <p className="font-bold text-neutral-900 text-sm">{inReviewCount}</p>
+                </div>
+              </div>
+
+              {/* Cases List */}
+              <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
+                {relatedCases.length === 0 ? (
+                  <div className="text-center py-12 space-y-3">
+                    <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto">
+                      <Briefcase className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-neutral-800">No cases found for this client</p>
+                      <p className="text-[11px] text-neutral-400 max-w-sm mx-auto mt-0.5">
+                        Create a document collection request case with customized checklist templates to get started.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewCaseClientId(selectedClientForCases.id);
+                        setIsNewCaseOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create First Case for {selectedClientForCases.name}</span>
+                    </button>
+                  </div>
+                ) : (
+                  relatedCases.map((c) => {
+                    const badge = getCaseStatusBadge(c.status);
+                    const totalReqs = c.requirements?.length || 0;
+                    const approvedCount = c.requirements?.filter((r) => r.status === "approved").length || 0;
+                    const underReviewCount = c.requirements?.filter((r) => r.status === "under_review" || r.status === "uploaded").length || 0;
+                    const percentage = totalReqs > 0 ? Math.round((approvedCount / totalReqs) * 100) : 0;
+                    const cleanPhone = selectedClientForCases.phone.replace(/[^0-9]/g, "");
+                    const token = c.upload_link?.token_hash || `token-${c.id.slice(0, 8)}`;
+                    const uploadUrl = typeof window !== "undefined" ? `${window.location.origin}/upload/${token}` : "";
+                    const waText = encodeURIComponent(
+                      `Hello ${selectedClientForCases.name}, please upload your documents for ${c.title} (${c.reference_number}) using this secure portal link:\n${uploadUrl}\n\nThank you!`
+                    );
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="p-4 bg-white rounded-xl border border-neutral-200/80 shadow-2xs hover:shadow-xs hover:border-neutral-300 transition-all space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/60">
+                                {c.reference_number}
+                              </span>
+                              <span className="text-[10px] font-semibold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-full border border-neutral-100">
+                                {c.service_type}
+                              </span>
+                            </div>
+                            <Link
+                              href={`/dashboard/cases/${c.id}`}
+                              className="text-sm font-bold text-neutral-900 hover:text-emerald-600 transition-colors mt-1 block"
+                            >
+                              {c.title}
+                            </Link>
+                          </div>
+
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badge.className}`}>
+                            {badge.label}
+                          </span>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="space-y-1 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-medium text-neutral-600">
+                              {approvedCount} of {totalReqs} requirements approved
+                            </span>
+                            <span className="font-bold text-neutral-800">{percentage}%</span>
+                          </div>
+                          <div className="w-full bg-neutral-200 h-1.5 rounded-full overflow-hidden flex">
+                            <div className="bg-emerald-500 h-full transition-all" style={{ width: `${totalReqs > 0 ? (approvedCount / totalReqs) * 100 : 0}%` }} />
+                            <div className="bg-amber-500 h-full transition-all" style={{ width: `${totalReqs > 0 ? (underReviewCount / totalReqs) * 100 : 0}%` }} />
+                          </div>
+                        </div>
+
+                        {/* Footer & Actions */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-neutral-100 text-xs">
+                          <div className="text-[10px] text-neutral-400">
+                            Created {formatDate(c.created_at)}
+                            {c.due_date && <span> • Due {formatDate(c.due_date)}</span>}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 self-end sm:self-center">
+                            {/* Copy Link */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(uploadUrl);
+                                setCopiedCaseId(c.id);
+                                toast({ title: "Upload Link Copied!", description: `Direct link for ${c.title} copied.` });
+                                setTimeout(() => setCopiedCaseId(null), 2000);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-medium transition-colors cursor-pointer"
+                              title="Copy client upload portal link"
+                            >
+                              {copiedCaseId === c.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span className="text-[11px] font-semibold text-emerald-700">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-neutral-500" />
+                                  <span className="text-[11px]">Copy Link</span>
+                                </>
+                              )}
+                            </button>
+
+                            {/* WhatsApp Share */}
+                            <a
+                              href={`https://wa.me/${cleanPhone}?text=${waText}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium transition-colors"
+                              title="Share checklist link on WhatsApp"
+                            >
+                              <MessageSquareShare className="w-3 h-3" />
+                              <span className="text-[11px]">WhatsApp</span>
+                            </a>
+
+                            {/* Open Checklist Link */}
+                            <Link
+                              href={`/dashboard/cases/${c.id}`}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold shadow-2xs transition-colors"
+                            >
+                              <span>Open Case</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3.5 bg-neutral-50/70 border-t border-neutral-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cl = selectedClientForCases;
+                    setSelectedClientForCases(null);
+                    setVaultClient(cl);
+                  }}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 hover:text-neutral-900 cursor-pointer"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>View Document Vault ({relatedDocs.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedClientForCases(null)}
+                  className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* New Case Modal */}
+      <NewCaseModal
+        clients={clients}
+        isOpen={isNewCaseOpen}
+        initialClientId={newCaseClientId}
+        onClose={() => {
+          setIsNewCaseOpen(false);
+          setNewCaseClientId(undefined);
+        }}
+        onSuccess={() => {
+          setIsNewCaseOpen(false);
+          setNewCaseClientId(undefined);
+          refresh();
+        }}
+      />
     </div>
   );
 }
