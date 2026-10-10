@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Pencil, Info } from "lucide-react";
 import { updateClientAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
@@ -21,6 +22,7 @@ export function EditClientModal({
 }: EditClientModalProps) {
   const { toast } = useToast();
 
+  const [mounted, setMounted] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -30,6 +32,10 @@ export function EditClientModal({
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (client) {
@@ -44,7 +50,7 @@ export function EditClientModal({
     }
   }, [client]);
 
-  if (!isOpen || !client) return null;
+  if (!isOpen || !client || !mounted) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,8 +94,8 @@ export function EditClientModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-lg w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden flex flex-col transition-colors">
         {/* Header */}
         <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/60 dark:bg-neutral-800/80">
@@ -250,6 +256,7 @@ export function EditClientModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

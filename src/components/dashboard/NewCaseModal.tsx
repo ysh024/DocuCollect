@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Client, ChecklistTemplate } from "@/types";
 import { X, Plus, Trash2, Sparkles, Briefcase, BookmarkPlus, Layers } from "lucide-react";
 import { createCaseAction } from "@/app/actions/portal";
@@ -56,7 +57,12 @@ export function NewCaseModal({
   initialClientId,
 }: NewCaseModalProps) {
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
   const [clientId, setClientId] = useState<string>(initialClientId || clients[0]?.id || "");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [title, setTitle] = useState<string>("ITR Filing FY 2025-26");
   const [serviceType, setServiceType] = useState<string>("ITR Filing");
   const [referenceNumber, setReferenceNumber] = useState<string>(`CASE-${Date.now().toString().slice(-4)}`);
@@ -189,9 +195,11 @@ export function NewCaseModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
-      <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 overflow-hidden my-8">
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10002] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in overflow-y-auto">
+      <div className="bg-white dark:bg-neutral-900 rounded-xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden my-8 transition-colors">
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
           <div className="flex items-center gap-2 text-neutral-900">
@@ -499,6 +507,7 @@ export function NewCaseModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

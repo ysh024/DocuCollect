@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Download,
@@ -38,6 +39,7 @@ export function DocumentPreviewModal({
   onStatusUpdated,
 }: DocumentPreviewModalProps) {
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [loadingAction, setLoadingAction] = useState(false);
@@ -46,7 +48,11 @@ export function DocumentPreviewModal({
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [loadingReject, setLoadingReject] = useState(false);
 
-  if (!isOpen || !document) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !document || !mounted) return null;
 
   const effectiveReqId = requirementId || document.requirement_id;
   const downloadUrl = `/api/download?file=${encodeURIComponent(document.storage_path || "")}&name=${encodeURIComponent(document.file_name)}&id=${document.id}`;
@@ -103,12 +109,12 @@ export function DocumentPreviewModal({
     setRotation((r) => (r + 90) % 360);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-neutral-950/75 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl w-full max-w-5xl h-[92vh] max-h-[880px] shadow-2xl border border-neutral-200/90 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+  return createPortal(
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-5xl h-[92vh] max-h-[880px] shadow-2xl border border-neutral-200/90 dark:border-neutral-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 transition-colors">
         
         {/* Top Header Toolbar */}
-        <div className="px-5 py-3 border-b border-neutral-200/90 flex items-center justify-between bg-neutral-50/90 shrink-0 gap-3">
+        <div className="px-5 py-3 border-b border-neutral-200/90 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/90 dark:bg-neutral-800/90 shrink-0 gap-3">
           {/* File info */}
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center shrink-0 shadow-2xs">
@@ -319,8 +325,8 @@ export function DocumentPreviewModal({
           </div>
         ) : (
           /* Normal Action Footer */
-          <div className="px-5 py-3 bg-white border-t border-neutral-200/90 flex items-center justify-between shrink-0 z-10">
-            <div className="text-xs text-neutral-500">
+          <div className="px-5 py-3 bg-white dark:bg-neutral-900 border-t border-neutral-200/90 dark:border-neutral-800 flex items-center justify-between shrink-0 z-10 transition-colors">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400">
               <span className="hidden sm:inline text-[11px]">
                 Uploaded {formatDateTime(document.uploaded_at)} • Direct encrypted preview
               </span>
@@ -330,7 +336,7 @@ export function DocumentPreviewModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition cursor-pointer"
+                className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-xl transition cursor-pointer"
               >
                 Close
               </button>
@@ -365,6 +371,7 @@ export function DocumentPreviewModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    window.document.body
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   UserPlus,
@@ -72,6 +73,12 @@ export function NewClientModal({
   const currentCount = existingClients.length;
   const remainingSlots = Math.max(0, maxAllowed - currentCount);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Sync tab when modal opens or initialTab changes
   useEffect(() => {
     if (isOpen) {
@@ -81,7 +88,7 @@ export function NewClientModal({
     }
   }, [isOpen, initialTab]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   // Reset CSV state
   const resetCsv = () => {
@@ -414,8 +421,8 @@ export function NewClientModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 dark:bg-black/70 backdrop-blur-xs animate-in fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
       <div className="bg-white dark:bg-[#15181e] rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/60 dark:bg-neutral-900/60">
@@ -840,6 +847,7 @@ export function NewClientModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
