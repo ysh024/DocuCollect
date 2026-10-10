@@ -25,17 +25,7 @@ import {
   Zap,
   CreditCard,
 } from "lucide-react";
-import {
-  generateLicenseKeyAction,
-  getLicenseKeysAction,
-  revokeLicenseKeyAction,
-  activateSubscriptionAction,
-  getAdminOverviewAction,
-  getPublicPaymentSettingsAction,
-  updatePaymentSettingsAction,
-  toggleUserDeactivationAction,
-  PublicPaymentSettings,
-} from "@/app/actions/portal";
+import type { PublicPaymentSettings } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
 
 export default function AdminPortalPage() {
@@ -103,36 +93,32 @@ export default function AdminPortalPage() {
 
   const callAdminAction = async (
     actionType: string,
-    serverActionFn: () => Promise<any>,
-    payload?: any
+    payload?: any,
+    overrides?: { secret?: string; email?: string }
   ) => {
-    try {
-      return await serverActionFn();
-    } catch (err: any) {
-      console.warn(`Server action for ${actionType} encountered issue (${err.message}), using direct API fallback...`);
-      const res = await fetch("/api/admin/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ actionType, adminSecret, adminEmail, payload }),
-      });
-      return await res.json();
-    }
+    const secret =
+      overrides?.secret ||
+      adminSecret ||
+      (typeof window !== "undefined" ? sessionStorage.getItem("dc_admin_secret") : "") ||
+      "";
+    const email =
+      overrides?.email ||
+      adminEmail ||
+      (typeof window !== "undefined" ? sessionStorage.getItem("dc_admin_email") : "") ||
+      "";
+
+    const res = await fetch("/api/admin/action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actionType, adminSecret: secret, adminEmail: email, payload }),
+    });
+    return await res.json();
   };
 
   const verifyAndLoad = async (secret: string, email?: string) => {
     setAuthLoading(true);
     try {
-      let res: any;
-      try {
-        res = await getAdminOverviewAction({ adminSecret: secret, adminEmail: email });
-      } catch {
-        const apiRes = await fetch("/api/admin/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ actionType: "overview", adminSecret: secret, adminEmail: email }),
-        });
-        res = await apiRes.json();
-      }
+      const res = await callAdminAction("overview", undefined, { secret, email });
 
       if (res?.success) {
         setIsAuthenticated(true);
@@ -141,7 +127,12 @@ export default function AdminPortalPage() {
         setStats(res.stats);
         setKeysList(res.keys || []);
         setRecentUsers(res.recentUsers || []);
-        getPublicPaymentSettingsAction().then(setPaymentSettings).catch(console.error);
+
+        callAdminAction("get_payment", undefined, { secret, email })
+          .then((pRes) => {
+            if (pRes?.settings) setPaymentSettings(pRes.settings);
+          })
+          .catch(console.error);
       } else {
         sessionStorage.removeItem("dc_admin_secret");
         sessionStorage.removeItem("dc_admin_email");
@@ -158,11 +149,7 @@ export default function AdminPortalPage() {
     e.preventDefault();
     setSavingPayment(true);
     try {
-      const res = await callAdminAction(
-        "save_payment",
-        () => updatePaymentSettingsAction({ adminSecret, adminEmail, settings: paymentSettings }),
-        { settings: paymentSettings }
-      );
+      const res = await callAdminAction("save_payment", { settings: paymentSettings });
       if (res?.success) {
         toast({ title: "Settings Saved!", description: "Public payment information updated in database." });
       } else {
@@ -200,10 +187,7 @@ export default function AdminPortalPage() {
     if (!adminSecret) return;
     setLoadingData(true);
     try {
-      const res = await callAdminAction(
-        "overview",
-        () => getAdminOverviewAction({ adminSecret, adminEmail })
-      );
+      const res = await callAdminAction("overview");
       if (res?.success) {
         setStats(res.stats);
         setKeysList(res.keys || []);
@@ -232,21 +216,14 @@ export default function AdminPortalPage() {
         period: genPeriod,
         notes: genNotes.trim(),
       };
-      const res = await callAdminAction(
-        "generate_key",
-        () => generateLicenseKeyAction({ adminSecret, adminEmail, ...payload }),
-        payload
-      );
+      const res = await callAdminAction("generate_key", payload);
 
       if (res?.success) {
         setLastGeneratedKey(res.key);
         setGenNotes("");
         toast({ title: "Key Created!", description: res.key.code });
         // Refresh keys
-        const refreshed = await callAdminAction(
-          "keys",
-          () => getLicenseKeysAction({ adminSecret, adminEmail })
-        );
+        const refreshed = await callAdminAction("keys");
         if (refreshed?.success) setKeysList(refreshed.keys || []);
       } else {
         toast({ title: "Generation Failed", description: res?.error });
@@ -262,17 +239,10 @@ export default function AdminPortalPage() {
   const handleRevoke = async (keyId: string) => {
     if (!confirm("Are you sure you want to deactivate this license key permanently?")) return;
     try {
-      const res = await callAdminAction(
-        "revoke_key",
-        () => revokeLicenseKeyAction({ adminSecret, adminEmail, keyId }),
-        { keyId }
-      );
+      const res = await callAdminAction("revoke_key", { keyId });
       if (res?.success) {
         toast({ title: "Key Revoked", description: "License key is now deactivated." });
-        const refreshed = await callAdminAction(
-          "keys",
-          () => getLicenseKeysAction({ adminSecret, adminEmail })
-        );
+        const refreshed = await callAdminAction("keys");
         if (refreshed?.success) setKeysList(refreshed.keys || []);
       } else {
         toast({ title: "Error", description: res?.error });
@@ -294,11 +264,7 @@ export default function AdminPortalPage() {
         paymentMethod: "admin_direct",
         paymentNotes: "Activated via Admin Portal",
       };
-      const res = await callAdminAction(
-        "activate_subscription",
-        () => activateSubscriptionAction({ adminSecret, adminEmail, ...payload }),
-        payload
-      );
+      const res = await callAdminAction("activate_subscription", payload);
 
       if (res?.success) {
         toast({ title: "Account Upgraded!", description: res.message });
@@ -328,16 +294,12 @@ export default function AdminPortalPage() {
 
     setDeactivatingUserId(userId);
     try {
-      const res = await callAdminAction(
-        "toggle_deactivation",
-        () => toggleUserDeactivationAction({ adminSecret, adminEmail, userId, deactivate }),
-        { userId, deactivate }
-      );
+      const res = await callAdminAction("toggle_deactivation", { userId, deactivate });
 
-      if (!res.success) {
+      if (!res?.success) {
         toast({
           title: "Action Failed",
-          description: res.error || `Failed to ${actionVerb} account.`,
+          description: res?.error || `Failed to ${actionVerb} account.`,
         });
       } else {
         toast({

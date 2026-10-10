@@ -8,6 +8,7 @@ import {
   getLicenseKeysAction,
   toggleUserDeactivationAction,
   updatePaymentSettingsAction,
+  getPublicPaymentSettingsAction,
 } from "@/app/actions/portal";
 
 export async function POST(request: NextRequest) {
@@ -78,6 +79,10 @@ export async function POST(request: NextRequest) {
       case "keys": {
         const res = await getLicenseKeysAction({ adminSecret, adminEmail });
         return NextResponse.json(res);
+      }
+      case "get_payment": {
+        const settings = await getPublicPaymentSettingsAction();
+        return NextResponse.json({ success: true, settings });
       }
       default:
         return NextResponse.json(
