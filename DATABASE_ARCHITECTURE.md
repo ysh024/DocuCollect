@@ -197,12 +197,12 @@ High-speed SHA-256 hashed OTP store for email verification.
 #### `public.plans`
 SaaS pricing tiers with hard capacity and retention rules:
 - `id` (UUID PK)
-- `name` (TEXT UNIQUE): `'free_trial'`, `'starter'`, `'pro'`.
-- `display_name` (TEXT): `'Free Trial'`, `'Starter'`, `'Professional'`.
-- `price_monthly` (NUMERIC) & `price_yearly` (NUMERIC).
-- `max_clients` (INTEGER): Quota cap (10 for Free, 25 for Starter, 100 for Pro).
-- `file_retention_days` (INTEGER): Auto-purge window (7 for Free, 30 for Starter, 90 for Pro).
-- `max_upload_size_mb` (INTEGER): Single file upload cap (10MB Free, 25MB Starter, 50MB Pro).
+- `name` (TEXT UNIQUE): `'free_trial'`, `'starter'`, `'pro'`, `'firm'`.
+- `display_name` (TEXT): `'Free Trial'`, `'Starter'`, `'Professional'`, `'Firm'`.
+- `price_monthly` (NUMERIC) & `price_yearly` (NUMERIC): Trial (₹0), Starter (₹399/mo, ₹3,999/yr), Professional (₹799/mo, ₹7,999/yr), Firm (₹1,499/mo, ₹14,999/yr).
+- `max_clients` (INTEGER): Quota cap (10 for Trial, 50 for Starter, 200 for Pro, 500+ for Firm).
+- `file_retention_days` (INTEGER): Auto-purge window (7 for Trial, 30 for Starter, 90 for Pro, customizable for Firm).
+- `max_upload_size_mb` (INTEGER): Single file upload cap (10MB Trial, 25MB Starter, 50MB Pro, 100MB Firm).
 
 #### `public.subscriptions`
 Maps an organization to its current active billing tier:
@@ -334,9 +334,10 @@ if (currentCount >= maxAllowed) {
 
 ### 7.2 Guard B: Automatic File Retention Purge
 - Every uploaded document receives an `auto_delete_at` timestamp:
-  - **Free Trial:** Purged **7 days** after upload or verification.
+  - **Trial:** Purged **7 days** after upload or verification.
   - **Starter:** Purged after **30 days**.
   - **Professional:** Purged after **90 days**.
+  - **Firm:** Custom configurable retention policies.
 - By deleting old, completed documents on a rolling 7-day schedule, 10 active firms will only ever consume a small fraction of the 5 GB disk limit.
 
 ---

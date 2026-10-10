@@ -39,7 +39,8 @@ let globalPaymentSettingsCache: PublicPaymentSettings | null = null;
 export default function BillingPage() {
   const { toast } = useToast();
   const { subscription: contextSub, refresh } = useDashboardData();
-  const [subscription, setSubscription] = useState<any>(contextSub || null);
+  const [mounted, setMounted] = useState(false);
+  const [subscription, setSubscription] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>(globalPlansCache || []);
   const [paymentSettings, setPaymentSettings] = useState<PublicPaymentSettings | null>(globalPaymentSettingsCache);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -48,6 +49,10 @@ export default function BillingPage() {
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
   const [redeeming, setRedeeming] = useState(false);
   const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -109,7 +114,7 @@ export default function BillingPage() {
     }
   };
 
-  const trialDaysLeft = subscription?.trial_ends_at
+  const trialDaysLeft = mounted && subscription?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 
@@ -117,7 +122,7 @@ export default function BillingPage() {
   const isTrial = subscription?.status === "trial";
   const isExpired = subscription?.status === "expired" || subscription?.status === "cancelled";
 
-  const planIcons: Record<string, any> = { free_trial: Zap, starter: Shield, pro: Crown };
+  const planIcons: Record<string, any> = { free_trial: Zap, starter: Shield, pro: Crown, firm: Building };
   const PlanIcon = planIcons[subscription?.plan_name] || Zap;
 
   const clientsUsed = Number(subscription?.current_clients_count || 0);
@@ -150,14 +155,16 @@ export default function BillingPage() {
             <h1 className="text-xl font-bold text-neutral-900 dark:text-white tracking-tight">Billing & Subscriptions</h1>
             <span
               className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
-                isActive
+                !mounted || !subscription
+                  ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"
+                  : isActive
                   ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
                   : isTrial
                   ? "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
                   : "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800"
               }`}
             >
-              {subscription?.plan_display_name || "Free Trial"}
+              {!mounted || !subscription ? "Loading..." : (subscription?.plan_display_name || "Free Trial")}
             </span>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -187,25 +194,29 @@ export default function BillingPage() {
           </div>
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-              isActive
+              !mounted || !subscription
+                ? "bg-neutral-100 text-neutral-600 border border-neutral-200"
+                : isActive
                 ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                 : isTrial
                 ? "bg-amber-100 text-amber-800 border border-amber-200"
                 : "bg-red-100 text-red-700 border border-red-200"
             }`}
           >
-            {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />}
-            {subscription?.status === "trial"
+            {mounted && isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />}
+            {!mounted || !subscription
+              ? "Checking..."
+              : subscription?.status === "trial"
               ? "Free Trial Active"
               : subscription?.status === "active"
               ? "Active Plan"
               : subscription?.status === "cancelled"
               ? "Cancelled"
-              : "Active"}
+              : "Expired"}
           </span>
         </div>
 
-        {subscription ? (
+        {mounted && subscription ? (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-neutral-100 text-neutral-800 flex items-center justify-center shrink-0 border border-neutral-200/80">
@@ -292,7 +303,7 @@ export default function BillingPage() {
       </div>
 
       {/* Trial Expiry Warning */}
-      {isTrial && trialDaysLeft !== null && trialDaysLeft <= 7 && (
+      {mounted && isTrial && trialDaysLeft !== null && trialDaysLeft <= 7 && (
         <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
@@ -317,7 +328,7 @@ export default function BillingPage() {
           </Link>
         </div>
 
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {plans.length > 0 ? (
             plans.map((plan: any) => {
               const Icon = planIcons[plan.name] || Zap;

@@ -58,11 +58,13 @@ async function runMigration() {
       INSERT INTO public.plans (name, display_name, price_monthly, price_yearly, max_clients, max_cases_per_client, max_storage_mb, file_retention_days, max_upload_size_mb, features, sort_order)
       VALUES
         ('free_trial', 'Free Trial', 0, 0, 10, 5, 500, 7, 10,
-         '["Up to 10 clients", "5 cases per client", "7-day file retention", "WhatsApp sharing", "Email OTP login", "30-day free trial"]'::jsonb, 0),
-        ('starter', 'Starter', 499, 4999, 25, 20, 2048, 30, 25,
-         '["Up to 25 clients", "20 cases per client", "30-day file retention", "WhatsApp sharing", "Priority support", "Custom branding"]'::jsonb, 1),
-        ('pro', 'Professional', 999, 9999, 100, 100, 5120, 90, 50,
-         '["Unlimited clients", "Unlimited cases", "90-day file retention", "Custom domain", "API access", "Dedicated support", "Team members"]'::jsonb, 2)
+         '["Up to 10 active clients", "1 firm workspace", "Reusable checklists", "Link-based uploads & review", "Limited storage and retention"]'::jsonb, 0),
+        ('starter', 'Starter', 399, 3999, 50, 20, 2048, 30, 25,
+         '["Up to 50 active clients", "Checklists & reusable templates", "Secure upload links", "Document review & rejection reasons", "Basic activity history"]'::jsonb, 1),
+        ('pro', 'Professional', 799, 7999, 200, 50, 5120, 90, 50,
+         '["Up to 200 active clients", "Multiple staff accounts & roles", "More reusable checklist templates", "Expanded activity history & storage", "Firm branding & configurable workflows"]'::jsonb, 2),
+        ('firm', 'Firm', 1499, 14999, 500, 200, 20480, 180, 100,
+         '["Higher client & staff limits (500+)", "Detailed permissions & audit history", "Custom retention settings", "Priority support", "Tailored onboarding"]'::jsonb, 3)
       ON CONFLICT (name) DO NOTHING;
     `;
     const plans = await sql`SELECT name, display_name, price_monthly FROM public.plans ORDER BY sort_order;`;

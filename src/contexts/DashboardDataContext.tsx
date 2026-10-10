@@ -162,12 +162,12 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   }, [router]);
 
   const [data, setData] = useState<DashboardData | null>(() => {
-    return globalDashboardCache || getStoredCache();
+    return globalDashboardCache;
   });
   const [user, setUser] = useState<any | null>(globalUserCache);
   const [notifications, setNotifications] = useState<any[]>(globalNotificationsCache);
   const [loading, setLoading] = useState<boolean>(() => {
-    return !globalDashboardCache && !getStoredCache();
+    return !globalDashboardCache;
   });
   const fetchingRef = useRef(false);
 
@@ -214,6 +214,16 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
+    // Hydrate from sessionStorage once client mounted without breaking SSR hydration
+    if (!globalDashboardCache) {
+      const stored = getStoredCache();
+      if (stored) {
+        globalDashboardCache = stored;
+        setData(stored);
+        setLoading(false);
+      }
+    }
+
     const hasCache = Boolean(globalDashboardCache || getStoredCache());
     const isStale = Date.now() - lastFetchTimestamp > CACHE_FRESHNESS_MS;
     if (!hasCache || isStale) {

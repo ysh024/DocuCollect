@@ -62,7 +62,7 @@ export default function AdminPortalPage() {
   const [loadingData, setLoadingData] = useState(false);
 
   // Key Generator Form
-  const [genPlan, setGenPlan] = useState<"starter" | "pro">("starter");
+  const [genPlan, setGenPlan] = useState<"starter" | "pro" | "firm">("starter");
   const [genPeriod, setGenPeriod] = useState<"monthly" | "yearly">("monthly");
   const [genNotes, setGenNotes] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -597,8 +597,9 @@ export default function AdminPortalPage() {
                     onChange={(e) => setGenPlan(e.target.value as any)}
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="starter">Starter Plan (25 clients, 30d retention)</option>
-                    <option value="pro">Professional Plan (100 clients, 90d retention)</option>
+                    <option value="starter">Starter Plan (50 clients, ₹399/mo)</option>
+                    <option value="pro">Professional Plan (200 clients, ₹799/mo)</option>
+                    <option value="firm">Firm Plan (500+ clients, ₹1,499/mo)</option>
                   </select>
                 </div>
 
@@ -896,8 +897,9 @@ export default function AdminPortalPage() {
                     onChange={(e) => setDirectPlan(e.target.value)}
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-xl p-2.5 text-white focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="starter">Starter Plan (25 clients, 30d)</option>
-                    <option value="pro">Professional Plan (100 clients, 90d)</option>
+                    <option value="starter">Starter Plan (50 clients, 30d)</option>
+                    <option value="pro">Professional Plan (200 clients, 90d)</option>
+                    <option value="firm">Firm Plan (500+ clients, Custom retention)</option>
                     <option value="free_trial">Free Trial Reset (10 clients, 7d)</option>
                   </select>
                 </div>

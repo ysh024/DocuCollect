@@ -10,6 +10,7 @@ import {
   Crown,
   MessageSquareShare,
   Info,
+  Building2,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
@@ -21,22 +22,20 @@ export const metadata: Metadata = {
 
 const plans = [
   {
-    name: "Free Trial",
+    name: "Trial",
     icon: Zap,
-    tagline: "30 days on us. No card needed.",
+    badge: "30 Days",
+    tagline: "For evaluating the workflow",
     priceMonthly: 0,
     priceYearly: 0,
     isFree: true,
     highlight: false,
     features: [
-      "Up to 10 clients",
-      "5 document checklists per client",
-      "7-day file auto-deletion",
-      "Secure WhatsApp upload links",
-      "Email OTP login (no password)",
-      "Document review & approval",
-      "Activity audit trail",
-      "Mobile-friendly client portal",
+      "One firm workspace",
+      "Up to 10 active clients",
+      "Reusable document checklists",
+      "Link-based uploads & review",
+      "Limited storage and retention",
     ],
     cta: "Start Free Trial",
     ctaHref: "/signup",
@@ -44,21 +43,18 @@ const plans = [
   {
     name: "Starter",
     icon: Shield,
-    tagline: "Best for solo practitioners and small firms.",
-    priceMonthly: 499,
-    priceYearly: 4999,
+    badge: "Initial Offer",
+    tagline: "For solo consultants and small practices",
+    priceMonthly: 399,
+    priceYearly: 3999,
     isFree: false,
     highlight: true,
     features: [
-      "Up to 25 clients",
-      "20 cases per client",
-      "30-day file retention",
-      "Secure WhatsApp upload links",
-      "Email OTP login",
-      "Document review & approval",
-      "Custom firm branding",
-      "Priority email support",
-      "Activity & query notifications",
+      "Up to 50 active clients",
+      "Checklists & reusable templates",
+      "Secure upload links",
+      "Document review & rejection reasons",
+      "Basic activity history",
     ],
     cta: "Upgrade to Starter",
     ctaHref: "/signup",
@@ -66,22 +62,39 @@ const plans = [
   {
     name: "Professional",
     icon: Crown,
-    tagline: "For growing firms with high client volume.",
-    priceMonthly: 999,
-    priceYearly: 9999,
+    badge: null,
+    tagline: "For small firms with multiple staff members",
+    priceMonthly: 799,
+    priceYearly: 7999,
     isFree: false,
     highlight: false,
     features: [
-      "100+ clients",
-      "Unlimited cases",
-      "90-day file retention",
-      "All Starter features",
-      "Custom branding + domain",
-      "Team member accounts",
-      "API access (coming soon)",
-      "Dedicated support",
+      "Up to 200 active clients",
+      "Multiple staff accounts & roles",
+      "More reusable checklist templates",
+      "Expanded activity history & storage",
+      "Firm branding & configurable workflows",
     ],
-    cta: "Contact to Activate",
+    cta: "Upgrade to Professional",
+    ctaHref: "/signup",
+  },
+  {
+    name: "Firm",
+    icon: Building2,
+    badge: "Proposed",
+    tagline: "For growing firms and agencies",
+    priceMonthly: 1499,
+    priceYearly: 14999,
+    isFree: false,
+    highlight: false,
+    features: [
+      "Higher client & staff limits (500+)",
+      "Detailed permissions & audit history",
+      "Custom retention settings",
+      "Priority support",
+      "Tailored onboarding",
+    ],
+    cta: "Upgrade to Firm",
     ctaHref: "/signup",
   },
 ];
@@ -97,15 +110,15 @@ const faqs = [
   },
   {
     q: "Can I upgrade my plan later?",
-    a: "Absolutely. You can start on Free Trial, and we'll upgrade you to Starter or Professional when you're ready. Your data is preserved.",
+    a: "Absolutely. You can start on Free Trial, and upgrade to Starter, Professional, or Firm whenever your practice expands. All your client data and documents remain fully preserved.",
   },
   {
     q: "What is file retention?",
-    a: "Uploaded documents are automatically deleted after the retention period to keep storage usage lean. Free Trial = 7 days, Starter = 30 days, Professional = 90 days. Clients can re-upload if needed.",
+    a: "Uploaded documents are automatically archived and deleted after the retention window to keep storage lean and compliant. Free Trial = 7 days, Starter = 30 days, Professional = 90 days, Firm = customizable retention.",
   },
   {
     q: "Is the client portal free for my clients?",
-    a: "Yes. Your clients access the secure upload portal for free — they never need to create an account or pay anything. Only you (the professional) need a plan.",
+    a: "Yes. Your clients access the secure upload portal for free — they never need to create an account or pay anything. Only you (the firm or practitioner) need a plan.",
   },
   {
     q: "How do I activate a paid plan?",
@@ -118,7 +131,7 @@ export default function PricingPage() {
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-neutral-100 dark:selection:text-neutral-900 transition-colors duration-150">
       {/* Header */}
       <header className="border-b border-neutral-200/80 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md sticky top-0 z-50 transition-colors duration-150">
-        <div className="max-w-5xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-emerald-600 flex items-center justify-center shadow-xs">
               <Layers className="w-4 h-4 text-white" />
@@ -150,27 +163,30 @@ export default function PricingPage() {
           Simple, honest pricing
         </h1>
         <p className="text-neutral-600 dark:text-neutral-400 text-sm max-w-lg mx-auto">
-          Start with a 30-day free trial. When you're ready to upgrade, pay monthly or save with an annual plan. 
-          We manually activate plans — no automated billing surprises.
+          Start with a 30-day free trial. When you're ready to upgrade, choose the plan tailored to your practice size.
         </p>
       </section>
 
       {/* Plans */}
-      <section className="max-w-5xl mx-auto px-5 sm:px-6 pb-16">
-        <div className="grid sm:grid-cols-3 gap-5">
-          {plans.map(({ name, icon: Icon, tagline, priceMonthly, priceYearly, isFree, highlight, features, cta, ctaHref }) => (
+      <section className="max-w-6xl mx-auto px-5 sm:px-6 pb-16">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {plans.map(({ name, icon: Icon, badge, tagline, priceMonthly, priceYearly, isFree, highlight, features, cta, ctaHref }) => (
             <div
               key={name}
-              className={`rounded-2xl border p-6 flex flex-col relative transition-all ${
+              className={`rounded-2xl border p-5 sm:p-6 flex flex-col relative transition-all ${
                 highlight
                   ? "bg-neutral-900 dark:bg-neutral-900 border-neutral-900 dark:border-emerald-500/80 text-white shadow-xl ring-1 ring-emerald-500/30"
                   : "bg-white dark:bg-neutral-900 border-neutral-200/80 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-2xs"
               }`}
             >
-              {highlight && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-emerald-500 text-white text-[11px] font-bold shadow-sm">
-                    Most Popular
+              {badge && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                  <span className={`inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-[11px] font-bold shadow-sm ${
+                    highlight 
+                      ? "bg-emerald-500 text-white" 
+                      : "bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700"
+                  }`}>
+                    {badge}
                   </span>
                 </div>
               )}
@@ -180,11 +196,11 @@ export default function PricingPage() {
               </div>
 
               <h2 className="text-base font-bold mb-0.5">{name}</h2>
-              <p className={`text-xs mb-4 ${highlight ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400"}`}>{tagline}</p>
+              <p className={`text-xs mb-4 min-h-[32px] ${highlight ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400"}`}>{tagline}</p>
 
               <div className="mb-2">
                 <span className="text-3xl font-black">
-                  {isFree ? "Free" : `₹${priceMonthly}`}
+                  {isFree ? "₹0" : `₹${priceMonthly}`}
                 </span>
                 {!isFree && <span className={`text-xs ml-1 ${highlight ? "text-neutral-400" : "text-neutral-500 dark:text-neutral-400"}`}>/month</span>}
               </div>
@@ -233,37 +249,38 @@ export default function PricingPage() {
 
       {/* Comparison */}
       <section className="border-t border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/40 py-16 transition-colors duration-150">
-        <div className="max-w-4xl mx-auto px-5 sm:px-6">
+        <div className="max-w-5xl mx-auto px-5 sm:px-6">
           <h2 className="text-xl font-bold text-neutral-900 dark:text-white text-center mb-8">What's included in each plan</h2>
           <div className="overflow-x-auto bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-2xs p-4 sm:p-6">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-neutral-200/80 dark:border-neutral-800">
-                  <th className="text-left py-3 pr-4 text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider w-48">Feature</th>
-                  <th className="text-center py-3 px-4 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Free Trial</th>
-                  <th className="text-center py-3 px-4 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 rounded-t-lg">Starter</th>
-                  <th className="text-center py-3 px-4 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Professional</th>
+                  <th className="text-left py-3 pr-4 text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider w-44">Feature</th>
+                  <th className="text-center py-3 px-3 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Trial</th>
+                  <th className="text-center py-3 px-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 rounded-t-lg">Starter</th>
+                  <th className="text-center py-3 px-3 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Professional</th>
+                  <th className="text-center py-3 px-3 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Firm</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {[
-                  ["Max clients", "10", "25", "100"],
-                  ["Cases per client", "5", "20", "Unlimited"],
-                  ["File retention", "7 days", "30 days", "90 days"],
-                  ["Max file size", "10 MB", "25 MB", "50 MB"],
-                  ["WhatsApp links", "✓", "✓", "✓"],
-                  ["OTP login", "✓", "✓", "✓"],
-                  ["Document review", "✓", "✓", "✓"],
-                  ["Custom branding", "—", "✓", "✓"],
-                  ["Team members", "—", "—", "✓"],
-                  ["Priority support", "—", "✓", "✓"],
-                  ["Dedicated support", "—", "—", "✓"],
-                ].map(([feature, free, starter, pro]) => (
+                  ["Monthly Price", "₹0", "₹399", "₹799", "₹1,499"],
+                  ["Active Clients", "Up to 10", "Up to 50", "Up to 200", "500+"],
+                  ["Workspaces & Staff", "1 firm workspace", "Solo / 1 account", "Multiple staff + roles", "Advanced staff + RBAC"],
+                  ["Checklist Templates", "Basic checklists", "Reusable templates", "More templates", "Customizable templates"],
+                  ["Secure Upload Links", "✓", "✓", "✓", "✓"],
+                  ["Document Review & Rejection", "✓", "✓", "✓", "✓"],
+                  ["Activity & Audit History", "Basic history", "Basic activity history", "Expanded activity history", "Detailed audit history"],
+                  ["File Retention", "7 days", "30 days", "90 days", "Custom retention"],
+                  ["Firm Branding", "—", "—", "✓", "✓"],
+                  ["Support Level", "Standard", "Standard", "Priority support", "Priority + tailored onboarding"],
+                ].map(([feature, free, starter, pro, firm]) => (
                   <tr key={feature} className="group hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors">
                     <td className="py-2.5 pr-4 text-xs text-neutral-700 dark:text-neutral-300 font-medium">{feature}</td>
-                    <td className="py-2.5 px-4 text-xs text-neutral-500 dark:text-neutral-400 text-center">{free}</td>
-                    <td className="py-2.5 px-4 text-xs text-emerald-700 dark:text-emerald-400 text-center font-bold bg-emerald-50/50 dark:bg-emerald-950/30">{starter}</td>
-                    <td className="py-2.5 px-4 text-xs text-neutral-500 dark:text-neutral-400 text-center">{pro}</td>
+                    <td className="py-2.5 px-3 text-xs text-neutral-500 dark:text-neutral-400 text-center">{free}</td>
+                    <td className="py-2.5 px-3 text-xs text-emerald-700 dark:text-emerald-400 text-center font-bold bg-emerald-50/50 dark:bg-emerald-950/30">{starter}</td>
+                    <td className="py-2.5 px-3 text-xs text-neutral-500 dark:text-neutral-400 text-center">{pro}</td>
+                    <td className="py-2.5 px-3 text-xs text-neutral-700 dark:text-neutral-300 text-center font-medium">{firm}</td>
                   </tr>
                 ))}
               </tbody>

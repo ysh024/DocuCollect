@@ -84,7 +84,7 @@ In `/dashboard/clients`, the consultant can expand any client row to view their 
 - Switch between side-by-side or tabbed grid views with zero disruptive popup modals.
 
 ### Step 6: Automated Purge Lifecycle
-Depending on the consultant's plan (Free: 7 days, Starter: 30 days, Pro: 90 days), automated background cron jobs permanently delete old files from S3 storage, keeping databases lightweight and compliant.
+Depending on the consultant's plan (Trial: 7 days, Starter: 30 days, Professional: 90 days, Firm: custom retention), automated background cron jobs permanently delete old files from S3 storage, keeping databases lightweight and compliant.
 
 ---
 

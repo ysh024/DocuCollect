@@ -1344,7 +1344,7 @@ export async function generateLicenseKeyAction({
 }: {
   adminSecret: string;
   adminEmail?: string;
-  planName: "starter" | "pro";
+  planName: "starter" | "pro" | "firm";
   period: "monthly" | "yearly";
   notes?: string;
 }) {
@@ -1357,7 +1357,7 @@ export async function generateLicenseKeyAction({
   if (!sql) return { success: false, error: "Database not connected." };
 
   try {
-    const planTag = planName.toUpperCase() === "PRO" ? "PRO" : "START";
+    const planTag = planName.toUpperCase() === "PRO" ? "PRO" : planName.toUpperCase() === "FIRM" ? "FIRM" : "START";
     const periodTag = period === "yearly" ? "YR" : "MO";
     const part1 = crypto.randomBytes(3).toString("hex").toUpperCase();
     const part2 = crypto.randomBytes(3).toString("hex").toUpperCase();

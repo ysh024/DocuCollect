@@ -278,9 +278,10 @@ org-{orgId:0-12}/{clientId:0-12}/{caseId:0-12}/{requirementId:0-12}/v{version}_{
 To keep storage usage lean and protect sensitive financial records, DocuCollect features an automated retention engine:
 
 ### 7.1 Retention Policies by Plan
-- **Free Trial Plan:** **7-day** retention.
+- **Trial Plan:** **7-day** retention.
 - **Starter Plan:** **30-day** retention.
 - **Professional Plan:** **90-day** retention.
+- **Firm Plan:** **Custom retention settings** (configurable up to 365+ days).
 
 ### 7.2 Cron Purge Flow (`/api/cron/cleanup`)
 ```mermaid
@@ -296,7 +297,11 @@ flowchart LR
 
 ## 8. Billing, Monetization & Super Admin Console
 
-1. **30-Day Free Trial:** Every newly registered and verified consultant workspace receives an automatic 30-day full access trial (up to 10 active clients).
+1. **Pricing Tiers:**
+   - **Trial (30 days, ₹0):** 1 firm workspace, up to 10 active clients, reusable checklists, link-based uploads & review, limited retention.
+   - **Starter (Initial offer, ₹399/mo, ₹3,999/yr):** Up to 50 active clients, checklist templates, secure upload links, document review & rejection reasons, basic activity history.
+   - **Professional (₹799/mo, ₹7,999/yr):** Up to 200 active clients, multiple staff accounts & roles, expanded templates, storage & audit history, firm branding.
+   - **Firm (Proposed, ₹1,499/mo, ₹14,999/yr):** Higher client (500+) & staff limits, detailed permissions & audit history, custom retention, priority support, tailored onboarding.
 2. **Trial Expiration Guard (`TrialExpiryGuard`):** When the trial expires:
    - Dashboard views remain readable.
    - Creating new cases and sharing active upload links is paused.

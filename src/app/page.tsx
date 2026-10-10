@@ -354,15 +354,16 @@ export default function LandingPage() {
           Start free for 30 days. Then choose a plan that grows with your practice. No hidden fees.
         </p>
 
-        <div className="grid sm:grid-cols-3 gap-5 max-w-3xl mx-auto mb-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mb-8">
           {[
-            { name: "Free Trial", price: "₹0", period: "for 30 days", features: ["10 clients", "7-day file retention", "WhatsApp links", "OTP login"], highlight: false },
-            { name: "Starter", price: "₹499", period: "/month", features: ["25 clients", "30-day retention", "Priority support", "Custom branding"], highlight: true },
-            { name: "Professional", price: "₹999", period: "/month", features: ["100+ clients", "90-day retention", "API access", "Dedicated support"], highlight: false },
-          ].map(({ name, price, period, features, highlight }) => (
+            { name: "Trial", price: "₹0", period: "for 30 days", badge: null, features: ["10 active clients", "1 firm workspace", "Reusable checklists", "Upload & review"], highlight: false },
+            { name: "Starter", price: "₹399", period: "/month", badge: "Initial Offer", features: ["50 active clients", "Checklist templates", "Secure upload links", "Rejection reasons"], highlight: true },
+            { name: "Professional", price: "₹799", period: "/month", badge: null, features: ["200 active clients", "Multiple staff & roles", "Expanded templates", "Firm branding"], highlight: false },
+            { name: "Firm", price: "₹1,499", period: "/month", badge: "Proposed", features: ["500+ active clients", "Detailed audit history", "Custom retention", "Priority support"], highlight: false },
+          ].map(({ name, price, period, badge, features, highlight }) => (
             <div
               key={name}
-              className={`p-6 rounded-2xl border text-left transition-all ${
+              className={`p-5 rounded-2xl border text-left transition-all ${
                 highlight
                   ? "bg-neutral-900 dark:bg-[#12161f] text-white border-neutral-900 dark:border-emerald-500/80 shadow-lg ring-1 ring-emerald-500/30"
                   : "bg-white dark:bg-neutral-900/90 border-neutral-200/80 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 shadow-2xs"
@@ -370,9 +371,13 @@ export default function LandingPage() {
             >
               <div className="flex items-center justify-between mb-2">
                 <p className={`text-xs font-bold uppercase tracking-wider ${highlight ? "text-emerald-400" : "text-neutral-500 dark:text-neutral-400"}`}>{name}</p>
-                {highlight && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Popular
+                {badge && (
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    highlight
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                      : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700"
+                  }`}>
+                    {badge}
                   </span>
                 )}
               </div>
