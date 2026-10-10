@@ -109,9 +109,6 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   const pathname = usePathname();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
-    if (typeof window !== "undefined") {
-      return pathToDashboardTab(window.location.pathname);
-    }
     return pathToDashboardTab(pathname || "/dashboard");
   });
 
