@@ -511,6 +511,7 @@ export default function DashboardOverviewPage() {
         <DocumentPreviewModal
           document={previewDoc.doc}
           requirementName={previewDoc.reqName}
+          requirementId={previewDoc.doc.requirement_id}
           caseId={previewDoc.caseId}
           isOpen={true}
           onClose={() => setPreviewDoc(null)}

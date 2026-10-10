@@ -340,15 +340,15 @@ export default function CaseDetailPage() {
 
                       <button
                         type="button"
-                        onClick={() => setSelectedForReview({ req, doc: latestDoc })}
+                        onClick={() => setPreviewDoc({ req, doc: latestDoc })}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                           latestDoc.status === "under_review"
                             ? "bg-neutral-100 hover:bg-neutral-200 text-neutral-800"
                             : "bg-neutral-50 hover:bg-neutral-100 text-neutral-600 border border-neutral-200/60"
                         }`}
                       >
-                        <Eye className="w-3 h-3" />
-                        {latestDoc.status === "under_review" ? "Feedback / Reject" : "Re-evaluate"}
+                        <Eye className="w-3 h-3 text-emerald-600" />
+                        <span>{latestDoc.status === "under_review" ? "Feedback / Reject" : "Review Document"}</span>
                       </button>
                     </div>
                   )}
@@ -416,6 +416,7 @@ export default function CaseDetailPage() {
         <DocumentPreviewModal
           document={previewDoc.doc}
           requirementName={previewDoc.req.name}
+          requirementId={previewDoc.req.id}
           caseId={caseData.id}
           isOpen={true}
           onClose={() => setPreviewDoc(null)}
