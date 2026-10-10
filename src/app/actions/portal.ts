@@ -485,6 +485,126 @@ export async function createClientAction(formData: {
   return { success: true, client: clients[0] };
 }
 
+export interface ClientCsvRow {
+  name: string;
+  phone: string;
+  email?: string | null;
+  company?: string | null;
+  client_ref_id?: string | null;
+  alternate_phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}
+
+export async function importClientsFromCsvAction(rows: ClientCsvRow[]) {
+  const sql = getDb();
+  if (!sql) throw new Error("Database not connected");
+
+  const orgId = await getAuthenticatedOrgId();
+
+  // Enforce subscription active status
+  await assertActiveSubscription(orgId, sql);
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("No client rows found in CSV file.");
+  }
+
+  // Batch limit constraint: Max 50 rows per batch
+  const BATCH_LIMIT = 50;
+  if (rows.length > BATCH_LIMIT) {
+    throw new Error(
+      `CSV batch import is limited to ${BATCH_LIMIT} contacts per upload. Your file contains ${rows.length} rows. Please reduce your file size.`
+    );
+  }
+
+  // Enforce subscription plan client quota
+  try {
+    const subRows = await sql`
+      SELECT p.max_clients, (SELECT COUNT(*) FROM public.clients WHERE organization_id = ${orgId}) as current_count
+      FROM public.subscriptions s
+      JOIN public.plans p ON s.plan_id = p.id
+      WHERE s.organization_id = ${orgId}
+      LIMIT 1;
+    `;
+    if (subRows.length > 0) {
+      const maxAllowed = Number(subRows[0].max_clients || 10);
+      const currentCount = Number(subRows[0].current_count || 0);
+      const remainingSlots = Math.max(0, maxAllowed - currentCount);
+
+      if (currentCount >= maxAllowed) {
+        throw new Error(
+          `Client limit reached (${currentCount}/${maxAllowed}). Please upgrade your plan in Billing to add more clients.`
+        );
+      }
+
+      if (currentCount + rows.length > maxAllowed) {
+        throw new Error(
+          `Adding ${rows.length} clients exceeds your plan limit of ${maxAllowed} total clients. You currently have ${remainingSlots} slot(s) remaining. Please upgrade your plan or reduce the import batch.`
+        );
+      }
+    }
+  } catch (quotaErr: any) {
+    if (
+      quotaErr.message?.includes("Client limit reached") ||
+      quotaErr.message?.includes("exceeds your plan limit")
+    ) {
+      throw quotaErr;
+    }
+  }
+
+  // Validate and clean each row
+  const timestamp = Date.now().toString().slice(-4);
+  const validatedClients: ClientCsvRow[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const name = (r.name || "").trim();
+    const phone = (r.phone || "").trim();
+
+    if (!name) {
+      throw new Error(`Row ${i + 1} has an empty Name.`);
+    }
+    if (!phone) {
+      throw new Error(`Row ${i + 1} (${name}) has an empty Phone number.`);
+    }
+
+    validatedClients.push({
+      name,
+      phone,
+      email: r.email ? String(r.email).trim() || null : null,
+      company: r.company ? String(r.company).trim() || null : null,
+      client_ref_id: r.client_ref_id ? String(r.client_ref_id).trim() : `CLI-${timestamp}-${i + 1}`,
+      alternate_phone: r.alternate_phone ? String(r.alternate_phone).trim() || null : null,
+      address: r.address ? String(r.address).trim() || null : null,
+      notes: r.notes ? String(r.notes).trim() || null : null,
+    });
+  }
+
+  // Insert all rows
+  const inserted: any[] = [];
+  for (const client of validatedClients) {
+    const res = await sql`
+      INSERT INTO public.clients (
+        organization_id, name, email, phone, alternate_phone, company, client_ref_id, address, notes
+      ) VALUES (
+        ${orgId}, ${client.name}, ${client.email}, ${client.phone},
+        ${client.alternate_phone}, ${client.company}, ${client.client_ref_id},
+        ${client.address}, ${client.notes}
+      )
+      RETURNING *;
+    `;
+    if (res && res[0]) {
+      inserted.push(res[0]);
+    }
+  }
+
+  invalidateDashboardCache(orgId);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/clients");
+
+  return { success: true, count: inserted.length, clients: inserted };
+}
+
 export async function createCaseAction(payload: {
   client_id: string;
   title: string;

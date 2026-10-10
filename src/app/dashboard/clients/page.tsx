@@ -19,6 +19,7 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  FileSpreadsheet,
 } from "lucide-react";
 import { getDashboardData } from "@/app/actions/portal";
 import { Client, CaseWithDetails, Document } from "@/types";
@@ -33,6 +34,7 @@ export default function ClientsPage() {
   const { clients, cases, refresh } = useDashboardData();
   const [search, setSearch] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
+  const [modalTab, setModalTab] = useState<"manual" | "csv">("manual");
   const [vaultClient, setVaultClient] = useState<Client | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ doc: Document; reqName: string; caseId?: string } | null>(null);
 
@@ -73,14 +75,30 @@ export default function ClientsPage() {
             View client portfolios, access structured document vaults, download files, and initiate WhatsApp contact.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsNewClientOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-xs transition-colors cursor-pointer self-start"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Client</span>
-        </button>
+        <div className="flex items-center gap-2 self-start">
+          <button
+            type="button"
+            onClick={() => {
+              setModalTab("csv");
+              setIsNewClientOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 border border-neutral-200/90 rounded-xl shadow-2xs transition-colors cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Import CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setModalTab("manual");
+              setIsNewClientOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Client</span>
+          </button>
+        </div>
       </div>
 
       {/* Search Toolbar */}
@@ -332,6 +350,7 @@ export default function ClientsPage() {
       {/* New Client Modal */}
       <NewClientModal
         isOpen={isNewClientOpen}
+        initialTab={modalTab}
         onClose={() => setIsNewClientOpen(false)}
         onSuccess={() => refresh()}
       />
