@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Bell, Building2, MessageSquare, FileUp, Clock, Key } from "lucide-react";
+import Link from "next/link";
+import { Bell, Building2, MessageSquare, FileUp, Clock, Sparkles, Crown } from "lucide-react";
 import { ProfileMenu } from "@/components/dashboard/ProfileMenu";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { RedeemVoucherModal } from "@/components/dashboard/RedeemVoucherModal";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export function Header() {
-  const { user, notifications } = useDashboardData();
+  const { user, subscription, notifications } = useDashboardData();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showRedeemModal, setShowRedeemModal] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,6 +21,10 @@ export function Header() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const planName = (subscription?.plan_name || user?.subscription?.planName || "").toLowerCase();
+  const isPro = planName === "pro" || planName === "professional";
+  const targetPlan = planName === "starter" ? "Pro" : "Pro";
 
   return (
     <header className="h-16 bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border-b border-neutral-200/80 dark:border-neutral-800 sticky top-0 z-30 shrink-0 transition-colors duration-150">
@@ -50,16 +53,27 @@ export function Header() {
         {/* Right: Quick actions, notifications, and clean profile menu */}
         <div className="flex items-center gap-2.5 sm:gap-3">
           
-          {/* Quick Redeem Activation Key / Voucher */}
-          <button
-            type="button"
-            onClick={() => setShowRedeemModal(true)}
-            title="Redeem Activation Key / Voucher"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-2xs hover:shadow-xs group"
-          >
-            <Key className="w-3.5 h-3.5 text-amber-500 transition-transform group-hover:rotate-12" />
-            <span className="hidden sm:inline">Redeem Key</span>
-          </button>
+          {/* Quick Upgrade Plan Button / Status Badge */}
+          {isPro ? (
+            <Link
+              href="/dashboard/billing"
+              title="Manage Pro Subscription"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200/80 dark:border-neutral-700/80 transition-all shadow-2xs group"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">Pro Plan</span>
+            </Link>
+          ) : (
+            <Link
+              href="/dashboard/billing"
+              title={`Upgrade to ${targetPlan} Plan`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs hover:shadow transition-all group"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 transition-transform group-hover:rotate-12" />
+              <span className="hidden sm:inline">Upgrade to {targetPlan} Plan</span>
+              <span className="sm:hidden">Upgrade</span>
+            </Link>
+          )}
 
           {/* Quick 1-Click Dark/Light Mode Switcher */}
           <ThemeToggle />
@@ -130,12 +144,6 @@ export function Header() {
 
         </div>
       </div>
-
-      {/* Redeem Voucher / Activation Key Modal Window */}
-      <RedeemVoucherModal
-        isOpen={showRedeemModal}
-        onClose={() => setShowRedeemModal(false)}
-      />
     </header>
   );
 }
