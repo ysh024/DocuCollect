@@ -18,186 +18,223 @@
 }
 
 /* =========================================================================
-   COMPREHENSIVE DARK MODE HARMONIZATION
-   Prevents inconsistent mixed black/white elements across all dashboard pages,
-   cards, tables, form controls, and dialogs.
+   DARK MODE CONTRAST & VISIBILITY HARMONIZATION
+   Guarantees WCAG 4.5:1+ contrast across all pages, cards, tables,
+   badges, action buttons, and form inputs.
    ========================================================================= */
 
-/* Dark Mode Canvas & Card Surfaces */
+/* Dark Mode Canvas & Base Layout */
 .dark body,
 .dark .bg-\[\#fafafa\],
 .dark .bg-\[\#fbfbfb\] {
-  background-color: #0c0d0e !important;
-  color: #f3f4f6 !important;
+  background-color: #0e1014 !important;
+  color: #f8fafc !important;
 }
 
+/* Elevated Surfaces & Cards */
 .dark .bg-white {
-  background-color: #151719 !important;
+  background-color: #16181e !important;
 }
 
+/* Sub-panels, Table Headers & Striped Containers */
 .dark .bg-neutral-50,
 .dark .bg-neutral-50\/60,
 .dark .bg-neutral-50\/80,
 .dark .bg-neutral-50\/90 {
-  background-color: #1b1e22 !important;
+  background-color: #1d2027 !important;
 }
 
 .dark .bg-neutral-100,
 .dark .bg-neutral-100\/70,
 .dark .bg-neutral-100\/80,
 .dark .bg-neutral-100\/90 {
-  background-color: #24282f !important;
+  background-color: #262a34 !important;
 }
 
 .dark .bg-neutral-200,
 .dark .bg-neutral-200\/60,
 .dark .bg-neutral-200\/70 {
-  background-color: #2d333b !important;
+  background-color: #2f3440 !important;
 }
 
-/* Dark Mode Borders & Dividers */
+/* Borders & Dividers */
 .dark .border-neutral-100,
 .dark .border-neutral-200,
 .dark .border-neutral-200\/60,
 .dark .border-neutral-200\/80,
 .dark .border-neutral-200\/90,
 .dark .border-neutral-300 {
-  border-color: #262a30 !important;
+  border-color: #2b2f3a !important;
 }
 
 .dark .divide-neutral-100,
 .dark .divide-neutral-100\/80,
 .dark .divide-neutral-200 {
-  border-color: #262a30 !important;
+  border-color: #2b2f3a !important;
 }
 
-/* Dark Mode Text Colors */
+/* Active Filter Metric Card Highlight */
+.dark .border-neutral-900 {
+  border-color: #f8fafc !important;
+}
+.dark .ring-neutral-900\/10 {
+  --tw-ring-color: rgba(248, 250, 252, 0.25) !important;
+}
+
+/* Typography with High-Contrast Hierarchy */
 .dark .text-neutral-900 {
-  color: #f9fafb !important;
+  color: #f8fafc !important;
 }
-
 .dark .text-neutral-800 {
-  color: #e5e7eb !important;
+  color: #e2e8f0 !important;
 }
-
 .dark .text-neutral-700 {
-  color: #d1d5db !important;
+  color: #cbd5e1 !important;
 }
-
 .dark .text-neutral-600 {
-  color: #9ca3af !important;
+  color: #94a3b8 !important;
 }
-
 .dark .text-neutral-500 {
-  color: #858d99 !important;
+  color: #94a3b8 !important;
 }
-
 .dark .text-neutral-400 {
-  color: #6b7280 !important;
+  color: #94a3b8 !important;
 }
 
-/* Dark Mode Hovers */
+/* Table Header Text (Crisp slate-300, 100% visible) */
+.dark th {
+  color: #cbd5e1 !important;
+}
+
+/* Interactive Hover States */
 .dark .hover\:bg-neutral-50:hover,
 .dark .hover\:bg-neutral-50\/60:hover,
 .dark .hover\:bg-neutral-50\/80:hover {
-  background-color: #20242a !important;
+  background-color: #242832 !important;
 }
 
 .dark .hover\:bg-neutral-100:hover,
 .dark .hover\:bg-neutral-100\/70:hover,
 .dark .hover\:bg-neutral-200:hover {
-  background-color: #2a3038 !important;
+  background-color: #2d323e !important;
 }
 
-.dark .hover\:text-neutral-900:hover {
+.dark .hover\:text-neutral-900:hover,
+.dark .hover\:text-neutral-800:hover {
   color: #ffffff !important;
 }
 
-.dark .hover\:text-neutral-800:hover {
-  color: #f3f4f6 !important;
-}
-
-/* Form Inputs, Selects & Textareas in Dark Mode */
+/* Form Inputs, Selects & Textareas */
 .dark input:not([type="checkbox"]):not([type="radio"]),
 .dark select,
 .dark textarea {
-  background-color: #191c20 !important;
-  color: #f9fafb !important;
-  border-color: #2f353d !important;
+  background-color: #1a1c23 !important;
+  color: #f8fafc !important;
+  border-color: #343844 !important;
 }
 
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #5c6370 !important;
+  color: #94a3b8 !important;
 }
 
-/* Primary Action Buttons in Dark Mode (High contrast white pill on dark canvas) */
+/* Primary Action Buttons (Invert to solid light pill with pure dark text & icons) */
 .dark button.bg-neutral-900,
 .dark a.bg-neutral-900 {
-  background-color: #f9fafb !important;
-  color: #111827 !important;
-  border-color: #f9fafb !important;
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #f8fafc !important;
+}
+
+.dark button.bg-neutral-900 *,
+.dark a.bg-neutral-900 * {
+  color: #0f172a !important;
+  stroke: #0f172a !important;
 }
 
 .dark button.bg-neutral-900:hover,
 .dark a.bg-neutral-900:hover {
-  background-color: #e5e7eb !important;
+  background-color: #e2e8f0 !important;
 }
 
-.dark button.bg-neutral-900 svg,
-.dark a.bg-neutral-900 svg {
-  color: #111827 !important;
-}
-
-/* Status Badges & Accents in Dark Mode */
+/* Status Badges & Accents (Dark Translucent Tint + Luminous High-Contrast Text) */
 .dark .bg-emerald-50,
+.dark .bg-emerald-50\/60,
+.dark .bg-emerald-50\/80,
 .dark .bg-emerald-100 {
-  background-color: rgba(16, 185, 129, 0.14) !important;
-  border-color: rgba(16, 185, 129, 0.3) !important;
+  background-color: rgba(16, 185, 129, 0.18) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
 }
 .dark .text-emerald-700,
-.dark .text-emerald-800 {
+.dark .text-emerald-800,
+.dark .text-emerald-900 {
   color: #34d399 !important;
 }
 
 .dark .bg-amber-50,
+.dark .bg-amber-50\/60,
+.dark .bg-amber-50\/80,
 .dark .bg-amber-100 {
-  background-color: rgba(245, 158, 11, 0.14) !important;
-  border-color: rgba(245, 158, 11, 0.3) !important;
+  background-color: rgba(245, 158, 11, 0.18) !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
 }
 .dark .text-amber-700,
-.dark .text-amber-800 {
+.dark .text-amber-800,
+.dark .text-amber-900 {
   color: #fbbf24 !important;
 }
 
 .dark .bg-rose-50,
+.dark .bg-rose-50\/60,
+.dark .bg-rose-50\/80,
 .dark .bg-rose-100 {
-  background-color: rgba(244, 63, 94, 0.14) !important;
-  border-color: rgba(244, 63, 94, 0.3) !important;
+  background-color: rgba(244, 63, 94, 0.18) !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
 }
 .dark .text-rose-700,
-.dark .text-rose-800 {
+.dark .text-rose-800,
+.dark .text-rose-900 {
   color: #fb7185 !important;
 }
 
 .dark .bg-indigo-50,
+.dark .bg-indigo-50\/60,
+.dark .bg-indigo-50\/80,
 .dark .bg-indigo-100 {
-  background-color: rgba(99, 102, 241, 0.14) !important;
-  border-color: rgba(99, 102, 241, 0.3) !important;
+  background-color: rgba(99, 102, 241, 0.18) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
 }
 .dark .text-indigo-700,
-.dark .text-indigo-800 {
+.dark .text-indigo-800,
+.dark .text-indigo-900 {
   color: #a5b4fc !important;
 }
 
 .dark .bg-blue-50,
+.dark .bg-blue-50\/60,
+.dark .bg-blue-50\/80,
 .dark .bg-blue-100 {
-  background-color: rgba(59, 130, 246, 0.14) !important;
-  border-color: rgba(59, 130, 246, 0.3) !important;
+  background-color: rgba(59, 130, 246, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
 }
 .dark .text-blue-600,
-.dark .text-blue-700 {
+.dark .text-blue-700,
+.dark .text-blue-800 {
   color: #93c5fd !important;
+}
+
+/* Quick Action Hover Tints in Table */
+.dark .hover\:bg-amber-50:hover {
+  background-color: rgba(245, 158, 11, 0.22) !important;
+}
+.dark .hover\:text-amber-700:hover {
+  color: #fbbf24 !important;
+}
+.dark .hover\:bg-emerald-50:hover {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+}
+.dark .hover\:text-emerald-700:hover {
+  color: #34d399 !important;
 }
 
 /* Minimalist Scrollbar */
@@ -209,18 +246,18 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
+  background: #94a3b8;
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: #2a3038;
+  background: #333844;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #3b424e;
+  background: #474e5e;
 }
 
 .shadow-subtle {
