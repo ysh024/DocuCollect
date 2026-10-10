@@ -16,15 +16,17 @@ import {
   FileText,
   X,
   ExternalLink,
-  CheckCircle,
   Clock,
   AlertCircle,
+  CheckCircle,
   FileSpreadsheet,
+  Pencil,
 } from "lucide-react";
 import { getDashboardData } from "@/app/actions/portal";
 import { Client, CaseWithDetails, Document } from "@/types";
 import { formatDate, formatBytes } from "@/lib/utils";
 import { NewClientModal } from "@/components/dashboard/NewClientModal";
+import { EditClientModal } from "@/components/dashboard/EditClientModal";
 import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
@@ -35,6 +37,7 @@ export default function ClientsPage() {
   const [search, setSearch] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"manual" | "csv">("manual");
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [vaultClient, setVaultClient] = useState<Client | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ doc: Document; reqName: string; caseId?: string } | null>(null);
 
@@ -182,6 +185,17 @@ export default function ClientsPage() {
 
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Edit Client Details */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingClient(client)}
+                          title="Edit client details"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
                         {/* Open Document Vault */}
                         <button
                           type="button"
@@ -354,6 +368,16 @@ export default function ClientsPage() {
         onClose={() => setIsNewClientOpen(false)}
         onSuccess={() => refresh()}
       />
+
+      {/* Edit Client Modal */}
+      {editingClient && (
+        <EditClientModal
+          isOpen={!!editingClient}
+          client={editingClient}
+          onClose={() => setEditingClient(null)}
+          onSuccess={() => refresh()}
+        />
+      )}
     </div>
   );
 }

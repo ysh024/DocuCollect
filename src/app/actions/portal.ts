@@ -605,6 +605,56 @@ export async function importClientsFromCsvAction(rows: ClientCsvRow[]) {
   return { success: true, count: inserted.length, clients: inserted };
 }
 
+export async function updateClientAction(
+  clientId: string,
+  formData: {
+    name: string;
+    email?: string | null;
+    phone: string;
+    alternate_phone?: string | null;
+    company?: string | null;
+    client_ref_id?: string | null;
+    address?: string | null;
+    notes?: string | null;
+  }
+) {
+  const sql = getDb();
+  if (!sql) throw new Error("Database not connected");
+
+  const orgId = await getAuthenticatedOrgId();
+  await assertActiveSubscription(orgId, sql);
+
+  if (!clientId) throw new Error("Client ID is required");
+  if (!formData.name?.trim()) throw new Error("Name is required");
+  if (!formData.phone?.trim()) throw new Error("Phone number is required");
+
+  const updated = await sql`
+    UPDATE public.clients
+    SET
+      name = ${formData.name.trim()},
+      email = ${formData.email ? formData.email.trim() || null : null},
+      phone = ${formData.phone.trim()},
+      alternate_phone = ${formData.alternate_phone ? formData.alternate_phone.trim() || null : null},
+      company = ${formData.company ? formData.company.trim() || null : null},
+      client_ref_id = ${formData.client_ref_id ? formData.client_ref_id.trim() || null : null},
+      address = ${formData.address ? formData.address.trim() || null : null},
+      notes = ${formData.notes ? formData.notes.trim() || null : null},
+      updated_at = NOW()
+    WHERE id = ${clientId} AND organization_id = ${orgId}
+    RETURNING *;
+  `;
+
+  if (updated.length === 0) {
+    throw new Error("Client not found or unauthorized");
+  }
+
+  invalidateDashboardCache(orgId);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/clients");
+
+  return { success: true, client: updated[0] };
+}
+
 export async function createCaseAction(payload: {
   client_id: string;
   title: string;
