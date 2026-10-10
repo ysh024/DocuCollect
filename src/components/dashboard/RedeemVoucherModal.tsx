@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Key, X, Sparkles, CheckCircle2, AlertCircle, Loader2, ArrowRight } from "lucide-react";
 import { redeemLicenseKeyAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
@@ -21,8 +22,32 @@ export function RedeemVoucherModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<{ message: string; planName?: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleClose = () => {
+    setCode("");
+    setError(null);
+    setSuccessData(null);
+    onClose();
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        handleClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
+
+  if (!isOpen || !mounted) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,29 +85,27 @@ export function RedeemVoucherModal({
     }
   };
 
-  const handleClose = () => {
-    setCode("");
-    setError(null);
-    setSuccessData(null);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+  // Render via createPortal onto document.body to escape any parent CSS stacking context / backdrop-filter
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={handleClose}
+      aria-modal="true"
+      role="dialog"
+    >
       <div
-        className="w-full max-w-md bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-in zoom-in-95 duration-150"
-        role="dialog"
-        aria-modal="true"
+        className="w-full max-w-md bg-white dark:bg-[#15181e] rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
         aria-labelledby="redeem-modal-title"
       >
         {/* Header */}
-        <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex items-start justify-between gap-3 bg-neutral-50/50 dark:bg-neutral-900/50">
+        <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex items-start justify-between gap-3 bg-neutral-50/70 dark:bg-neutral-900/70">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-neutral-900 dark:bg-neutral-800 text-white flex items-center justify-center shrink-0 shadow-xs">
               <Key className="w-5 h-5 text-amber-400" />
             </div>
             <div>
-              <h2 id="redeem-modal-title" className="text-sm font-bold text-neutral-900 dark:text-white leading-tight">
+              <h2 id="redeem-modal-title" className="text-sm font-bold text-neutral-900 dark:text-neutral-100 leading-tight">
                 Redeem Activation Key / Voucher
               </h2>
               <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -101,14 +124,14 @@ export function RedeemVoucherModal({
         </div>
 
         {/* Content */}
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto">
           {successData ? (
             <div className="py-4 text-center space-y-3">
               <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-200 dark:border-emerald-800">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-sm font-bold text-neutral-900 dark:text-white">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
                   Plan Activated Successfully!
                 </h3>
                 <p className="text-xs text-neutral-600 dark:text-neutral-300">
@@ -139,7 +162,7 @@ export function RedeemVoucherModal({
                     }}
                     placeholder="DOCU-PRO-YR-XXXX-XXXX"
                     autoFocus
-                    className="w-full px-3.5 py-2.5 rounded-xl border font-mono text-xs font-semibold tracking-wider bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 border-neutral-300 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400 transition-all placeholder:text-neutral-400 dark:placeholder:text-neutral-600 uppercase"
+                    className="w-full px-3.5 py-2.5 rounded-xl border font-mono text-xs font-semibold tracking-wider bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 border-neutral-300 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-neutral-900 dark:focus:ring-neutral-400 transition-all placeholder:text-neutral-400 dark:placeholder:text-neutral-600 uppercase"
                   />
                 </div>
                 <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
@@ -194,6 +217,7 @@ export function RedeemVoucherModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
