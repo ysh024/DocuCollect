@@ -24,7 +24,7 @@ export default function DashboardLayout({
         <Sidebar />
 
         {/* Main Scrollable Container with stable scrollbar gutter */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll">
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll [scrollbar-gutter:stable]">
           {/* Top Navbar with Dynamic User & Sign Out */}
           <Header />
 

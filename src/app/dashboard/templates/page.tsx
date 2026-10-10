@@ -137,18 +137,10 @@ export default function ChecklistTemplatesPage() {
   const customCount = templates.filter((t) => !t.is_system).length;
   const systemCount = templates.filter((t) => t.is_system).length;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-neutral-900">Checklist Templates</h1>
@@ -156,7 +148,7 @@ export default function ChecklistTemplatesPage() {
               {templates.length} Total
             </span>
           </div>
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-neutral-500 mt-0.5">
             Build standardized document checklists once and reuse them for multiple clients in 1 click.
           </p>
         </div>
@@ -165,7 +157,7 @@ export default function ChecklistTemplatesPage() {
           <button
             type="button"
             onClick={handleCreateNew}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-sm transition-colors cursor-pointer self-start"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Create Template</span>
@@ -262,7 +254,17 @@ export default function ChecklistTemplatesPage() {
       </div>
 
       {/* Templates Grid */}
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-44 bg-white rounded-2xl border border-neutral-200/80 p-5 space-y-3 animate-pulse">
+              <div className="w-1/2 h-4 bg-neutral-200 rounded" />
+              <div className="w-3/4 h-3 bg-neutral-100 rounded" />
+              <div className="w-full h-12 bg-neutral-50 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="p-12 text-center bg-white rounded-2xl border border-neutral-200/80 space-y-3">
           <div className="w-12 h-12 rounded-xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto">
             <Layers className="w-6 h-6" />

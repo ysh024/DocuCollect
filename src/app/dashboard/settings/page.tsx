@@ -113,8 +113,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 w-full pb-12">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-neutral-900">Settings</h1>
           <p className="text-xs text-neutral-500 mt-0.5">
@@ -125,7 +125,7 @@ export default function SettingsPage() {
           type="button"
           onClick={handleSignOut}
           disabled={loggingOut}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors self-start"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200/80 transition-colors self-start cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>{loggingOut ? "Signing Out..." : "Sign Out"}</span>

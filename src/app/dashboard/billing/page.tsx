@@ -139,13 +139,28 @@ export default function BillingPage() {
     paymentSettings?.show_upi || paymentSettings?.show_bank || paymentSettings?.show_whatsapp;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* 1. Page Header */}
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Billing & Subscriptions</h1>
-        <p className="text-xs text-neutral-500 mt-0.5">
-          Manage your subscription tier, track client quotas, and upgrade your account.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Billing & Subscriptions</h1>
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                isActive
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : isTrial
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-rose-50 text-rose-700 border-rose-200"
+              }`}
+            >
+              {subscription?.plan_display_name || "Free Trial"}
+            </span>
+          </div>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            Manage your subscription tier, track client quotas, and upgrade your account.
+          </p>
+        </div>
       </div>
 
       {/* 2. HERO: Current Active Plan Card */}

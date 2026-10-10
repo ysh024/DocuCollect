@@ -28,16 +28,7 @@ export default function CasesListPage() {
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [selectedCaseForShare, setSelectedCaseForShare] = useState<CaseWithDetails | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  if (!data) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-8 h-8 border-4 border-neutral-900 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  const filtered = data.cases.filter((c) => {
+  const filtered = (data?.cases || []).filter((c) => {
     const matchesSearch =
       c.title.toLowerCase().includes(search.toLowerCase()) ||
       c.client.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -57,12 +48,12 @@ export default function CasesListPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
           <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Cases & Collection Requests</h1>
-          <p className="text-xs text-neutral-500 mt-1">Manage active client document requests, review cycles, and status.</p>
+          <p className="text-xs text-neutral-500 mt-0.5">Manage active client document requests, review cycles, and status.</p>
         </div>
         <div className="flex items-center gap-2.5">
           <Link
@@ -113,86 +104,103 @@ export default function CasesListPage() {
       </div>
 
       {/* Cases List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((c) => {
-          const badge = getCaseStatusBadge(c.status);
-          const totalReqs = c.requirements.length;
-          const approvedCount = c.requirements.filter((r) => r.status === "approved").length;
-          const underReviewCount = c.requirements.filter((r) => r.status === "under_review" || r.status === "uploaded").length;
-          const percentage = totalReqs > 0 ? Math.round((approvedCount / totalReqs) * 100) : 0;
-
-          return (
-            <div
-              key={c.id}
-              className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 group"
-            >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-mono text-[11px] font-semibold text-slate-500">{c.reference_number}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badge.className}`}>
-                    {badge.label}
-                  </span>
-                </div>
-
-                <Link href={`/dashboard/cases/${c.id}`} className="block mt-2">
-                  <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                    {c.title}
-                  </h3>
-                  <p className="text-xs text-slate-600 font-medium mt-0.5">{c.client.name}</p>
-                </Link>
-
-                <p className="text-[11px] text-slate-500 mt-1">Service: {c.service_type}</p>
-              </div>
-
-              {/* Progress */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-medium text-slate-600">{approvedCount} of {totalReqs} approved</span>
-                  <span className="font-bold text-slate-800">{percentage}%</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
-                  <div className="bg-emerald-500 h-full" style={{ width: `${(approvedCount / (totalReqs || 1)) * 100}%` }} />
-                  <div className="bg-purple-500 h-full" style={{ width: `${(underReviewCount / (totalReqs || 1)) * 100}%` }} />
-                </div>
-              </div>
-
-              {/* Footer Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCaseForShare(c)}
-                    title="WhatsApp Share"
-                    className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                  >
-                    <MessageSquareShare className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleCopyLink(c)}
-                    title="Copy Link"
-                    className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-                  >
-                    {copiedId === c.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
-
-                <Link
-                  href={`/dashboard/cases/${c.id}`}
-                  className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700 text-xs"
-                >
-                  <span>Open Case</span>
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
+      {!data ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-48 bg-white rounded-2xl border border-slate-200/80 p-5 space-y-3 animate-pulse">
+              <div className="w-1/2 h-4 bg-slate-200 rounded" />
+              <div className="w-3/4 h-3 bg-slate-100 rounded" />
+              <div className="w-full h-12 bg-slate-50 rounded" />
             </div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-slate-200/80 p-8">
+          <p className="text-sm font-semibold text-slate-700">No cases match the selected filter</p>
+          <p className="text-xs text-slate-400 mt-1">Try switching filters or creating a new case.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+          {filtered.map((c) => {
+            const badge = getCaseStatusBadge(c.status);
+            const totalReqs = c.requirements.length;
+            const approvedCount = c.requirements.filter((r) => r.status === "approved").length;
+            const underReviewCount = c.requirements.filter((r) => r.status === "under_review" || r.status === "uploaded").length;
+            const percentage = totalReqs > 0 ? Math.round((approvedCount / totalReqs) * 100) : 0;
+
+            return (
+              <div
+                key={c.id}
+                className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 group"
+              >
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-mono text-[11px] font-semibold text-slate-500">{c.reference_number}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badge.className}`}>
+                      {badge.label}
+                    </span>
+                  </div>
+
+                  <Link href={`/dashboard/cases/${c.id}`} className="block mt-2">
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      {c.title}
+                    </h3>
+                    <p className="text-xs text-slate-600 font-medium mt-0.5">{c.client.name}</p>
+                  </Link>
+
+                  <p className="text-[11px] text-slate-500 mt-1">Service: {c.service_type}</p>
+                </div>
+
+                {/* Progress */}
+                <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-medium text-slate-600">{approvedCount} of {totalReqs} approved</span>
+                    <span className="font-bold text-slate-800">{percentage}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden flex">
+                    <div className="bg-emerald-500 h-full" style={{ width: `${(approvedCount / (totalReqs || 1)) * 100}%` }} />
+                    <div className="bg-purple-500 h-full" style={{ width: `${(underReviewCount / (totalReqs || 1)) * 100}%` }} />
+                  </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCaseForShare(c)}
+                      title="WhatsApp Share"
+                      className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                    >
+                      <MessageSquareShare className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyLink(c)}
+                      title="Copy Link"
+                      className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                    >
+                      {copiedId === c.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+
+                  <Link
+                    href={`/dashboard/cases/${c.id}`}
+                    className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:text-blue-700 text-xs"
+                  >
+                    <span>Open Case</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {isNewCaseOpen && (
         <NewCaseModal
-          clients={data.clients}
+          clients={data?.clients || []}
           isOpen={isNewCaseOpen}
           onClose={() => setIsNewCaseOpen(false)}
           onSuccess={() => refresh()}

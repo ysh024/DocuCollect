@@ -129,9 +129,9 @@ export default function AuditTrailPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-neutral-900">Audit Trail & Compliance</h1>
@@ -139,7 +139,7 @@ export default function AuditTrailPage() {
               Immutable Log
             </span>
           </div>
-          <p className="text-xs text-neutral-500 mt-1">
+          <p className="text-xs text-neutral-500 mt-0.5">
             Complete tamper-evident log of document uploads, CA reviews, link shares, and access events.
           </p>
         </div>
