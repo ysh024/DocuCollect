@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 
 export type Theme = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -8,8 +8,10 @@ export type ResolvedTheme = "light" | "dark";
 interface ThemeContextType {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
+  mounted: boolean;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  cycleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -19,11 +21,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("light");
   const [mounted, setMounted] = useState(false);
 
-  // Apply theme to document
-  const applyTheme = (targetTheme: Theme) => {
+  // Apply theme to document with style.colorScheme support
+  const applyTheme = useCallback((targetTheme: Theme) => {
     let effective: ResolvedTheme = "light";
     if (targetTheme === "system") {
-      const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const systemDark = typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
       effective = systemDark ? "dark" : "light";
     } else {
       effective = targetTheme;
@@ -31,47 +33,88 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     setResolvedTheme(effective);
 
-    if (effective === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    if (typeof document !== "undefined") {
+      if (effective === "dark") {
+        document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = "dark";
+      } else {
+        document.documentElement.classList.remove("dark");
+        document.documentElement.style.colorScheme = "light";
+      }
     }
-  };
+    return effective;
+  }, []);
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = (localStorage.getItem("docucollect_theme") as Theme) || "system";
+    let savedTheme: Theme = "system";
+    try {
+      savedTheme = (localStorage.getItem("docucollect_theme") as Theme) || "system";
+    } catch {}
+
     setThemeState(savedTheme);
     applyTheme(savedTheme);
 
+    // Watch OS system preference changes
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => {
-      const current = (localStorage.getItem("docucollect_theme") as Theme) || "system";
+    const handleMediaChange = () => {
+      let current: Theme = "system";
+      try {
+        current = (localStorage.getItem("docucollect_theme") as Theme) || "system";
+      } catch {}
       if (current === "system") {
         applyTheme("system");
       }
     };
 
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
+    // Watch cross-tab or external storage changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "docucollect_theme") {
+        const next = (e.newValue as Theme) || "system";
+        setThemeState(next);
+        applyTheme(next);
+      }
+    };
 
-  const setTheme = (newTheme: Theme) => {
+    mediaQuery.addEventListener("change", handleMediaChange);
+    window.addEventListener("storage", handleStorageChange);
+    return () => {
+      mediaQuery.removeEventListener("change", handleMediaChange);
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [applyTheme]);
+
+  const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem("docucollect_theme", newTheme);
+    try {
+      localStorage.setItem("docucollect_theme", newTheme);
+    } catch {}
     applyTheme(newTheme);
-  };
+  }, [applyTheme]);
 
-  const toggleTheme = () => {
-    if (resolvedTheme === "dark") {
-      setTheme("light");
-    } else {
+  // Guaranteed deterministic toggle: reads the live document class to prevent desync
+  const toggleTheme = useCallback(() => {
+    const isCurrentlyDark = typeof document !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : resolvedTheme === "dark";
+
+    const nextTheme: ResolvedTheme = isCurrentlyDark ? "light" : "dark";
+    setTheme(nextTheme);
+  }, [resolvedTheme, setTheme]);
+
+  // Cycle through all 3 modes: light -> dark -> system -> light
+  const cycleTheme = useCallback(() => {
+    if (theme === "light") {
       setTheme("dark");
+    } else if (theme === "dark") {
+      setTheme("system");
+    } else {
+      setTheme("light");
     }
-  };
+  }, [theme, setTheme]);
 
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, resolvedTheme, mounted, setTheme, toggleTheme, cycleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
