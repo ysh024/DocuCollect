@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "25mb",
     },
+    optimizePackageImports: ["lucide-react", "@neondatabase/serverless"],
   },
   images: {
     remotePatterns: [

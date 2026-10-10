@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/shared/Sidebar";
 import { Header } from "@/components/shared/Header";
 import { TrialExpiryGuard } from "@/components/dashboard/TrialExpiryGuard";
 import { DashboardDataProvider } from "@/contexts/DashboardDataContext";
+import { DashboardShell } from "@/components/dashboard/DashboardShell";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -24,14 +25,17 @@ export default function DashboardLayout({
         <Sidebar />
 
         {/* Main Scrollable Container with stable scrollbar gutter */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll [scrollbar-gutter:stable] bg-[#fbfbfb] dark:bg-neutral-950 transition-colors duration-150">
+        <div
+          id="dashboard-scroll-container"
+          className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll [scrollbar-gutter:stable] bg-[#fbfbfb] dark:bg-neutral-950 transition-colors duration-150"
+        >
           {/* Top Navbar with Dynamic User & Sign Out */}
           <Header />
 
-          {/* Content Area with Trial Expiry Guard */}
+          {/* Content Area with Trial Expiry Guard and High-Speed DashboardShell */}
           <main className="flex-1 p-6 sm:p-8 max-w-7xl w-full mx-auto">
             <TrialExpiryGuard>
-              {children}
+              <DashboardShell>{children}</DashboardShell>
             </TrialExpiryGuard>
           </main>
         </div>

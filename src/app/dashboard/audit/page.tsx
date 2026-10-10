@@ -18,24 +18,31 @@ import {
 } from "lucide-react";
 import { getFullAuditLogsAction } from "@/app/actions/portal";
 
+let globalAuditLogsCache: any[] | null = null;
+
 export default function AuditTrailPage() {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [logs, setLogs] = useState<any[]>(globalAuditLogsCache || []);
+  const [loading, setLoading] = useState(!globalAuditLogsCache);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
 
-  const loadLogs = async () => {
-    setLoading(true);
+  const loadLogs = async (force = false) => {
+    if (!globalAuditLogsCache || force) {
+      setLoading(true);
+    }
     try {
       const data = await getFullAuditLogsAction();
-      setLogs(data);
+      if (data) {
+        globalAuditLogsCache = data;
+        setLogs(data);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadLogs();
+    loadLogs(!globalAuditLogsCache);
   }, []);
 
   const filteredLogs = logs.filter((log) => {
@@ -146,7 +153,7 @@ export default function AuditTrailPage() {
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={loadLogs}
+            onClick={() => loadLogs(true)}
             disabled={loading}
             className="p-2 border border-neutral-200 rounded-lg hover:bg-neutral-50 text-neutral-700 transition"
             title="Refresh logs"

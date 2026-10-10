@@ -17,22 +17,22 @@ import {
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/cases", label: "Cases & Checklists", icon: Briefcase },
-  { href: "/dashboard/templates", label: "Checklist Templates", icon: Layers },
-  { href: "/dashboard/clients", label: "Clients & Document Vault", icon: Users },
-  { href: "/dashboard/audit", label: "Audit Trail", icon: ShieldCheck },
-  { href: "/dashboard/billing", label: "Billing & Plan", icon: CreditCard },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
-];
+import { useDashboardData, DashboardTab } from "@/contexts/DashboardDataContext";
 
-import { useDashboardData } from "@/contexts/DashboardDataContext";
+const navItems: { href: string; tab: DashboardTab; label: string; icon: any }[] = [
+  { href: "/dashboard", tab: "overview", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard/cases", tab: "cases", label: "Cases & Checklists", icon: Briefcase },
+  { href: "/dashboard/templates", tab: "templates", label: "Checklist Templates", icon: Layers },
+  { href: "/dashboard/clients", tab: "clients", label: "Clients & Document Vault", icon: Users },
+  { href: "/dashboard/audit", tab: "audit", label: "Audit Trail", icon: ShieldCheck },
+  { href: "/dashboard/billing", tab: "billing", label: "Billing & Plan", icon: CreditCard },
+  { href: "/dashboard/settings", tab: "settings", label: "Settings", icon: Settings },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { toast } = useToast();
-  const { user } = useDashboardData();
+  const { user, activeTab, navigateToTab } = useDashboardData();
 
   const getInitials = (name: string) => {
     if (!name) return "?";
@@ -52,7 +52,14 @@ export function Sidebar() {
     <aside className="w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 flex flex-col h-screen sticky top-0 shrink-0 z-20 transition-colors duration-150">
       {/* Brand */}
       <div className="h-16 px-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center shrink-0">
-        <Link href="/dashboard" className="flex items-center gap-2.5 group min-w-0">
+        <Link
+          href="/dashboard"
+          onClick={(e) => {
+            e.preventDefault();
+            navigateToTab("overview");
+          }}
+          className="flex items-center gap-2.5 group min-w-0"
+        >
           {user?.logoUrl ? (
             <div className="w-8 h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white dark:bg-neutral-800 p-0.5">
               <img
@@ -83,7 +90,13 @@ export function Sidebar() {
             <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
               <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Trial expires in {trialDaysLeft}d</p>
-              <Link href="/dashboard/billing" className="text-[10px] text-amber-700 dark:text-amber-400 underline">View plans →</Link>
+              <button
+                type="button"
+                onClick={() => navigateToTab("billing")}
+                className="text-[10px] text-amber-700 dark:text-amber-400 underline cursor-pointer"
+              >
+                View plans →
+              </button>
             </div>
           </div>
         )}
@@ -94,14 +107,18 @@ export function Sidebar() {
           </p>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const isActive = activeTab === item.tab;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 prefetch={true}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateToTab(item.tab);
+                }}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150",
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer",
                   isActive
                     ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm font-semibold"
                     : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70"
@@ -120,14 +137,22 @@ export function Sidebar() {
           </p>
           <Link
             href="/dashboard/cases"
-            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToTab("cases");
+            }}
+            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group cursor-pointer"
           >
             <span>Active Checklists</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white" />
           </Link>
           <Link
             href="/dashboard/clients"
-            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToTab("clients");
+            }}
+            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group cursor-pointer"
           >
             <span>Client Vault</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white" />
@@ -140,6 +165,10 @@ export function Sidebar() {
         {user ? (
           <Link
             href="/dashboard/settings"
+            onClick={(e) => {
+              e.preventDefault();
+              navigateToTab("settings");
+            }}
             title="Manage Workspace Settings"
             className="p-2.5 bg-neutral-50 hover:bg-neutral-100/90 dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center gap-2.5 transition-colors group cursor-pointer"
           >

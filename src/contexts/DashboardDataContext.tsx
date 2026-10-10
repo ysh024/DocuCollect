@@ -11,6 +11,7 @@ import React, {
 import { CaseWithDetails, Client } from "@/types";
 import { getDashboardData, getAdvisorNotificationsAction } from "@/app/actions/portal";
 import { getCurrentUserAction } from "@/app/actions/auth";
+import { usePathname } from "next/navigation";
 
 export interface DashboardMetrics {
   totalClients: number;
@@ -29,6 +30,44 @@ export interface DashboardData {
   subscription: any | null;
 }
 
+export type DashboardTab =
+  | "overview"
+  | "cases"
+  | "templates"
+  | "clients"
+  | "audit"
+  | "billing"
+  | "settings";
+
+export function pathToDashboardTab(pathname: string): DashboardTab {
+  if (pathname.startsWith("/dashboard/cases")) return "cases";
+  if (pathname.startsWith("/dashboard/templates")) return "templates";
+  if (pathname.startsWith("/dashboard/clients")) return "clients";
+  if (pathname.startsWith("/dashboard/audit")) return "audit";
+  if (pathname.startsWith("/dashboard/billing")) return "billing";
+  if (pathname.startsWith("/dashboard/settings")) return "settings";
+  return "overview";
+}
+
+export function dashboardTabToPath(tab: DashboardTab): string {
+  switch (tab) {
+    case "cases":
+      return "/dashboard/cases";
+    case "templates":
+      return "/dashboard/templates";
+    case "clients":
+      return "/dashboard/clients";
+    case "audit":
+      return "/dashboard/audit";
+    case "billing":
+      return "/dashboard/billing";
+    case "settings":
+      return "/dashboard/settings";
+    default:
+      return "/dashboard";
+  }
+}
+
 interface DashboardContextValue {
   data: DashboardData | null;
   clients: Client[];
@@ -38,6 +77,8 @@ interface DashboardContextValue {
   subscription: any | null;
   notifications: any[];
   loading: boolean;
+  activeTab: DashboardTab;
+  navigateToTab: (target: DashboardTab | string) => void;
   refresh: (silent?: boolean) => Promise<void>;
   updateCaseOptimistically: (caseId: string, updater: (prev: CaseWithDetails) => CaseWithDetails) => void;
   updateRequirementOptimistically: (caseId: string, reqId: string, newStatus: string) => void;
@@ -63,6 +104,47 @@ const CACHE_FRESHNESS_MS = 25000; // 25 seconds
 const DashboardDataContext = createContext<DashboardContextValue | null>(null);
 
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [activeTab, setActiveTab] = useState<DashboardTab>(() => {
+    if (typeof window !== "undefined") {
+      return pathToDashboardTab(window.location.pathname);
+    }
+    return pathToDashboardTab(pathname || "/dashboard");
+  });
+
+  // Sync tab on browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveTab(pathToDashboardTab(window.location.pathname));
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Sync if pathname changes via Next.js router
+  useEffect(() => {
+    if (pathname) {
+      setActiveTab(pathToDashboardTab(pathname));
+    }
+  }, [pathname]);
+
+  const navigateToTab = useCallback((target: DashboardTab | string) => {
+    const tab: DashboardTab = target.startsWith("/dashboard")
+      ? pathToDashboardTab(target)
+      : (target as DashboardTab);
+    const targetPath = target.startsWith("/dashboard") ? target : dashboardTabToPath(tab);
+
+    setActiveTab(tab);
+    if (typeof window !== "undefined" && window.location.pathname !== targetPath) {
+      window.history.pushState(null, "", targetPath);
+    }
+    // Instantly scroll content to top
+    if (typeof window !== "undefined") {
+      const scrollEl = document.getElementById("dashboard-scroll-container");
+      if (scrollEl) scrollEl.scrollTop = 0;
+    }
+  }, []);
+
   const [data, setData] = useState<DashboardData | null>(globalDashboardCache);
   const [user, setUser] = useState<any | null>(globalUserCache);
   const [notifications, setNotifications] = useState<any[]>(globalNotificationsCache);
@@ -166,6 +248,8 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         subscription,
         notifications,
         loading,
+        activeTab,
+        navigateToTab,
         refresh,
         updateCaseOptimistically,
         updateRequirementOptimistically,
