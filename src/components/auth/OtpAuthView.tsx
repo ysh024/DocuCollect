@@ -98,6 +98,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
         body: JSON.stringify({
           provider: "google",
           callbackURL,
+          newUserCallbackURL: callbackURL,
         }),
       });
 
