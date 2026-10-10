@@ -124,8 +124,45 @@ export async function getDashboardData(options?: { forceFresh?: boolean }) {
   const linksRows = (combined?.links || []) as any[];
   const subRows = combined?.subscription ? [combined.subscription] : [];
 
+  // High-performance O(1) indexed lookup maps to eliminate nested array iterations
+  const clientsById = new Map<string, Client>();
+  for (let i = 0; i < clients.length; i++) {
+    clientsById.set(clients[i].id, clients[i]);
+  }
+
+  const docsByReqId = new Map<string, any[]>();
+  for (let i = 0; i < docsRows.length; i++) {
+    const d = docsRows[i];
+    let arr = docsByReqId.get(d.requirement_id);
+    if (!arr) {
+      arr = [];
+      docsByReqId.set(d.requirement_id, arr);
+    }
+    arr.push(d);
+  }
+
+  const reqsByCaseId = new Map<string, any[]>();
+  for (let i = 0; i < reqsRows.length; i++) {
+    const r = reqsRows[i];
+    const reqWithDocs = {
+      ...r,
+      documents: docsByReqId.get(r.id) || [],
+    };
+    let arr = reqsByCaseId.get(r.case_id);
+    if (!arr) {
+      arr = [];
+      reqsByCaseId.set(r.case_id, arr);
+    }
+    arr.push(reqWithDocs);
+  }
+
+  const linksByCaseId = new Map<string, any>();
+  for (let i = 0; i < linksRows.length; i++) {
+    linksByCaseId.set(linksRows[i].case_id, linksRows[i]);
+  }
+
   const cases: CaseWithDetails[] = casesRows.map((c) => {
-    const client = clients.find((cli) => cli.id === c.client_id) || {
+    const client = clientsById.get(c.client_id) || {
       id: c.client_id,
       organization_id: c.organization_id,
       name: "Client",
@@ -140,14 +177,8 @@ export async function getDashboardData(options?: { forceFresh?: boolean }) {
       updated_at: c.updated_at,
     };
 
-    const caseReqs = reqsRows
-      .filter((r) => r.case_id === c.id)
-      .map((r) => ({
-        ...r,
-        documents: docsRows.filter((d) => d.requirement_id === r.id),
-      }));
-
-    const link = linksRows.find((l) => l.case_id === c.id) || null;
+    const caseReqs = reqsByCaseId.get(c.id) || [];
+    const link = linksByCaseId.get(c.id) || null;
 
     // Dynamically derive accurate case status based on actual requirement statuses
     let currentStatus = c.status;

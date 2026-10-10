@@ -38,6 +38,7 @@ import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModa
 import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default function ClientsPage() {
   const { toast } = useToast();
@@ -54,9 +55,18 @@ export default function ClientsPage() {
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
   const [activeClientTab, setActiveClientTab] = useState<"all" | "cases" | "vault">("all");
 
+  // Client Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const filtered = clients.filter((c) => {
     return (
@@ -66,6 +76,9 @@ export default function ClientsPage() {
       (c.company && c.company.toLowerCase().includes(search.toLowerCase()))
     );
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedClients = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const getClientCases = (clientId: string) => {
     return cases.filter((c) => c.client_id === clientId);
@@ -213,7 +226,7 @@ export default function ClientsPage() {
                   </td>
                 </tr>
               ) : (
-                filtered.map((client) => {
+                paginatedClients.map((client) => {
                   const clientCases = getClientCases(client.id);
                   const clientDocs = getClientDocuments(client.id);
                   const cleanPhone = client.phone.replace(/[^0-9]/g, "");
@@ -716,6 +729,18 @@ export default function ClientsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Clients Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[10, 25, 50]}
+          itemLabel="clients"
+        />
       </div>
 
 

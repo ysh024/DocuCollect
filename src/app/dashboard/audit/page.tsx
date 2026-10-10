@@ -17,6 +17,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { getFullAuditLogsAction } from "@/app/actions/portal";
+import { Pagination } from "@/components/ui/Pagination";
 
 let globalAuditLogsCache: any[] | null = null;
 
@@ -25,6 +26,8 @@ export default function AuditTrailPage() {
   const [loading, setLoading] = useState(!globalAuditLogsCache);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const loadLogs = async (force = false) => {
     if (!globalAuditLogsCache || force) {
@@ -64,6 +67,10 @@ export default function AuditTrailPage() {
 
     return matchesAction && matchesSearch;
   });
+
+  const totalItems = filteredLogs.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const exportCsv = () => {
     if (filteredLogs.length === 0) return;
@@ -178,7 +185,10 @@ export default function AuditTrailPage() {
             type="text"
             placeholder="Search by client, case, reference, or details..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full pl-9 pr-4 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900"
           />
         </div>
@@ -186,7 +196,10 @@ export default function AuditTrailPage() {
         <div>
           <select
             value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
+            onChange={(e) => {
+              setActionFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900"
           >
             <option value="all">All Events</option>
@@ -232,7 +245,7 @@ export default function AuditTrailPage() {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => {
+                paginatedLogs.map((log) => {
                   const meta = typeof log.metadata === "string" ? JSON.parse(log.metadata) : log.metadata || {};
                   const createdDate = new Date(log.created_at);
 
@@ -312,6 +325,23 @@ export default function AuditTrailPage() {
             </tbody>
           </table>
         </div>
+
+        {totalItems > 0 && (
+          <div className="border-t border-neutral-200 px-4 py-3 bg-neutral-50/50">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 20, 50, 100]}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

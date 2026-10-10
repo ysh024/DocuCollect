@@ -912,7 +912,26 @@ export async function resetPasswordWithOtpAction(data: {
   }
 
   try {
-    const isValidOtp = await verifyOtp(normalizedEmail, cleanCode);
+    let isValidOtp = await verifyOtp(normalizedEmail, cleanCode);
+
+    // If not in local DB, check Neon Managed Better Auth (where the email came from)
+    const neonAuthUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.NEON_AUTH_BASE_URL;
+    if (!isValidOtp && neonAuthUrl) {
+      try {
+        const cleanBase = neonAuthUrl.replace(/\/$/, "");
+        const neonVerifyRes = await fetch(`${cleanBase}/sign-in/email-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalizedEmail, otp: cleanCode }),
+        });
+        if (neonVerifyRes.ok) {
+          isValidOtp = true;
+        }
+      } catch (verifyErr) {
+        console.warn("Neon OTP verify error during password reset:", verifyErr);
+      }
+    }
+
     if (!isValidOtp) {
       return { success: false, error: "Invalid or expired verification code. Please request a new code." };
     }

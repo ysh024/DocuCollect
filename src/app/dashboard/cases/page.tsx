@@ -21,16 +21,20 @@ import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
 import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default function CasesListPage() {
   const { data, loading, refresh } = useDashboardData();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [selectedCaseForShare, setSelectedCaseForShare] = useState<CaseWithDetails | null>(null);
   const [selectedCaseForReminder, setSelectedCaseForReminder] = useState<CaseWithDetails | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const filtered = (data?.cases || []).filter((c) => {
     const matchesSearch =
       c.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -41,6 +45,10 @@ export default function CasesListPage() {
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const paginatedCases = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleCopyLink = (c: CaseWithDetails) => {
     const token = c.upload_link?.token_hash || `token-${c.id.slice(0, 8)}`;
@@ -84,7 +92,10 @@ export default function CasesListPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Search by case title, client name, or reference..."
             className="w-full bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg pl-9 pr-4 py-2 text-xs text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-neutral-800"
           />
@@ -94,7 +105,10 @@ export default function CasesListPage() {
           <Filter className="w-4 h-4 text-neutral-400 dark:text-neutral-500" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
             className="text-xs bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
           >
             <option value="all">All Statuses</option>
@@ -123,8 +137,9 @@ export default function CasesListPage() {
           <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">Try switching filters or creating a new case.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((c) => {
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paginatedCases.map((c) => {
             const badge = getCaseStatusBadge(c.status);
             const totalReqs = c.requirements.length;
             const approvedCount = c.requirements.filter((r) => r.status === "approved").length;
@@ -207,6 +222,24 @@ export default function CasesListPage() {
             );
           })}
         </div>
+
+        {totalItems > 0 && (
+          <div className="pt-2">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[6, 12, 24, 48]}
+            />
+          </div>
+        )}
+      </>
       )}
 
       {isNewCaseOpen && (
