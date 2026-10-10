@@ -32,6 +32,7 @@ import {
   getAdminOverviewAction,
   getPublicPaymentSettingsAction,
   updatePaymentSettingsAction,
+  toggleUserDeactivationAction,
   PublicPaymentSettings,
 } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
@@ -81,6 +82,7 @@ export default function AdminPortalPage() {
   const [directPlan, setDirectPlan] = useState("starter");
   const [directPeriod, setDirectPeriod] = useState<"monthly" | "yearly">("monthly");
   const [directActivating, setDirectActivating] = useState(false);
+  const [deactivatingUserId, setDeactivatingUserId] = useState<string | null>(null);
 
   // Ledger Search & Filter
   const [ledgerSearch, setLedgerSearch] = useState("");
@@ -241,6 +243,48 @@ export default function AdminPortalPage() {
       toast({ title: "Error", description: err.message });
     } finally {
       setDirectActivating(false);
+    }
+  };
+
+  // Admin Account Deactivation / Reactivation Handler
+  const handleToggleDeactivation = async (userId: string, deactivate: boolean, email: string) => {
+    const actionVerb = deactivate ? "deactivate" : "reactivate";
+    const confirmed = window.confirm(
+      `Are you sure you want to ${actionVerb} the account for ${email}?\n\n${
+        deactivate
+          ? "This will immediately revoke their access to the dashboard and prevent them from signing in."
+          : "This will restore dashboard access and allow the user to sign in normally."
+      }`
+    );
+    if (!confirmed) return;
+
+    setDeactivatingUserId(userId);
+    try {
+      const res = await toggleUserDeactivationAction({
+        adminSecret,
+        userId,
+        deactivate,
+      });
+
+      if (!res.success) {
+        toast({
+          title: "Action Failed",
+          description: res.error || `Failed to ${actionVerb} account.`,
+        });
+      } else {
+        toast({
+          title: deactivate ? "Account Deactivated" : "Account Reactivated",
+          description: res.message,
+        });
+        await reloadData();
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || `An error occurred while attempting to ${actionVerb} account.`,
+      });
+    } finally {
+      setDeactivatingUserId(null);
     }
   };
 
@@ -840,9 +884,17 @@ export default function AdminPortalPage() {
                           <span className="font-semibold text-emerald-400">{u.plan_name || "Free Trial"}</span>
                         </td>
                         <td className="py-3 px-3">
-                          <span className="text-[10px] bg-neutral-800 px-2 py-0.5 rounded text-neutral-300 uppercase">
-                            {u.sub_status || "trial"}
-                          </span>
+                          {u.is_deactivated ? (
+                            <span className="text-[10px] bg-rose-950/80 border border-rose-800/80 px-2 py-0.5 rounded text-rose-300 font-bold uppercase inline-flex items-center gap-1">
+                              <Ban className="w-2.5 h-2.5 text-rose-400" />
+                              Deactivated
+                            </span>
+                          ) : (
+                            <span className="text-[10px] bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded text-emerald-300 font-semibold uppercase inline-flex items-center gap-1">
+                              <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
+                              {u.sub_status || "Active"}
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-neutral-400">
                           {u.current_period_end
@@ -850,16 +902,39 @@ export default function AdminPortalPage() {
                             : "—"}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDirectEmail(u.email);
-                              setActiveTab("direct");
-                            }}
-                            className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
-                          >
-                            Upgrade
-                          </button>
+                          <div className="flex items-center justify-end gap-2.5">
+                            {u.is_deactivated ? (
+                              <button
+                                type="button"
+                                disabled={deactivatingUserId === u.id}
+                                onClick={() => handleToggleDeactivation(u.id, false, u.email)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-950/80 border border-emerald-700 hover:bg-emerald-900 text-emerald-300 transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                <RefreshCw className={`w-3 h-3 text-emerald-400 ${deactivatingUserId === u.id ? "animate-spin" : ""}`} />
+                                <span>Reactivate</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={deactivatingUserId === u.id}
+                                onClick={() => handleToggleDeactivation(u.id, true, u.email)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/80 border border-rose-800 hover:bg-rose-900 text-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                              >
+                                <Ban className="w-3 h-3 text-rose-400" />
+                                <span>{deactivatingUserId === u.id ? "Deactivating..." : "Deactivate"}</span>
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDirectEmail(u.email);
+                                setActiveTab("direct");
+                              }}
+                              className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
+                            >
+                              Upgrade
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))

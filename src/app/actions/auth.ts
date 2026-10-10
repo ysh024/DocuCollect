@@ -131,7 +131,7 @@ export async function loginWithPasswordAction(formData: {
 
   try {
     const users = await sql`
-      SELECT id, organization_id, full_name, email, role, email_verified, password_hash
+      SELECT id, organization_id, full_name, email, role, email_verified, password_hash, is_deactivated
       FROM public.users
       WHERE LOWER(email) = ${normalizedEmail}
       LIMIT 1;
@@ -142,6 +142,13 @@ export async function loginWithPasswordAction(formData: {
     }
 
     const user = users[0] as any;
+
+    if (user.is_deactivated) {
+      return {
+        success: false,
+        error: "This account has been deactivated by the administrator. Please contact support.",
+      };
+    }
 
     if (!user.password_hash) {
       return {
@@ -444,7 +451,7 @@ export async function verifyLoginOtpAction(email: string, code: string) {
   }
 
   const users = await sql`
-    SELECT id, organization_id, email, role FROM public.users
+    SELECT id, organization_id, email, role, is_deactivated FROM public.users
     WHERE LOWER(email) = ${normalizedEmail} LIMIT 1;
   `;
 
@@ -453,6 +460,13 @@ export async function verifyLoginOtpAction(email: string, code: string) {
   }
 
   const user = users[0] as any;
+
+  if (user.is_deactivated) {
+    return {
+      success: false,
+      error: "This account has been deactivated by the administrator. Please contact support.",
+    };
+  }
 
   // Mark email verified
   await sql`
@@ -834,7 +848,7 @@ export async function requestPasswordResetOtpAction(email: string): Promise<{ su
 
   try {
     const existing = await sql`
-      SELECT id, email, full_name 
+      SELECT id, email, full_name, is_deactivated 
       FROM public.users 
       WHERE LOWER(email) = ${normalizedEmail} 
       LIMIT 1;
@@ -845,6 +859,13 @@ export async function requestPasswordResetOtpAction(email: string): Promise<{ su
       return {
         success: false,
         error: "No registered account found with this email address.",
+      };
+    }
+
+    if (existing[0].is_deactivated) {
+      return {
+        success: false,
+        error: "This account has been deactivated by the administrator. Please contact support.",
       };
     }
 

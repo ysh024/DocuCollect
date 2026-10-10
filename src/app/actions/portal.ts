@@ -1449,14 +1449,14 @@ export async function getAdminOverviewAction({ adminSecret }: { adminSecret: str
       sql`SELECT COUNT(*) as count FROM public.organizations;`,
       sql`SELECT * FROM public.license_keys ORDER BY created_at DESC LIMIT 50;`,
       sql`
-        SELECT u.id, u.email, u.full_name, u.role, u.created_at, o.name as org_name,
-               s.status as sub_status, p.display_name as plan_name, s.current_period_end
+        SELECT u.id, u.email, u.full_name, u.role, u.created_at, u.is_deactivated, u.deactivated_at,
+               o.name as org_name, s.status as sub_status, p.display_name as plan_name, s.current_period_end
         FROM public.users u
         LEFT JOIN public.organizations o ON u.organization_id = o.id
         LEFT JOIN public.subscriptions s ON o.id = s.organization_id
         LEFT JOIN public.plans p ON s.plan_id = p.id
         ORDER BY u.created_at DESC
-        LIMIT 20;
+        LIMIT 50;
       `,
       sql`SELECT * FROM public.plans WHERE is_active = true ORDER BY sort_order ASC;`,
     ]);
@@ -1557,5 +1557,82 @@ export async function updatePaymentSettingsAction(
     return { success: false, error: err.message || "Failed to update payment settings" };
   }
 }
+
+/**
+ * Admin Action: Deactivate or reactivate an account.
+ * Accessible ONLY from the protected Admin Panel with valid ADMIN_SECRET.
+ */
+export async function toggleUserDeactivationAction({
+  adminSecret,
+  userId,
+  deactivate,
+}: {
+  adminSecret: string;
+  userId: string;
+  deactivate: boolean;
+}) {
+  const EXPECTED_SECRET = process.env.ADMIN_SECRET || "admin123";
+  if (!adminSecret || adminSecret.trim() !== EXPECTED_SECRET.trim()) {
+    return { success: false, error: "Unauthorized. Invalid Admin Secret Key." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  try {
+    const userRows = await sql`
+      SELECT id, email, organization_id, is_deactivated FROM public.users WHERE id::text = ${userId} LIMIT 1;
+    `;
+    if (userRows.length === 0) {
+      return { success: false, error: "User not found." };
+    }
+
+    const targetUser = userRows[0];
+
+    if (deactivate) {
+      await sql`
+        UPDATE public.users
+        SET is_deactivated = true,
+            deactivated_at = now(),
+            updated_at = now()
+        WHERE id::text = ${userId};
+      `;
+      if (targetUser.organization_id) {
+        await sql`
+          UPDATE public.subscriptions
+          SET status = 'cancelled', updated_at = now()
+          WHERE organization_id = ${targetUser.organization_id};
+        `;
+        invalidateDashboardCache(targetUser.organization_id);
+      }
+    } else {
+      await sql`
+        UPDATE public.users
+        SET is_deactivated = false,
+            deactivated_at = NULL,
+            updated_at = now()
+        WHERE id::text = ${userId};
+      `;
+      if (targetUser.organization_id) {
+        await sql`
+          UPDATE public.subscriptions
+          SET status = 'active', updated_at = now()
+          WHERE organization_id = ${targetUser.organization_id};
+        `;
+        invalidateDashboardCache(targetUser.organization_id);
+      }
+    }
+
+    return {
+      success: true,
+      message: deactivate
+        ? `Account for ${targetUser.email} has been deactivated.`
+        : `Account for ${targetUser.email} has been reactivated.`,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to update account status." };
+  }
+}
+
 
 

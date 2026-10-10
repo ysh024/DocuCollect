@@ -156,10 +156,10 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
         const sql = getDb();
         if (sql) {
           const userRows = await sql`
-            SELECT email_verified FROM public.users WHERE id::text = ${verified.userId} LIMIT 1;
+            SELECT email_verified, is_deactivated FROM public.users WHERE id::text = ${verified.userId} LIMIT 1;
           `;
-          if (userRows.length > 0 && !userRows[0].email_verified) {
-            return null; // Unverified users cannot enter dashboard
+          if (userRows.length > 0 && (!userRows[0].email_verified || userRows[0].is_deactivated)) {
+            return null; // Unverified or deactivated users cannot enter dashboard
           }
           verifiedUserCache.set(verified.userId, Date.now());
         }
@@ -196,11 +196,15 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
 
           // Look up or auto-provision workspace in app users table
           let appUsers = await sql`
-            SELECT id, organization_id, email, role, email_verified
+            SELECT id, organization_id, email, role, email_verified, is_deactivated
             FROM public.users
             WHERE email = ${s.better_email} OR id = ${s.better_user_id}
             LIMIT 1;
           `;
+
+          if (appUsers.length > 0 && appUsers[0].is_deactivated) {
+            return null; // Deactivated accounts blocked from dashboard
+          }
 
           if (appUsers.length === 0) {
             const orgName = (s.better_name || s.better_email.split("@")[0]) + " Firm";
