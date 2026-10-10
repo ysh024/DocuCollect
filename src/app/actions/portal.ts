@@ -1600,10 +1600,30 @@ export async function getPublicPaymentSettingsAction(): Promise<PublicPaymentSet
 }
 
 export async function updatePaymentSettingsAction(
-  adminSecret: string,
-  settings: Partial<PublicPaymentSettings>,
-  adminEmail?: string
+  firstArg:
+    | string
+    | {
+        adminSecret?: string;
+        settings?: Partial<PublicPaymentSettings>;
+        adminEmail?: string;
+      },
+  secondArg?: Partial<PublicPaymentSettings>,
+  thirdArg?: string
 ): Promise<{ success: boolean; error?: string; settings?: PublicPaymentSettings }> {
+  let adminSecret = "";
+  let settings: Partial<PublicPaymentSettings> = {};
+  let adminEmail: string | undefined = undefined;
+
+  if (typeof firstArg === "object" && firstArg !== null) {
+    adminSecret = firstArg.adminSecret || "";
+    settings = firstArg.settings || {};
+    adminEmail = firstArg.adminEmail;
+  } else {
+    adminSecret = (firstArg as string) || "";
+    settings = secondArg || {};
+    adminEmail = thirdArg;
+  }
+
   const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
   if (!auth.authorized) {
     return { success: false, error: auth.error || "Unauthorized. Invalid Admin Credentials." };
