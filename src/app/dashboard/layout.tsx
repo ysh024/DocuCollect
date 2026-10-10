@@ -19,12 +19,12 @@ export default function DashboardLayout({
 }) {
   return (
     <DashboardDataProvider>
-      <div className="h-screen w-full flex bg-[#fbfbfb] text-neutral-900 overflow-hidden selection:bg-neutral-900 selection:text-white">
+      <div className="h-screen w-full flex bg-[#fbfbfb] dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 overflow-hidden selection:bg-neutral-900 selection:text-white dark:selection:bg-neutral-100 dark:selection:text-neutral-900 transition-colors duration-150">
         {/* Fixed Non-Scrolling Sidebar */}
         <Sidebar />
 
         {/* Main Scrollable Container with stable scrollbar gutter */}
-        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll [scrollbar-gutter:stable]">
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-scroll [scrollbar-gutter:stable] bg-[#fbfbfb] dark:bg-neutral-950 transition-colors duration-150">
           {/* Top Navbar with Dynamic User & Sign Out */}
           <Header />
 

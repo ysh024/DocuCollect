@@ -63,12 +63,12 @@ export function Sidebar() {
   const isOnTrial = user?.subscription?.status === "trial";
 
   return (
-    <aside className="w-64 bg-white border-r border-neutral-200/80 flex flex-col h-screen sticky top-0 shrink-0 z-20">
+    <aside className="w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 flex flex-col h-screen sticky top-0 shrink-0 z-20 transition-colors duration-150">
       {/* Brand */}
-      <div className="h-16 px-6 border-b border-neutral-100 flex items-center shrink-0">
+      <div className="h-16 px-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2.5 group min-w-0">
           {user?.logoUrl ? (
-            <div className="w-8 h-8 rounded-lg border border-neutral-200 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white p-0.5">
+            <div className="w-8 h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white dark:bg-neutral-800 p-0.5">
               <img
                 src={user.logoUrl}
                 alt={user.organizationName}
@@ -76,15 +76,15 @@ export function Sidebar() {
               />
             </div>
           ) : (
-            <div className="w-7 h-7 rounded-lg bg-neutral-900 text-white flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 flex items-center justify-center shadow-sm transition-transform group-hover:scale-105 shrink-0">
               <Layers className="w-4 h-4" />
             </div>
           )}
           <div className="min-w-0 flex-1">
-            <span className="text-sm font-semibold tracking-tight text-neutral-900 truncate block">
+            <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-white truncate block">
               {user?.organizationName || "DocuCollect"}
             </span>
-            <span className="text-[10px] text-neutral-400 block -mt-0.5">Document Portal</span>
+            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 block -mt-0.5">Document Portal</span>
           </div>
         </Link>
       </div>
@@ -93,17 +93,17 @@ export function Sidebar() {
       <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
         {/* Trial warning */}
         {isOnTrial && isTrialExpiringSoon && trialDaysLeft !== null && (
-          <div className="px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="px-3 py-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-semibold text-amber-800">Trial expires in {trialDaysLeft}d</p>
-              <Link href="/dashboard/billing" className="text-[10px] text-amber-700 underline">View plans →</Link>
+              <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Trial expires in {trialDaysLeft}d</p>
+              <Link href="/dashboard/billing" className="text-[10px] text-amber-700 dark:text-amber-400 underline">View plans →</Link>
             </div>
           </div>
         )}
 
         <div className="space-y-1">
-          <p className="px-3 text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2">
+          <p className="px-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-2">
             Main
           </p>
           {navItems.map((item) => {
@@ -117,11 +117,11 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150",
                   isActive
-                    ? "bg-neutral-900 text-white shadow-sm"
-                    : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/70"
+                    ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm font-semibold"
+                    : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70"
                 )}
               >
-                <Icon className={cn("w-4 h-4", isActive ? "text-white" : "text-neutral-400")} />
+                <Icon className={cn("w-4 h-4", isActive ? "text-white dark:text-neutral-900" : "text-neutral-400 dark:text-neutral-500")} />
                 {item.label}
               </Link>
             );
@@ -129,32 +129,32 @@ export function Sidebar() {
         </div>
 
         <div className="space-y-1">
-          <p className="px-3 text-[11px] font-medium text-neutral-400 uppercase tracking-wider mb-2">
+          <p className="px-3 text-[11px] font-medium text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-2">
             Quick Actions
           </p>
           <Link
             href="/dashboard/cases"
-            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition-colors group"
+            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
           >
             <span>Active Checklists</span>
-            <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-900" />
+            <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white" />
           </Link>
           <Link
             href="/dashboard/clients"
-            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 transition-colors group"
+            className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group"
           >
             <span>Client Vault</span>
-            <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 group-hover:text-neutral-900" />
+            <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white" />
           </Link>
         </div>
       </div>
 
       {/* User + Sign Out */}
-      <div className="p-3 border-t border-neutral-100 space-y-2">
+      <div className="p-3 border-t border-neutral-100 dark:border-neutral-800 space-y-2">
         {user ? (
-          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/60 flex items-center gap-2.5">
+          <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center gap-2.5">
             {user.logoUrl ? (
-              <div className="w-8 h-8 rounded-lg border border-neutral-200 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white p-0.5">
+              <div className="w-8 h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white dark:bg-neutral-800 p-0.5">
                 <img
                   src={user.logoUrl}
                   alt={user.organizationName}
@@ -162,13 +162,13 @@ export function Sidebar() {
                 />
               </div>
             ) : (
-              <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white text-xs font-bold flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-neutral-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
                 {getInitials(user.organizationName || "?")}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-neutral-900 truncate">{user.organizationName}</p>
-              <p className="text-[10px] text-neutral-500 truncate">
+              <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">{user.organizationName}</p>
+              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
                 {isOnTrial
                   ? `Trial · ${trialDaysLeft ?? "?"} days left`
                   : user.subscription?.planDisplayName || "Active"}
@@ -176,14 +176,14 @@ export function Sidebar() {
             </div>
           </div>
         ) : (
-          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/60 h-14 animate-pulse" />
+          <div className="p-3 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 h-14 animate-pulse" />
         )}
 
         <button
           type="button"
           onClick={handleSignOut}
           disabled={loggingOut}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-700 bg-rose-50/60 hover:bg-rose-100 border border-rose-200/60 transition-all"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-700 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-950/60 border border-rose-200/60 dark:border-rose-900/40 transition-all cursor-pointer disabled:opacity-50"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>{loggingOut ? "Signing Out..." : "Sign Out"}</span>
