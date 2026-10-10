@@ -161,37 +161,37 @@ export function InteractiveFileUpload({
           }}
           className={`w-full py-3 px-4 rounded-xl border border-dashed text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
             isDragging
-              ? "border-emerald-500 bg-emerald-50 text-emerald-800"
+              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300"
               : isReplacement
-              ? "border-rose-300 bg-rose-50/50 hover:bg-rose-100/70 text-rose-800"
-              : "border-neutral-300 bg-neutral-50/70 hover:bg-neutral-100 text-neutral-700"
+              ? "border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/40 hover:bg-rose-100/70 dark:hover:bg-rose-900/50 text-rose-800 dark:text-rose-300"
+              : "border-neutral-300 dark:border-neutral-700 bg-neutral-50/70 dark:bg-neutral-800/60 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200"
           }`}
         >
           <div className="flex items-center gap-2">
-            <FileUp className="w-4 h-4 text-neutral-500" />
+            <FileUp className="w-4 h-4 text-neutral-500 dark:text-neutral-400" />
             <span>{isReplacement ? "Tap to upload corrected file or photo" : "Tap to choose file or photo"}</span>
           </div>
-          <span className="text-[10px] text-neutral-400 font-normal">PDF, JPG, PNG up to 10 MB</span>
+          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-normal">PDF, JPG, PNG up to 10 MB</span>
         </button>
       ) : (
         /* Compact File Confirmation Card */
-        <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2.5 animate-in fade-in">
+        <div className="p-3 bg-neutral-50 dark:bg-neutral-800/90 rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2.5 animate-in fade-in">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               {previewUrl ? (
                 <img
                   src={previewUrl}
                   alt="Preview"
-                  className="w-10 h-10 rounded-lg object-cover border border-neutral-200 shrink-0"
+                  className="w-10 h-10 rounded-lg object-cover border border-neutral-200 dark:border-neutral-700 shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-lg bg-neutral-800 text-white flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-lg bg-neutral-800 dark:bg-neutral-700 text-white flex items-center justify-center shrink-0">
                   <FileText className="w-5 h-5" />
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-xs font-bold text-neutral-900 truncate">{selectedFile.name}</p>
-                <p className="text-[11px] text-neutral-500">{formatBytes(selectedFile.size)}</p>
+                <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">{selectedFile.name}</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{formatBytes(selectedFile.size)}</p>
               </div>
             </div>
 
@@ -199,7 +199,7 @@ export function InteractiveFileUpload({
               <button
                 type="button"
                 onClick={handleCancelSelection}
-                className="w-6 h-6 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200 flex items-center justify-center transition"
+                className="w-6 h-6 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition"
                 title="Cancel"
               >
                 <X className="w-4 h-4" />
@@ -209,14 +209,14 @@ export function InteractiveFileUpload({
 
           {uploading ? (
             <div className="space-y-1 pt-1">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-700">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                 <span className="flex items-center gap-1.5">
-                  <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                  <Loader2 className="w-3 h-3 animate-spin text-emerald-600 dark:text-emerald-400" />
                   Uploading...
                 </span>
                 <span>{uploadProgress}%</span>
               </div>
-              <div className="w-full bg-neutral-200 rounded-full h-1.5 overflow-hidden">
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
                 <div
                   className="bg-emerald-600 h-full transition-all duration-200"
                   style={{ width: `${uploadProgress}%` }}
@@ -224,11 +224,11 @@ export function InteractiveFileUpload({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-200/60">
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
               <button
                 type="button"
                 onClick={handleCancelSelection}
-                className="px-2.5 py-1 text-xs text-neutral-500 hover:text-neutral-800"
+                className="px-2.5 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white"
               >
                 Cancel
               </button>

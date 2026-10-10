@@ -26,7 +26,8 @@
 /* Dark Mode Canvas & Base Layout */
 .dark body,
 .dark .bg-\[\#fafafa\],
-.dark .bg-\[\#fbfbfb\] {
+.dark .bg-\[\#fbfbfb\],
+.dark .bg-\[\#f8fafc\] {
   background-color: #0e1014 !important;
   color: #f8fafc !important;
 }

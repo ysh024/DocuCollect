@@ -18,6 +18,7 @@ import { ClientPortalData } from "@/types";
 import { formatBytes } from "@/lib/utils";
 import { InteractiveFileUpload } from "@/components/client-portal/InteractiveFileUpload";
 import { RequirementsPopover } from "@/components/ui/InfoPopover";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export default function ClientUploadPortalPage() {
   const params = useParams();
@@ -44,10 +45,10 @@ export default function ClientUploadPortalPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0e1014] flex items-center justify-center p-4">
         <div className="text-center space-y-2.5">
           <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-neutral-500 font-medium">Opening secure upload portal...</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Opening secure upload portal...</p>
         </div>
       </div>
     );
@@ -55,13 +56,13 @@ export default function ClientUploadPortalPage() {
 
   if (!portalData) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
-        <div className="max-w-sm w-full bg-white p-8 rounded-2xl shadow-sm border border-neutral-200 text-center space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0e1014] flex items-center justify-center p-4">
+        <div className="max-w-sm w-full bg-white dark:bg-neutral-900 p-8 rounded-2xl shadow-sm border border-neutral-200 dark:border-neutral-800 text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-900/60">
             <AlertCircle className="w-6 h-6" />
           </div>
-          <h2 className="text-base font-bold text-neutral-900">Upload Link Inactive</h2>
-          <p className="text-xs text-neutral-500 leading-relaxed">
+          <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Upload Link Inactive</h2>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
             This upload link has expired or was closed by your advisory firm. Please contact your advisor for an updated link.
           </p>
         </div>
@@ -75,13 +76,13 @@ export default function ClientUploadPortalPage() {
   const uploadedCount = progress.approved + progress.under_review;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-neutral-900 pb-16 selection:bg-emerald-600 selection:text-white">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0e1014] text-neutral-900 dark:text-neutral-100 pb-16 selection:bg-emerald-600 selection:text-white transition-colors duration-150">
       {/* 1. Header: Firm Name, Security Badge, Client Ref */}
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
+      <header className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-30 shadow-2xs transition-colors">
         <div className="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             {organization.logo_url ? (
-              <div className="w-9 h-9 rounded-xl border border-neutral-200/80 bg-white p-0.5 shadow-xs shrink-0 overflow-hidden flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl border border-neutral-200/80 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-0.5 shadow-xs shrink-0 overflow-hidden flex items-center justify-center">
                 <img
                   src={organization.logo_url}
                   alt={organization.name}
@@ -94,8 +95,8 @@ export default function ClientUploadPortalPage() {
               </div>
             )}
             <div>
-              <h1 className="text-xs sm:text-sm font-bold text-neutral-900 leading-tight">{organization.name}</h1>
-              <p className="text-[10px] text-neutral-500 flex items-center gap-1 font-medium">
+              <h1 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-100 leading-tight">{organization.name}</h1>
+              <p className="text-[10px] text-neutral-500 dark:text-neutral-400 flex items-center gap-1 font-medium">
                 <Shield className="w-3 h-3 text-emerald-600" />
                 <span>Secure Document Portal</span>
               </p>
@@ -104,9 +105,10 @@ export default function ClientUploadPortalPage() {
 
           <div className="flex items-center gap-2">
             <RequirementsPopover buttonLabel="Photo Tips" />
-            <div className="text-right pl-2 border-l border-neutral-200">
-              <p className="text-xs font-semibold text-neutral-900 truncate max-w-[120px]">{client.name}</p>
-              <p className="text-[10px] text-neutral-400 font-mono">#{caseInfo.reference_number}</p>
+            <ThemeToggle />
+            <div className="text-right pl-2 border-l border-neutral-200 dark:border-neutral-700">
+              <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate max-w-[120px]">{client.name}</p>
+              <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">#{caseInfo.reference_number}</p>
             </div>
           </div>
         </div>
@@ -115,21 +117,21 @@ export default function ClientUploadPortalPage() {
       {/* Main Container */}
       <main className="max-w-xl mx-auto px-4 pt-5 space-y-4">
         {/* 2. Case Summary & Progress */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-neutral-200 shadow-xs space-y-3">
+        <div className="bg-white dark:bg-neutral-900 p-4 sm:p-5 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3 transition-colors">
           <div>
-            <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded mb-1">
+            <span className="inline-block text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded mb-1">
               {caseInfo.service_type || "Document Collection"}
             </span>
-            <h2 className="text-base sm:text-lg font-bold text-neutral-900 leading-snug">{caseInfo.title}</h2>
+            <h2 className="text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 leading-snug">{caseInfo.title}</h2>
           </div>
 
-          {/* Clean Progress Indicator (No duplicate percentages or dials) */}
+          {/* Clean Progress Indicator */}
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-neutral-600 font-medium">
+            <div className="flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-300 font-medium">
               <span>{uploadedCount} of {progress.total} uploaded</span>
-              <span className="font-bold text-emerald-700">{progress.percentage}% Done</span>
+              <span className="font-bold text-emerald-700 dark:text-emerald-400">{progress.percentage}% Done</span>
             </div>
-            <div className="w-full bg-neutral-100 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-neutral-100 dark:bg-neutral-800 h-2 rounded-full overflow-hidden">
               <div
                 className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${progress.percentage}%` }}
@@ -164,11 +166,11 @@ export default function ClientUploadPortalPage() {
         {/* 3. Direct Document Checklist */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
               Documents to Provide ({requirements.length})
             </h3>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold text-neutral-600 bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200/80">
+              <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full border border-neutral-200/80 dark:border-neutral-700">
                 Max 10 MB / file
               </span>
               <RequirementsPopover
@@ -194,14 +196,14 @@ export default function ClientUploadPortalPage() {
             return (
               <div
                 key={req.id}
-                className={`bg-white rounded-2xl border p-4 space-y-2.5 shadow-xs transition-all ${
+                className={`bg-white dark:bg-neutral-900 rounded-2xl border p-4 space-y-2.5 shadow-xs transition-all ${
                   isRejected
-                    ? "border-rose-300 ring-1 ring-rose-100"
+                    ? "border-rose-300 dark:border-rose-900/60 ring-1 ring-rose-100 dark:ring-rose-950/40"
                     : isApproved
-                    ? "border-emerald-200"
+                    ? "border-emerald-200 dark:border-emerald-900/60"
                     : isUnderReview
-                    ? "border-blue-200"
-                    : "border-neutral-200"
+                    ? "border-blue-200 dark:border-blue-900/60"
+                    : "border-neutral-200 dark:border-neutral-800"
                 }`}
               >
                 {/* Header Row: Status Icon, Title, Single Status Badge */}
@@ -211,12 +213,12 @@ export default function ClientUploadPortalPage() {
                     <div
                       className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 mt-0.5 ${
                         isApproved
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400"
                           : isUnderReview
-                          ? "bg-blue-100 text-blue-700"
+                          ? "bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400"
                           : isRejected
-                          ? "bg-rose-100 text-rose-700"
-                          : "bg-neutral-100 text-neutral-600"
+                          ? "bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400"
+                          : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
                       }`}
                     >
                       {isApproved ? (
@@ -232,15 +234,15 @@ export default function ClientUploadPortalPage() {
 
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <h4 className="text-xs sm:text-sm font-bold text-neutral-900 leading-snug">{req.name}</h4>
+                        <h4 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-100 leading-snug">{req.name}</h4>
                         {req.is_required && (
-                          <span className="text-[10px] font-semibold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded">
+                          <span className="text-[10px] font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.2 rounded border border-rose-200/60 dark:border-rose-900/40">
                             Required
                           </span>
                         )}
                       </div>
                       {req.description && (
-                        <p className="text-[11px] text-neutral-500 mt-0.5 leading-relaxed">{req.description}</p>
+                        <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 leading-relaxed">{req.description}</p>
                       )}
                     </div>
                   </div>
@@ -249,12 +251,12 @@ export default function ClientUploadPortalPage() {
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
                       isApproved
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                         : isUnderReview
-                        ? "bg-blue-100 text-blue-800"
+                        ? "bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
                         : isRejected
-                        ? "bg-rose-100 text-rose-800"
-                        : "bg-neutral-100 text-neutral-600"
+                        ? "bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                        : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700"
                     }`}
                   >
                     {isApproved
@@ -269,37 +271,37 @@ export default function ClientUploadPortalPage() {
 
                 {/* Body State 1: Rejection Message from Advisor */}
                 {isRejected && latestDoc?.rejection_reason && (
-                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-0.5">
-                    <p className="font-bold text-rose-900">Advisor feedback:</p>
-                    <p className="text-rose-800 font-medium">{latestDoc.rejection_reason}</p>
+                  <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs space-y-0.5">
+                    <p className="font-bold text-rose-900 dark:text-rose-300">Advisor feedback:</p>
+                    <p className="text-rose-800 dark:text-rose-200 font-medium">{latestDoc.rejection_reason}</p>
                   </div>
                 )}
 
-                {/* Body State 2: Uploaded & In Review (Clean file line without duplicate badges) */}
+                {/* Body State 2: Uploaded & In Review */}
                 {isUnderReview && latestDoc && (
-                  <div className="p-2 bg-blue-50/60 rounded-xl border border-blue-100 flex items-center justify-between gap-2 text-xs">
+                  <div className="p-2 bg-blue-50/60 dark:bg-blue-950/30 rounded-xl border border-blue-100 dark:border-blue-900/50 flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <p className="font-medium text-neutral-800 truncate text-[11px]">{latestDoc.file_name}</p>
+                      <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200 truncate text-[11px]">{latestDoc.file_name}</p>
                     </div>
-                    <span className="text-[10px] text-neutral-500 shrink-0">{formatBytes(latestDoc.file_size)}</span>
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400 shrink-0">{formatBytes(latestDoc.file_size)}</span>
                   </div>
                 )}
 
-                {/* Body State 3: Approved (Clean file line without duplicate badges) */}
+                {/* Body State 3: Approved */}
                 {isApproved && (
-                  <div className="p-2 bg-emerald-50/60 rounded-xl border border-emerald-100 flex items-center justify-between gap-2 text-xs">
+                  <div className="p-2 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-100 dark:border-emerald-900/50 flex items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 min-w-0">
-                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <p className="font-medium text-neutral-800 truncate text-[11px]">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <p className="font-medium text-neutral-800 dark:text-neutral-200 truncate text-[11px]">
                         {latestDoc?.file_name || "Verified Document"}
                       </p>
                     </div>
-                    <span className="text-[10px] text-emerald-700 font-semibold shrink-0">Verified</span>
+                    <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold shrink-0">Verified</span>
                   </div>
                 )}
 
-                {/* Body State 4: Direct Upload Trigger (Only for Pending or Rejected items) */}
+                {/* Body State 4: Direct Upload Trigger */}
                 {(isPending || isRejected) && (
                   <div className="pt-0.5">
                     <InteractiveFileUpload
@@ -316,11 +318,11 @@ export default function ClientUploadPortalPage() {
           })}
         </div>
 
-        {/* 4. Help & WhatsApp Support Link (Single point of contact) */}
-        <div className="p-3.5 bg-white rounded-2xl border border-neutral-200 shadow-2xs flex items-center justify-between gap-3 text-xs">
+        {/* 4. Help & WhatsApp Support Link */}
+        <div className="p-3.5 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xs flex items-center justify-between gap-3 text-xs transition-colors">
           <div className="flex items-center gap-2">
-            <MessageSquareShare className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="text-neutral-700 font-medium">Have questions about any document?</span>
+            <MessageSquareShare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="text-neutral-700 dark:text-neutral-300 font-medium">Have questions about any document?</span>
           </div>
           <a
             href={`https://wa.me/${advisorPhone}?text=${encodeURIComponent(
@@ -335,7 +337,7 @@ export default function ClientUploadPortalPage() {
         </div>
 
         {/* 5. Minimal Footer */}
-        <div className="text-center text-[11px] text-neutral-400 space-y-1.5 pt-2">
+        <div className="text-center text-[11px] text-neutral-400 dark:text-neutral-500 space-y-1.5 pt-2">
           {organization.logo_url && (
             <div className="flex items-center justify-center gap-1.5 pb-1">
               <img
@@ -343,11 +345,11 @@ export default function ClientUploadPortalPage() {
                 alt={organization.name}
                 className="w-4 h-4 rounded-sm object-cover"
               />
-              <span className="font-semibold text-neutral-600 text-[11px]">{organization.name}</span>
+              <span className="font-semibold text-neutral-600 dark:text-neutral-400 text-[11px]">{organization.name}</span>
             </div>
           )}
           <p className="flex items-center justify-center gap-1">
-            <Lock className="w-3 h-3 text-emerald-600" />
+            <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
             <span>Encrypted with TLS 1.3 • Confidential Document Collection</span>
           </p>
         </div>

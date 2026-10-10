@@ -415,12 +415,12 @@ export function NewClientModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 dark:bg-black/70 backdrop-blur-xs animate-in fade-in">
+      <div className="bg-white dark:bg-[#15181e] rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/60">
-          <div className="flex items-center gap-3 text-neutral-900">
-            <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center shadow-xs">
+        <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/60 dark:bg-neutral-900/60">
+          <div className="flex items-center gap-3 text-neutral-900 dark:text-neutral-100">
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 dark:bg-neutral-800 text-white flex items-center justify-center shadow-xs">
               {activeTab === "manual" ? (
                 <UserPlus className="w-4 h-4" />
               ) : (
@@ -428,10 +428,10 @@ export function NewClientModal({
               )}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-neutral-900">
+              <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
                 {activeTab === "manual" ? "Add New Client" : "Bulk Import Clients via CSV"}
               </h3>
-              <p className="text-[11px] text-neutral-500">
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                 {activeTab === "manual"
                   ? "Enter client details for upload links, reminders & document vault"
                   : "Upload a CSV file to add multiple clients at once"}
@@ -441,22 +441,22 @@ export function NewClientModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="px-6 pt-3 pb-2 border-b border-neutral-100 bg-white flex items-center justify-between gap-4">
-          <div className="flex items-center gap-1.5 p-1 bg-neutral-100/80 rounded-xl">
+        <div className="px-6 pt-3 pb-2 border-b border-neutral-100 dark:border-neutral-800 bg-white dark:bg-[#15181e] flex items-center justify-between gap-4">
+          <div className="flex items-center gap-1.5 p-1 bg-neutral-100/80 dark:bg-neutral-800/80 rounded-xl">
             <button
               type="button"
               onClick={() => setActiveTab("manual")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === "manual"
-                  ? "bg-white text-neutral-900 shadow-2xs"
-                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50"
+                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-2xs"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50"
               }`}
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -467,23 +467,23 @@ export function NewClientModal({
               onClick={() => setActiveTab("csv")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === "csv"
-                  ? "bg-white text-neutral-900 shadow-2xs"
-                  : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50"
+                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 shadow-2xs"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/50 dark:hover:bg-neutral-700/50"
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Import via CSV</span>
             </button>
           </div>
 
           {/* Quota indicator */}
           <div className="flex items-center gap-2 text-[11px]">
-            <span className="text-neutral-500 font-medium">Plan Quota:</span>
+            <span className="text-neutral-500 dark:text-neutral-400 font-medium">Plan Quota:</span>
             <span
               className={`font-semibold px-2 py-0.5 rounded-md ${
                 remainingSlots <= 2
-                  ? "bg-amber-50 text-amber-700 border border-amber-200"
-                  : "bg-neutral-100 text-neutral-700"
+                  ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60"
+                  : "bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300"
               }`}
             >
               {currentCount} / {maxAllowed} Used ({remainingSlots} remaining)
@@ -497,7 +497,7 @@ export function NewClientModal({
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                     Full Name <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -505,13 +505,13 @@ export function NewClientModal({
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Ramesh Patel"
-                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                     WhatsApp / Mobile <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -519,13 +519,13 @@ export function NewClientModal({
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+91 98765 43210"
-                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                     Email Address
                   </label>
                   <input
@@ -533,12 +533,12 @@ export function NewClientModal({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="ramesh@example.com"
-                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                     Company / Firm Name
                   </label>
                   <input
@@ -546,12 +546,12 @@ export function NewClientModal({
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
                     placeholder="Patel Logistics LLP"
-                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                     Client Reference ID
                   </label>
                   <input
@@ -559,12 +559,12 @@ export function NewClientModal({
                     value={clientRefId}
                     onChange={(e) => setClientRefId(e.target.value)}
                     placeholder="e.g. CLI-2024"
-                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                     Alternate Phone
                   </label>
                   <input
@@ -572,24 +572,24 @@ export function NewClientModal({
                     value={alternatePhone}
                     onChange={(e) => setAlternatePhone(e.target.value)}
                     placeholder="Optional backup number"
-                    className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                    className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-neutral-700 mb-1">Address</label>
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">Address</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Office or residential address"
-                  className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Internal Notes
                 </label>
                 <textarea
@@ -597,28 +597,28 @@ export function NewClientModal({
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="GSTIN, PAN numbers, communication preferences, remarks..."
-                  className="w-full text-xs bg-white border border-neutral-300 rounded-lg px-3 py-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  className="w-full text-xs bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-400"
                 />
               </div>
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-3.5 bg-neutral-50/60 border-t border-neutral-100 flex items-center justify-between">
-              <span className="text-[11px] text-neutral-400">
+            <div className="px-6 py-3.5 bg-neutral-50/60 dark:bg-neutral-900/60 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+              <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
                 Fields marked with <span className="text-rose-500">*</span> are mandatory
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900 rounded-lg transition-colors"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={manualLoading || remainingSlots <= 0}
-                  className="px-4 py-1.5 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-semibold text-white dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   {manualLoading ? "Saving Client..." : "Save Client"}
                 </button>
@@ -632,24 +632,24 @@ export function NewClientModal({
           <div className="flex flex-col flex-1 overflow-hidden">
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               {/* Step 1: Template Download Banner */}
-              <div className="p-3.5 rounded-xl bg-neutral-50 border border-neutral-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-3.5 rounded-xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-start gap-2.5">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5">
                     <FileSpreadsheet className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-xs font-bold text-neutral-900">Follow the CSV Template</h4>
-                    <p className="text-[11px] text-neutral-500 leading-relaxed">
-                      Download our pre-structured template containing standard columns: <code className="text-neutral-800 bg-neutral-200/60 px-1 py-0.5 rounded text-[10px]">Full Name</code>, <code className="text-neutral-800 bg-neutral-200/60 px-1 py-0.5 rounded text-[10px]">Phone</code>, <code className="text-neutral-800 bg-neutral-200/60 px-1 py-0.5 rounded text-[10px]">Email</code>, <code className="text-neutral-800 bg-neutral-200/60 px-1 py-0.5 rounded text-[10px]">Company</code>, <code className="text-neutral-800 bg-neutral-200/60 px-1 py-0.5 rounded text-[10px]">Client ID</code>, etc.
+                    <h4 className="text-xs font-bold text-neutral-900 dark:text-neutral-100">Follow the CSV Template</h4>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                      Download our pre-structured template containing standard columns: <code className="text-neutral-800 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">Full Name</code>, <code className="text-neutral-800 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">Phone</code>, <code className="text-neutral-800 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">Email</code>, <code className="text-neutral-800 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">Company</code>, <code className="text-neutral-800 dark:text-neutral-200 bg-neutral-200/60 dark:bg-neutral-800 px-1 py-0.5 rounded text-[10px]">Client ID</code>, etc.
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={downloadCsvTemplate}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-800 bg-white hover:bg-neutral-100 border border-neutral-300 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer self-start sm:self-center"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-300 dark:border-neutral-700 rounded-lg shadow-2xs transition-colors shrink-0 cursor-pointer self-start sm:self-center"
                 >
-                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Download Template</span>
                 </button>
               </div>
@@ -666,8 +666,8 @@ export function NewClientModal({
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                     isDragging
-                      ? "border-neutral-900 bg-neutral-50"
-                      : "border-neutral-200 hover:border-neutral-400 bg-white"
+                      ? "border-neutral-900 dark:border-neutral-400 bg-neutral-50 dark:bg-neutral-800/50"
+                      : "border-neutral-200 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 bg-white dark:bg-neutral-900/40"
                   }`}
                 >
                   <input
@@ -681,31 +681,31 @@ export function NewClientModal({
                       }
                     }}
                   />
-                  <div className="w-10 h-10 rounded-full bg-neutral-100 text-neutral-600 flex items-center justify-center mx-auto mb-2.5">
+                  <div className="w-10 h-10 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 flex items-center justify-center mx-auto mb-2.5">
                     <FileUp className="w-5 h-5" />
                   </div>
-                  <p className="text-xs font-bold text-neutral-900">
+                  <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
                     Click to browse or drag & drop your client CSV here
                   </p>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5">
                     Batch limit: Up to 50 contacts per upload
                   </p>
                 </div>
               ) : (
                 /* Selected File Header */
-                <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex items-center justify-between">
+                <div className="p-3 bg-neutral-50 dark:bg-neutral-900 rounded-xl border border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center">
                       <FileSpreadsheet className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-neutral-900 flex items-center gap-2">
+                      <div className="text-xs font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                         <span>{csvFileName}</span>
-                        <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        <span className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
                           {validRows.length} valid contact{validRows.length !== 1 ? "s" : ""}
                         </span>
                       </div>
-                      <p className="text-[10px] text-neutral-500">
+                      <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
                         {parsedRows.length} total rows parsed
                         {invalidRowsCount > 0 && ` (${invalidRowsCount} skipped due to missing name/phone)`}
                       </p>
@@ -714,7 +714,7 @@ export function NewClientModal({
                   <button
                     type="button"
                     onClick={resetCsv}
-                    className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-white dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
                     title="Remove file"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -726,8 +726,8 @@ export function NewClientModal({
               {parsedRows.length > 0 && (
                 <div className="space-y-2">
                   {isOverBatchLimit && (
-                    <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200/80 flex items-start gap-2 text-amber-900 text-[11px]">
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200/80 dark:border-amber-800/60 flex items-start gap-2 text-amber-900 dark:text-amber-200 text-[11px]">
+                      <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <span>
                         <strong>Batch Limit Reached:</strong> A maximum of 50 contacts can be imported per batch. We will import the first 50 valid contacts.
                       </span>
@@ -735,8 +735,8 @@ export function NewClientModal({
                   )}
 
                   {isOverQuota && (
-                    <div className="p-2.5 bg-rose-50 rounded-lg border border-rose-200/80 flex items-start gap-2 text-rose-900 text-[11px]">
-                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-lg border border-rose-200/80 dark:border-rose-800/60 flex items-start gap-2 text-rose-900 dark:text-rose-200 text-[11px]">
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                       <span>
                         <strong>Plan Limit Notice:</strong> Your subscription has {remainingSlots} client slot(s) remaining. We will import the first {Math.min(remainingSlots, MAX_BATCH_LIMIT)} contacts. Please upgrade your plan in Billing to add more.
                       </span>
@@ -747,30 +747,30 @@ export function NewClientModal({
 
               {/* Preview Table */}
               {parsedRows.length > 0 && (
-                <div className="border border-neutral-200 rounded-xl overflow-hidden">
-                  <div className="bg-neutral-50 px-3.5 py-2 border-b border-neutral-200 flex items-center justify-between text-[11px] font-semibold text-neutral-700">
+                <div className="border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden">
+                  <div className="bg-neutral-50 dark:bg-neutral-900 px-3.5 py-2 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
                     <span>CSV Preview ({validRows.length} Ready to Import)</span>
-                    <span className="text-neutral-400 font-normal text-[10px]">
+                    <span className="text-neutral-400 dark:text-neutral-500 font-normal text-[10px]">
                       Showing preview of parsed rows
                     </span>
                   </div>
-                  <div className="max-h-56 overflow-y-auto divide-y divide-neutral-100 text-xs">
+                  <div className="max-h-56 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800 text-xs">
                     {parsedRows.slice(0, 50).map((row, idx) => (
                       <div
                         key={idx}
                         className={`px-3.5 py-2 flex items-center justify-between gap-3 ${
-                          !row.isValid ? "bg-rose-50/40 opacity-70" : "hover:bg-neutral-50/50"
+                          !row.isValid ? "bg-rose-50/40 dark:bg-rose-950/20 opacity-70" : "hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40"
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-[10px] text-neutral-400 font-mono w-5">
+                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono w-5">
                             #{idx + 1}
                           </span>
                           <div className="truncate">
-                            <div className="font-semibold text-neutral-900 truncate">
+                            <div className="font-semibold text-neutral-900 dark:text-neutral-100 truncate">
                               {row.name || <span className="text-rose-500 italic">Empty Name</span>}
                             </div>
-                            <div className="text-[10px] text-neutral-500 truncate">
+                            <div className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
                               {row.phone || <span className="text-rose-500 italic">Empty Phone</span>}
                               {row.company && ` • ${row.company}`}
                               {row.email && ` • ${row.email}`}
@@ -780,12 +780,12 @@ export function NewClientModal({
 
                         <div className="shrink-0">
                           {row.isValid ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/60">
                               <Check className="w-3 h-3" />
                               Valid
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800/60">
                               <AlertCircle className="w-3 h-3" />
                               {row.error}
                             </span>
@@ -799,8 +799,8 @@ export function NewClientModal({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-3.5 bg-neutral-50/60 border-t border-neutral-100 flex items-center justify-between">
-              <span className="text-[11px] text-neutral-500">
+            <div className="px-6 py-3.5 bg-neutral-50/60 dark:bg-neutral-900/60 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
                 {parsedRows.length > 0 ? (
                   <span>
                     Will import <strong>{rowsToImport.length}</strong> contact{rowsToImport.length !== 1 ? "s" : ""}
@@ -814,7 +814,7 @@ export function NewClientModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900 rounded-lg transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-200 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -822,7 +822,7 @@ export function NewClientModal({
                   type="button"
                   onClick={handleCsvImportSubmit}
                   disabled={csvLoading || rowsToImport.length === 0}
-                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white dark:text-neutral-900 bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   {csvLoading ? (
                     <span>Importing Contacts...</span>

@@ -38,7 +38,7 @@ import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function ClientsPage() {
   const { toast } = useToast();
-  const { clients, cases, refresh } = useDashboardData();
+  const { clients, cases, loading, refresh } = useDashboardData();
   const [search, setSearch] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [modalTab, setModalTab] = useState<"manual" | "csv">("manual");
@@ -82,8 +82,8 @@ export default function ClientsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
-          <h1 className="text-xl font-bold text-neutral-900 tracking-tight">Clients & Document Storage Vault</h1>
-          <p className="text-xs text-neutral-500 mt-0.5">
+          <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">Clients & Document Storage Vault</h1>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
             View client portfolios, access structured document vaults, download files, and track client cases.
           </p>
         </div>
@@ -94,9 +94,9 @@ export default function ClientsPage() {
               setModalTab("csv");
               setIsNewClientOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 border border-neutral-200/90 rounded-xl shadow-2xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-neutral-200/90 dark:border-neutral-800 rounded-xl shadow-2xs transition-colors cursor-pointer"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Import CSV</span>
           </button>
           <button
@@ -105,7 +105,7 @@ export default function ClientsPage() {
               setModalTab("manual");
               setIsNewClientOpen(true);
             }}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 rounded-xl shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add New Client</span>
@@ -114,29 +114,29 @@ export default function ClientsPage() {
       </div>
 
       {/* Search Toolbar & Case Metrics */}
-      <div className="p-4 bg-white rounded-2xl border border-neutral-200/80 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search clients by name, phone, PAN, GSTIN, or firm..."
-            className="w-full bg-neutral-50/80 border border-neutral-200/80 rounded-lg pl-8 pr-4 py-2 text-xs text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 focus:bg-white transition-all"
+            className="w-full bg-neutral-50/80 dark:bg-neutral-800/80 border border-neutral-200/80 dark:border-neutral-700 rounded-lg pl-8 pr-4 py-2 text-xs text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500 focus:bg-white dark:focus:bg-neutral-800 transition-all"
           />
         </div>
-        <div className="flex items-center gap-3 text-xs text-neutral-500 font-medium">
-          <span>Showing <strong>{filtered.length}</strong> clients</span>
+        <div className="flex items-center gap-3 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
+          <span>Showing <strong className="text-neutral-900 dark:text-neutral-100">{filtered.length}</strong> clients</span>
           <span className="w-1 h-1 rounded-full bg-neutral-300 dark:bg-neutral-700" />
           <span className="flex items-center gap-1">
-            <Briefcase className="w-3.5 h-3.5 text-neutral-400" />
-            <strong>{cases.length}</strong> Total Cases
+            <Briefcase className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
+            <strong className="text-neutral-900 dark:text-neutral-100">{cases.length}</strong> Total Cases
           </span>
         </div>
       </div>
 
       {/* Clients Table */}
-      <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-subtle overflow-hidden">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-subtle overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs table-fixed">
             <colgroup>
@@ -147,7 +147,7 @@ export default function ClientsPage() {
               <col className="w-[10%]" />
               <col className="w-[15%]" />
             </colgroup>
-            <thead className="bg-neutral-50/80 border-b border-neutral-100 text-neutral-500 font-semibold uppercase tracking-wider text-[11px]">
+            <thead className="bg-neutral-50/80 dark:bg-neutral-800/70 border-b border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
                 <th className="py-3.5 px-6 truncate">Client Name & Ref ID</th>
                 <th className="py-3.5 px-4 truncate">Contact & WhatsApp</th>
@@ -157,116 +157,156 @@ export default function ClientsPage() {
                 <th className="py-3.5 px-6 text-right truncate">Document Vault & Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {filtered.map((client) => {
-                const clientCases = cases.filter((c) => c.client_id === client.id);
-                const clientDocs = getClientDocuments(client.id);
-                const cleanPhone = client.phone.replace(/[^0-9]/g, "");
+            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              {loading && clients.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center gap-2.5">
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Loading client portfolios...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-16 text-center">
+                    <div className="max-w-sm mx-auto space-y-2.5">
+                      <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 flex items-center justify-center mx-auto">
+                        <Users className="w-6 h-6" />
+                      </div>
+                      <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
+                        {search ? "No clients match your search" : "No clients added yet"}
+                      </p>
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                        {search ? "Try searching with a different name, phone, or company." : "Click 'Add New Client' to create your first client portfolio."}
+                      </p>
+                      {!search && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModalTab("manual");
+                            setIsNewClientOpen(true);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer mt-2"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add First Client</span>
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((client) => {
+                  const clientCases = cases.filter((c) => c.client_id === client.id);
+                  const clientDocs = getClientDocuments(client.id);
+                  const cleanPhone = client.phone.replace(/[^0-9]/g, "");
 
-                return (
-                  <tr key={client.id} className="hover:bg-neutral-50/60 transition-colors">
-                    {/* Clickable Client Name to view related cases */}
-                    <td className="py-4 px-6 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedClientForCases(client)}
-                        className="text-left group/client cursor-pointer focus:outline-none w-full"
-                        title={`Click to view all ${clientCases.length} related cases for ${client.name}`}
-                      >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="font-semibold text-neutral-900 group-hover/client:text-emerald-600 dark:group-hover/client:text-emerald-400 group-hover/client:underline text-xs truncate transition-colors">
-                            {client.name}
-                          </p>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-neutral-100 group-hover/client:bg-emerald-50 text-neutral-600 group-hover/client:text-emerald-700 border border-neutral-200/80 group-hover/client:border-emerald-300 shrink-0 transition-colors">
-                            <Briefcase className="w-2.5 h-2.5 text-neutral-400 group-hover/client:text-emerald-600" />
-                            {clientCases.length}
+                  return (
+                    <tr key={client.id} className="hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition-colors">
+                      {/* Clickable Client Name to view related cases */}
+                      <td className="py-4 px-6 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedClientForCases(client)}
+                          className="text-left group/client cursor-pointer focus:outline-none w-full"
+                          title={`Click to view all ${clientCases.length} related cases for ${client.name}`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="font-semibold text-neutral-900 dark:text-neutral-100 group-hover/client:text-emerald-600 dark:group-hover/client:text-emerald-400 group-hover/client:underline text-xs truncate transition-colors">
+                              {client.name}
+                            </p>
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 group-hover/client:bg-emerald-50 dark:group-hover/client:bg-emerald-950/40 text-neutral-600 dark:text-neutral-300 group-hover/client:text-emerald-700 dark:group-hover/client:text-emerald-400 border border-neutral-200/80 dark:border-neutral-700 group-hover/client:border-emerald-300 dark:group-hover/client:border-emerald-600/40 shrink-0 transition-colors">
+                              <Briefcase className="w-2.5 h-2.5 text-neutral-400 dark:text-neutral-400 group-hover/client:text-emerald-600 dark:group-hover/client:text-emerald-400" />
+                              {clientCases.length}
+                            </span>
+                          </div>
+                          <span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-500 truncate block mt-0.5">
+                            {client.client_ref_id || client.id}
                           </span>
-                        </div>
-                        <span className="font-mono text-[10px] text-neutral-400 truncate block mt-0.5">
-                          {client.client_ref_id || client.id}
-                        </span>
-                      </button>
-                    </td>
+                        </button>
+                      </td>
 
-                    <td className="py-4 px-4 text-neutral-700 font-medium truncate">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Phone className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                        <span className="truncate">{client.phone}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-4 px-4 text-neutral-600 truncate">
-                      {client.email ? (
+                      <td className="py-4 px-4 text-neutral-700 dark:text-neutral-300 font-medium truncate">
                         <div className="flex items-center gap-1.5 truncate">
-                          <Mail className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                          <span className="truncate">{client.email}</span>
+                          <Phone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                          <span className="truncate">{client.phone}</span>
                         </div>
-                      ) : (
-                        <span className="text-neutral-400 italic">No email</span>
-                      )}
-                    </td>
+                      </td>
 
-                    <td className="py-4 px-4 text-neutral-700 font-medium truncate">
-                      {client.company ? (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <Building2 className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                          <span className="truncate">{client.company}</span>
-                        </div>
-                      ) : (
-                        <span className="text-neutral-400 italic">—</span>
-                      )}
-                    </td>
+                      <td className="py-4 px-4 text-neutral-600 dark:text-neutral-400 truncate">
+                        {client.email ? (
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Mail className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                            <span className="truncate">{client.email}</span>
+                          </div>
+                        ) : (
+                          <span className="text-neutral-400 dark:text-neutral-600 italic">No email</span>
+                        )}
+                      </td>
 
-                    {/* Clickable Cases Count Badge */}
-                    <td className="py-4 px-4">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedClientForCases(client)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 hover:bg-emerald-50 text-neutral-700 hover:text-emerald-700 font-semibold text-[10px] border border-neutral-200 hover:border-emerald-300 transition-colors cursor-pointer shrink-0 group shadow-2xs"
-                        title={`View all ${clientCases.length} cases for ${client.name}`}
-                      >
-                        <Briefcase className="w-3 h-3 text-neutral-500 group-hover:text-emerald-600 transition-colors" />
-                        <span>{clientCases.length} {clientCases.length === 1 ? "Case" : "Cases"}</span>
-                      </button>
-                    </td>
+                      <td className="py-4 px-4 text-neutral-700 dark:text-neutral-300 font-medium truncate">
+                        {client.company ? (
+                          <div className="flex items-center gap-1.5 truncate">
+                            <Building2 className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                            <span className="truncate">{client.company}</span>
+                          </div>
+                        ) : (
+                          <span className="text-neutral-400 dark:text-neutral-600 italic">—</span>
+                        )}
+                      </td>
 
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1.5 flex-nowrap shrink-0">
-                        {/* Edit Client Details */}
+                      {/* Clickable Cases Count Badge */}
+                      <td className="py-4 px-4">
                         <button
                           type="button"
-                          onClick={() => setEditingClient(client)}
-                          title="Edit client details"
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-neutral-900 text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                          onClick={() => setSelectedClientForCases(client)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-neutral-100 hover:bg-emerald-50 dark:bg-neutral-800 dark:hover:bg-emerald-950/40 text-neutral-700 hover:text-emerald-700 dark:text-neutral-300 dark:hover:text-emerald-400 font-semibold text-[10px] border border-neutral-200 hover:border-emerald-300 dark:border-neutral-700 dark:hover:border-emerald-600/50 transition-colors cursor-pointer shrink-0 group shadow-2xs"
+                          title={`View all ${clientCases.length} cases for ${client.name}`}
                         >
-                          <Pencil className="w-3.5 h-3.5" />
-                          <span>Edit</span>
+                          <Briefcase className="w-3 h-3 text-neutral-500 dark:text-neutral-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors" />
+                          <span>{clientCases.length} {clientCases.length === 1 ? "Case" : "Cases"}</span>
                         </button>
+                      </td>
 
-                        {/* Open Document Vault */}
-                        <button
-                          type="button"
-                          onClick={() => setVaultClient(client)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
-                        >
-                          <FolderOpen className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>Vault ({clientDocs.length})</span>
-                        </button>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-1.5 flex-nowrap shrink-0">
+                          {/* Edit Client Details */}
+                          <button
+                            type="button"
+                            onClick={() => setEditingClient(client)}
+                            title="Edit client details"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white text-xs font-semibold transition-colors cursor-pointer shrink-0"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
 
-                        {/* WhatsApp Link */}
-                        <a
-                          href={`https://wa.me/${cleanPhone}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-colors shrink-0"
-                        >
-                          <MessageSquareShare className="w-3.5 h-3.5" />
-                        </a>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                          {/* Open Document Vault */}
+                          <button
+                            type="button"
+                            onClick={() => setVaultClient(client)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0"
+                          >
+                            <FolderOpen className="w-3.5 h-3.5 text-emerald-400 dark:text-white" />
+                            <span>Vault ({clientDocs.length})</span>
+                          </button>
+
+                          {/* WhatsApp Link */}
+                          <a
+                            href={`https://wa.me/${cleanPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold transition-colors shrink-0"
+                          >
+                            <MessageSquareShare className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
@@ -275,22 +315,22 @@ export default function ClientsPage() {
       {/* Client Document Storage Vault Modal */}
       {vaultClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[85vh] transition-colors">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+            <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/70 dark:bg-neutral-800/80">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center">
                   <FolderOpen className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-neutral-900">{vaultClient.name} — Document Vault</h3>
-                  <p className="text-[11px] text-neutral-500">{vaultClient.company || "Individual Portfolio"} • {vaultClient.phone}</p>
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{vaultClient.name} — Document Vault</h3>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{vaultClient.company || "Individual Portfolio"} • {vaultClient.phone}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setVaultClient(null)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -300,33 +340,31 @@ export default function ClientsPage() {
             <div className="p-6 overflow-y-auto space-y-4 flex-1">
               {getClientDocuments(vaultClient.id).length === 0 ? (
                 <div className="text-center py-12 space-y-2">
-                  <FileText className="w-10 h-10 text-neutral-300 mx-auto" />
-                  <p className="text-xs font-semibold text-neutral-700">No documents in vault yet</p>
-                  <p className="text-[11px] text-neutral-400">Documents uploaded by the client in active cases will automatically appear here.</p>
+                  <FileText className="w-10 h-10 text-neutral-300 dark:text-neutral-600 mx-auto" />
+                  <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">No documents in vault yet</p>
+                  <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Documents uploaded by the client in active cases will automatically appear here.</p>
                 </div>
               ) : (
                 <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-xs font-semibold text-neutral-500 uppercase tracking-wider px-1">
+                  <div className="flex items-center justify-between text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider px-1">
                     <span>Uploaded Files ({getClientDocuments(vaultClient.id).length})</span>
                     <span>Status & Actions</span>
                   </div>
 
                   {getClientDocuments(vaultClient.id).map(({ doc, caseTitle, caseId, reqName }) => {
-                    const downloadUrl = `/api/download?file=${encodeURIComponent(doc.storage_path || "")}&name=${encodeURIComponent(doc.file_name)}`;
-
                     return (
                       <div
                         key={doc.id}
-                        className="p-3.5 bg-neutral-50/80 hover:bg-neutral-50 rounded-xl border border-neutral-200/70 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors"
+                        className="p-3.5 bg-neutral-50/80 dark:bg-neutral-800/60 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-xl border border-neutral-200/70 dark:border-neutral-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 transition-colors"
                       >
                         <div className="flex items-start gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-neutral-200 text-neutral-700 flex items-center justify-center shrink-0 mt-0.5">
+                          <div className="w-8 h-8 rounded-lg bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 flex items-center justify-center shrink-0 mt-0.5">
                             <FileText className="w-4 h-4" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-neutral-900 truncate">{doc.file_name}</p>
-                            <p className="text-[10px] text-neutral-500 mt-0.5">
-                              {reqName} • <strong className="text-neutral-700">{caseTitle}</strong> • {formatBytes(doc.file_size)}
+                            <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">{doc.file_name}</p>
+                            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5">
+                              {reqName} • <strong className="text-neutral-700 dark:text-neutral-300">{caseTitle}</strong> • {formatBytes(doc.file_size)}
                             </p>
                           </div>
                         </div>
@@ -334,19 +372,19 @@ export default function ClientsPage() {
                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                           {/* Verification Badge */}
                           {doc.status === "approved" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                               <CheckCircle className="w-3 h-3" />
                               Approved
                             </span>
                           )}
                           {doc.status === "under_review" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
                               <Clock className="w-3 h-3" />
                               Under Review
                             </span>
                           )}
                           {doc.status === "rejected" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
                               <AlertCircle className="w-3 h-3" />
                               Rejected
                             </span>
@@ -356,10 +394,10 @@ export default function ClientsPage() {
                           <button
                             type="button"
                             onClick={() => setPreviewDoc({ doc, reqName, caseId })}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-neutral-900 hover:text-white text-neutral-800 border border-neutral-300 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer group"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-neutral-800 hover:bg-neutral-900 dark:hover:bg-neutral-700 hover:text-white dark:hover:text-white text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer group"
                             title="Direct Pop-Up View"
                           >
-                            <Eye className="w-3.5 h-3.5 text-emerald-600 group-hover:text-white" />
+                            <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 group-hover:text-white" />
                             <span>View</span>
                           </button>
 
@@ -367,9 +405,9 @@ export default function ClientsPage() {
                           <a
                             href={`/api/download?file=${encodeURIComponent(doc.storage_path || "")}&name=${encodeURIComponent(doc.file_name)}&id=${doc.id}`}
                             download={doc.file_name}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-neutral-100 text-neutral-800 border border-neutral-300 rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 border border-neutral-300 dark:border-neutral-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors"
                           >
-                            <Download className="w-3.5 h-3.5 text-emerald-600" />
+                            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                             <span>Download</span>
                           </a>
                         </div>
@@ -381,12 +419,12 @@ export default function ClientsPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3.5 bg-neutral-50/70 border-t border-neutral-100 flex items-center justify-between">
-              <span className="text-xs text-neutral-400">Client files stored in secure encrypted cloud vault</span>
+            <div className="px-6 py-3.5 bg-neutral-50/70 dark:bg-neutral-800/80 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+              <span className="text-xs text-neutral-400 dark:text-neutral-500">Client files stored in secure encrypted cloud vault</span>
               <button
                 type="button"
                 onClick={() => setVaultClient(null)}
-                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-2 bg-neutral-900 dark:bg-neutral-800 hover:bg-neutral-800 dark:hover:bg-neutral-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
               >
                 Close Vault
               </button>
@@ -435,21 +473,21 @@ export default function ClientsPage() {
 
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in">
-            <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-2xl w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden flex flex-col max-h-[85vh] transition-colors">
               {/* Modal Header */}
-              <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+              <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/70 dark:bg-neutral-800/80">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0 shadow-2xs">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-2xs">
                     <Briefcase className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-neutral-900">{selectedClientForCases.name}</h3>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-700 border border-neutral-200">
+                      <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">{selectedClientForCases.name}</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
                         {relatedCases.length} {relatedCases.length === 1 ? "Case" : "Cases"}
                       </span>
                     </div>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                       {selectedClientForCases.company || "Individual Portfolio"} • {selectedClientForCases.phone} {selectedClientForCases.email ? `• ${selectedClientForCases.email}` : ""}
                     </p>
                   </div>
@@ -462,7 +500,7 @@ export default function ClientsPage() {
                       setNewCaseClientId(selectedClientForCases.id);
                       setIsNewCaseOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>New Case</span>
@@ -470,7 +508,7 @@ export default function ClientsPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedClientForCases(null)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -478,18 +516,18 @@ export default function ClientsPage() {
               </div>
 
               {/* Sub-bar: Overview Metrics */}
-              <div className="px-6 py-2.5 bg-neutral-50/40 border-b border-neutral-100 grid grid-cols-3 gap-3 text-center text-xs">
-                <div className="p-1.5 rounded-lg bg-white border border-neutral-100 shadow-2xs">
-                  <p className="text-[10px] text-neutral-400 font-medium">Total Cases</p>
-                  <p className="font-bold text-neutral-900 text-sm">{relatedCases.length}</p>
+              <div className="px-6 py-2.5 bg-neutral-50/40 dark:bg-neutral-800/40 border-b border-neutral-100 dark:border-neutral-800 grid grid-cols-3 gap-3 text-center text-xs">
+                <div className="p-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-2xs">
+                  <p className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">Total Cases</p>
+                  <p className="font-bold text-neutral-900 dark:text-neutral-100 text-sm">{relatedCases.length}</p>
                 </div>
-                <div className="p-1.5 rounded-lg bg-white border border-neutral-100 shadow-2xs">
-                  <p className="text-[10px] text-amber-600 font-medium">Waiting for Client</p>
-                  <p className="font-bold text-neutral-900 text-sm">{waitingCount}</p>
+                <div className="p-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-2xs">
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">Waiting for Client</p>
+                  <p className="font-bold text-neutral-900 dark:text-neutral-100 text-sm">{waitingCount}</p>
                 </div>
-                <div className="p-1.5 rounded-lg bg-white border border-neutral-100 shadow-2xs">
-                  <p className="text-[10px] text-indigo-600 font-medium">Under Review</p>
-                  <p className="font-bold text-neutral-900 text-sm">{inReviewCount}</p>
+                <div className="p-1.5 rounded-lg bg-white dark:bg-neutral-800 border border-neutral-100 dark:border-neutral-700 shadow-2xs">
+                  <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">Under Review</p>
+                  <p className="font-bold text-neutral-900 dark:text-neutral-100 text-sm">{inReviewCount}</p>
                 </div>
               </div>
 
@@ -497,12 +535,12 @@ export default function ClientsPage() {
               <div className="p-6 overflow-y-auto space-y-3.5 flex-1">
                 {relatedCases.length === 0 ? (
                   <div className="text-center py-12 space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto">
+                    <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 flex items-center justify-center mx-auto">
                       <Briefcase className="w-6 h-6" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-neutral-800">No cases found for this client</p>
-                      <p className="text-[11px] text-neutral-400 max-w-sm mx-auto mt-0.5">
+                      <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">No cases found for this client</p>
+                      <p className="text-[11px] text-neutral-400 dark:text-neutral-500 max-w-sm mx-auto mt-0.5">
                         Create a document collection request case with customized checklist templates to get started.
                       </p>
                     </div>
@@ -512,7 +550,7 @@ export default function ClientsPage() {
                         setNewCaseClientId(selectedClientForCases.id);
                         setIsNewCaseOpen(true);
                       }}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Create First Case for {selectedClientForCases.name}</span>
@@ -535,21 +573,21 @@ export default function ClientsPage() {
                     return (
                       <div
                         key={c.id}
-                        className="p-4 bg-white rounded-xl border border-neutral-200/80 shadow-2xs hover:shadow-xs hover:border-neutral-300 transition-all space-y-3"
+                        className="p-4 bg-white dark:bg-neutral-800/90 rounded-xl border border-neutral-200/80 dark:border-neutral-700 shadow-2xs hover:shadow-xs hover:border-neutral-300 dark:hover:border-neutral-600 transition-all space-y-3"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-[10px] font-bold text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-md border border-neutral-200/60">
+                              <span className="font-mono text-[10px] font-bold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-700/60 px-2 py-0.5 rounded-md border border-neutral-200/60 dark:border-neutral-700">
                                 {c.reference_number}
                               </span>
-                              <span className="text-[10px] font-semibold text-neutral-600 bg-neutral-50 px-2 py-0.5 rounded-full border border-neutral-100">
+                              <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-700/40 px-2 py-0.5 rounded-full border border-neutral-100 dark:border-neutral-700">
                                 {c.service_type}
                               </span>
                             </div>
                             <Link
                               href={`/dashboard/cases/${c.id}`}
-                              className="text-sm font-bold text-neutral-900 hover:text-emerald-600 transition-colors mt-1 block"
+                              className="text-sm font-bold text-neutral-900 dark:text-neutral-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mt-1 block"
                             >
                               {c.title}
                             </Link>
@@ -561,22 +599,22 @@ export default function ClientsPage() {
                         </div>
 
                         {/* Progress Bar */}
-                        <div className="space-y-1 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100">
+                        <div className="space-y-1 bg-neutral-50 dark:bg-neutral-900 p-2.5 rounded-lg border border-neutral-100 dark:border-neutral-800">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-medium text-neutral-600">
+                            <span className="font-medium text-neutral-600 dark:text-neutral-300">
                               {approvedCount} of {totalReqs} requirements approved
                             </span>
-                            <span className="font-bold text-neutral-800">{percentage}%</span>
+                            <span className="font-bold text-neutral-800 dark:text-neutral-200">{percentage}%</span>
                           </div>
-                          <div className="w-full bg-neutral-200 h-1.5 rounded-full overflow-hidden flex">
+                          <div className="w-full bg-neutral-200 dark:bg-neutral-800 h-1.5 rounded-full overflow-hidden flex">
                             <div className="bg-emerald-500 h-full transition-all" style={{ width: `${totalReqs > 0 ? (approvedCount / totalReqs) * 100 : 0}%` }} />
                             <div className="bg-amber-500 h-full transition-all" style={{ width: `${totalReqs > 0 ? (underReviewCount / totalReqs) * 100 : 0}%` }} />
                           </div>
                         </div>
 
                         {/* Footer & Actions */}
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-neutral-100 text-xs">
-                          <div className="text-[10px] text-neutral-400">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-700 text-xs">
+                          <div className="text-[10px] text-neutral-400 dark:text-neutral-500">
                             Created {formatDate(c.created_at)}
                             {c.due_date && <span> • Due {formatDate(c.due_date)}</span>}
                           </div>
@@ -591,17 +629,17 @@ export default function ClientsPage() {
                                 toast({ title: "Upload Link Copied!", description: `Direct link for ${c.title} copied.` });
                                 setTimeout(() => setCopiedCaseId(null), 2000);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-medium transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-700 dark:text-neutral-200 text-xs font-medium transition-colors cursor-pointer"
                               title="Copy client upload portal link"
                             >
                               {copiedCaseId === c.id ? (
                                 <>
-                                  <Check className="w-3 h-3 text-emerald-600" />
-                                  <span className="text-[11px] font-semibold text-emerald-700">Copied</span>
+                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">Copied</span>
                                 </>
                               ) : (
                                 <>
-                                  <Copy className="w-3 h-3 text-neutral-500" />
+                                  <Copy className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
                                   <span className="text-[11px]">Copy Link</span>
                                 </>
                               )}
@@ -612,7 +650,7 @@ export default function ClientsPage() {
                               href={`https://wa.me/${cleanPhone}?text=${waText}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-medium transition-colors"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-xs font-medium transition-colors"
                               title="Share checklist link on WhatsApp"
                             >
                               <MessageSquareShare className="w-3 h-3" />
@@ -622,7 +660,7 @@ export default function ClientsPage() {
                             {/* Open Checklist Link */}
                             <Link
                               href={`/dashboard/cases/${c.id}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 hover:bg-neutral-800 text-white text-xs font-semibold shadow-2xs transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white text-xs font-semibold shadow-2xs transition-colors"
                             >
                               <span>Open Case</span>
                               <ChevronRight className="w-3.5 h-3.5" />
@@ -636,7 +674,7 @@ export default function ClientsPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-3.5 bg-neutral-50/70 border-t border-neutral-100 flex items-center justify-between">
+              <div className="px-6 py-3.5 bg-neutral-50/70 dark:bg-neutral-800/80 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => {
@@ -644,16 +682,16 @@ export default function ClientsPage() {
                     setSelectedClientForCases(null);
                     setVaultClient(cl);
                   }}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 hover:text-neutral-900 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white cursor-pointer transition-colors"
                 >
-                  <FolderOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  <FolderOpen className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>View Document Vault ({relatedDocs.length})</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSelectedClientForCases(null)}
-                  className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Close
                 </button>
