@@ -12,12 +12,14 @@ import {
   Copy,
   Check,
   Layers,
+  Bell,
 } from "lucide-react";
 import { getDashboardData } from "@/app/actions/portal";
 import { CaseWithDetails, Client } from "@/types";
 import { getCaseStatusBadge, formatDate } from "@/lib/utils";
 import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
+import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 export default function CasesListPage() {
@@ -27,6 +29,7 @@ export default function CasesListPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [selectedCaseForShare, setSelectedCaseForShare] = useState<CaseWithDetails | null>(null);
+  const [selectedCaseForReminder, setSelectedCaseForReminder] = useState<CaseWithDetails | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const filtered = (data?.cases || []).filter((c) => {
     const matchesSearch =
@@ -168,6 +171,14 @@ export default function CasesListPage() {
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
+                      onClick={() => setSelectedCaseForReminder(c)}
+                      title="Send Smart WhatsApp Reminder"
+                      className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-400 dark:hover:bg-amber-900/60 transition-colors cursor-pointer"
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setSelectedCaseForShare(c)}
                       title="Share / Forward on WhatsApp"
                       className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
@@ -213,6 +224,14 @@ export default function CasesListPage() {
           isOpen={true}
           onClose={() => setSelectedCaseForShare(null)}
           onLinkRenewed={() => refresh()}
+        />
+      )}
+
+      {selectedCaseForReminder && (
+        <WhatsAppReminderModal
+          caseData={selectedCaseForReminder}
+          isOpen={true}
+          onClose={() => setSelectedCaseForReminder(null)}
         />
       )}
     </div>
