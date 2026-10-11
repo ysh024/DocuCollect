@@ -1457,7 +1457,7 @@ let cachedPlansData: any[] | null = null;
 let cachedPlansTimestamp = 0;
 
 export async function getAllPlansAction() {
-  if (cachedPlansData && Date.now() - cachedPlansTimestamp < 3600000) {
+  if (cachedPlansData && Date.now() - cachedPlansTimestamp < 60000) {
     return cachedPlansData;
   }
   const sql = getDb();

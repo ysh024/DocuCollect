@@ -4,10 +4,29 @@ import Link from "next/link";
 import { ArrowLeft, Shield, Lock, EyeOff, Server, Trash2, Cpu, CheckCircle2, Layers } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
-export const metadata = {
-  title: "Privacy Policy | DocuCollect",
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy & DPDP Act 2023 Compliance | DocuCollect",
   description:
-    "Privacy Policy, DPDP Act 2023 compliance, and Zero-Knowledge client data protection standards at DocuCollect.",
+    "Privacy Policy, DPDP Act 2023 compliance, Zero-Knowledge client data protection standards, and scheduled auto-purge retentions at DocuCollect.",
+  keywords: [
+    "DocuCollect privacy policy",
+    "DPDP Act 2023 compliance",
+    "CA client data privacy",
+    "Zero Knowledge storage privacy",
+    "tax document confidentiality",
+  ],
+  alternates: {
+    canonical: "https://docucollect.app/privacy",
+  },
+  openGraph: {
+    title: "Privacy Policy — DPDP Act 2023 & Zero-Knowledge | DocuCollect",
+    description:
+      "Client data is protected with Zero-Knowledge encryption and scheduled auto-purging up to 60 days max.",
+    url: "https://docucollect.app/privacy",
+    type: "website",
+  },
 };
 
 export default function PrivacyPage() {
@@ -66,7 +85,7 @@ export default function PrivacyPage() {
               <Trash2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               <h3 className="font-bold text-xs text-neutral-900 dark:text-white">Scheduled Auto-Purge</h3>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                Uploaded and rejected files auto-delete in 7 to 30 days to strictly enforce data minimization.
+                Uploaded and rejected files auto-delete in 14 to 60 days (max 2 months) to strictly enforce data minimization.
               </p>
             </div>
           </div>
@@ -131,9 +150,10 @@ export default function PrivacyPage() {
                 DocuCollect is engineered as a secure transit, verification, and collection pipeline — not an indefinitely accumulated cold-storage repository. Holding client data perpetually introduces severe compliance exposure. Therefore:
               </p>
               <ul className="list-disc pl-5 space-y-1.5">
-                <li><strong>Free Trial:</strong> Files are scheduled for automated irreversible purge 7 days after upload.</li>
-                <li><strong>Starter Plan:</strong> Files are scheduled for automated irreversible purge 15 days after upload.</li>
-                <li><strong>Professional Plan:</strong> Files are scheduled for automated irreversible purge 30 days after upload.</li>
+                <li><strong>Free Trial:</strong> Files are scheduled for automated irreversible purge 14 days after upload.</li>
+                <li><strong>Starter Plan:</strong> Files are scheduled for automated irreversible purge 30 days after upload.</li>
+                <li><strong>Professional Plan:</strong> Files are scheduled for automated irreversible purge 45 days after upload.</li>
+                <li><strong>Firm Plan:</strong> Files are scheduled for automated irreversible purge 60 days after upload (Max 2 Months retention policy).</li>
                 <li><strong>Rejected Documents:</strong> Automatically deleted along with the plan's auto-purge cycle to prevent clutter.</li>
               </ul>
               <p>

@@ -4,10 +4,28 @@ import Link from "next/link";
 import { ArrowLeft, Shield, FileText, AlertCircle, CheckCircle2, AlertTriangle, Layers } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
-export const metadata = {
-  title: "Terms of Service | DocuCollect",
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Terms of Service & User Agreement | DocuCollect",
   description:
-    "Terms and conditions, intermediary liability protection, and acceptable use policy for the DocuCollect platform.",
+    "Terms and conditions, intermediary liability safe harbor protection, and acceptable use policy for the DocuCollect platform.",
+  keywords: [
+    "DocuCollect terms of service",
+    "IT Act Section 79 intermediary safe harbor",
+    "CA software legal terms",
+    "client document upload agreement",
+  ],
+  alternates: {
+    canonical: "https://docucollect.app/terms",
+  },
+  openGraph: {
+    title: "Terms of Service — DocuCollect",
+    description:
+      "Intermediary liability protection and acceptable use policy for Chartered Accountants and advisory firms.",
+    url: "https://docucollect.app/terms",
+    type: "website",
+  },
 };
 
 export default function TermsPage() {
@@ -97,7 +115,7 @@ export default function TermsPage() {
                   <strong>Zero-Knowledge AES-256-GCM Storage:</strong> All files uploaded by clients are encrypted at the application layer with AES-256-GCM before persistent cloud storage. DocuCollect has no visibility into file contents.
                 </li>
                 <li>
-                  <strong>Transit Conduit, Not Cold-Storage Archive:</strong> DocuCollect is engineered as a secure transit conduit. Uploaded documents are automatically and irreversibly purged according to your plan's retention policy (7 days on Free Trial, 15 days on Starter, 30 days on Pro). Rejected documents are also purged automatically.
+                  <strong>Transit Conduit, Not Cold-Storage Archive:</strong> DocuCollect is engineered as a secure transit conduit. Uploaded documents are automatically and irreversibly purged according to your plan's retention policy (14 days on Free Trial, 30 days on Starter, 45 days on Pro, and 60 days on Firm / max 2 months). Rejected documents are also purged automatically.
                 </li>
                 <li>
                   <strong>Subscriber Download Obligation:</strong> The Subscriber bears the sole duty to inspect, approve, and download verified client files to their permanent local office drives. DocuCollect shall bear zero liability for files permanently shredded pursuant to scheduled purge cycles.

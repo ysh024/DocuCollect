@@ -1,5 +1,4 @@
-export const dynamic = "force-static";
-
+import { Metadata } from "next";
 import Link from "next/link";
 import {
   Layers,
@@ -26,6 +25,33 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
+export const metadata: Metadata = {
+  title: "DocuCollect — Client Document Collection Portal for CAs, Tax Consultants & Advocates",
+  description:
+    "Secure link-based document collection portal for Indian Chartered Accountants, Tax Consultants, and Law Firms. Features Zero-Knowledge AES-256-GCM encryption, WhatsApp upload links, structured checklists, multi-file downloads, and practice audit trails.",
+  keywords: [
+    "DocuCollect",
+    "CA document collection software",
+    "Tax consultant client portal",
+    "WhatsApp document upload link",
+    "Zero Knowledge encrypted storage",
+    "Chartered Accountant checklist",
+    "GST document collection",
+    "ITR client files portal",
+    "law firm client intake portal",
+  ],
+  alternates: {
+    canonical: "https://docucollect.app",
+  },
+  openGraph: {
+    title: "DocuCollect — Client Document Collection Portal for CAs & Advisors",
+    description:
+      "Stop chasing clients for documents. Send encrypted WhatsApp upload links with structured checklists, multi-file downloads, and immutable audit trails.",
+    url: "https://docucollect.app",
+    type: "website",
+  },
+};
 
 const useCases = [
   {
@@ -359,10 +385,62 @@ export default function LandingPage() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mb-8">
           {[
-            { name: "Trial", price: "₹0", period: "for 30 days", badge: null, features: ["10 active clients", "1 firm workspace", "Reusable checklists", "Upload & review"], highlight: false },
-            { name: "Starter", price: "₹399", period: "/month", badge: "Initial Offer", features: ["50 active clients", "Checklist templates", "Secure upload links", "Rejection reasons"], highlight: true },
-            { name: "Professional", price: "₹799", period: "/month", badge: null, features: ["200 active clients", "Multiple staff & roles", "Expanded templates", "Firm branding"], highlight: false },
-            { name: "Firm", price: "₹1,499", period: "/month", badge: "Proposed", features: ["500+ active clients", "Detailed audit history", "Custom retention", "Priority support"], highlight: false },
+            {
+              name: "Trial",
+              price: "₹0",
+              period: "for 30 days",
+              badge: "30 Days",
+              features: [
+                "Up to 10 active clients",
+                "500 MB encrypted cloud",
+                "14-day practice audit trail",
+                "Max 5 cases per client",
+                "Max 5 custom templates",
+              ],
+              highlight: false,
+            },
+            {
+              name: "Starter",
+              price: "₹399",
+              period: "/month",
+              badge: "Most Popular",
+              features: [
+                "Up to 50 active clients",
+                "2 GB encrypted cloud",
+                "30-day practice audit trail",
+                "Max 10 cases per client",
+                "Excel export & WhatsApp links",
+              ],
+              highlight: true,
+            },
+            {
+              name: "Professional",
+              price: "₹799",
+              period: "/month",
+              badge: null,
+              features: [
+                "Up to 200 active clients",
+                "5 GB encrypted cloud",
+                "45-day practice audit trail",
+                "Max 25 cases per client",
+                "Multi-staff & firm branding",
+              ],
+              highlight: false,
+            },
+            {
+              name: "Firm",
+              price: "₹1,499",
+              period: "/month",
+              badge: "Upcoming Tier",
+              features: [
+                "500+ active clients (Upcoming)",
+                "20 GB+ custom storage",
+                "60-day audit trail (Max 2 Mo)",
+                "Max 50 cases per client",
+                "Upcoming / Not Available Right Now",
+              ],
+              highlight: false,
+            },
           ].map(({ name, price, period, badge, features, highlight }) => (
             <div
               key={name}

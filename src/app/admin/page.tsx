@@ -777,7 +777,7 @@ export default function AdminPortalPage() {
 
                       <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1">
                         <span>Total Objects: {storageMetrics?.totalFiles?.toLocaleString() || 0}</span>
-                        <span>Auto-purge: 7-day retention rule</span>
+                        <span>Auto-purge: Plan-based retention (14–60 days)</span>
                       </div>
                     </div>
                   </div>

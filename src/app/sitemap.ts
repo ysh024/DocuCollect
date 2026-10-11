@@ -32,8 +32,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${siteUrl}/security`,
       lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.8,
+      changeFrequency: "weekly",
+      priority: 0.9,
     },
     {
       url: `${siteUrl}/privacy`,

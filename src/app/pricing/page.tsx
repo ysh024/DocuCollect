@@ -18,9 +18,27 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export const metadata: Metadata = {
-  title: "Pricing Plans — Simple, Transparent Pricing | DocuCollect",
+  title: "Pricing Plans — Simple, Transparent Pricing for CAs & Law Firms | DocuCollect",
   description:
-    "Transparent subscription plans for Chartered Accountants, Tax Consultants, and Law Firms. Includes Zero-Knowledge AES-256-GCM encryption and 30-day free trial.",
+    "Transparent pricing plans for Chartered Accountants, Tax Consultants, and Law Firms. Includes Zero-Knowledge AES-256-GCM encryption, WhatsApp checklists, practice audit trails up to 60 days, and a 30-day free trial.",
+  keywords: [
+    "DocuCollect pricing",
+    "CA software pricing India",
+    "document collection software price",
+    "tax consultant client portal plans",
+    "Zero Knowledge encrypted storage pricing",
+    "Chartered Accountant subscription plans",
+  ],
+  alternates: {
+    canonical: "https://docucollect.app/pricing",
+  },
+  openGraph: {
+    title: "DocuCollect Pricing — Transparent Plans for CAs & Legal Practices",
+    description:
+      "Start free for 30 days. Transparent plans with Zero-Knowledge encryption, audit trails up to 60 days, and multi-file downloads.",
+    url: "https://docucollect.app/pricing",
+    type: "website",
+  },
 };
 
 const plans = [
@@ -129,8 +147,8 @@ const faqs = [
     a: "Every document uploaded by your clients is encrypted at the application layer with AES-256-GCM before writing to cloud storage. Even our underlying cloud database and storage providers (Neon and AWS) cannot view or inspect client files. Only authenticated advisors can stream-decrypt them.",
   },
   {
-    q: "What is the automated file purge policy?",
-    a: "To keep infrastructure lean, prevent data hoarding, and comply with DPDP Act 2023 principles, files are automatically shredded after the plan retention window (7 days on Free Trial, 15 days on Starter, 30 days on Professional). You should download verified client files to your local office storage promptly.",
+    q: "What is the automated file purge & audit trail policy?",
+    a: "To keep infrastructure lean, prevent data hoarding, and comply with DPDP Act 2023 principles, files and audit logs are retained according to your plan schedule (14 days on Free Trial, 30 days on Starter, 45 days on Professional, and 60 days on Firm / max 2 months). You can download verified client files individually or in bulk to your local office storage at any time.",
   },
   {
     q: "Can I export client data to Excel?",
@@ -141,14 +159,35 @@ const faqs = [
     a: "Yes. Active client and case deletion permissions are unlocked on paid plans (Starter, Professional, and Firm). Deleting a client immediately and permanently removes all associated tokens and stored documents.",
   },
   {
+    q: "Why is the Firm plan marked as Upcoming / Not Available Right Now?",
+    a: "The Firm plan is currently in active development while we finalize our dedicated high-volume storage infrastructure and multi-staff role permissions. It will launch soon for practices managing 500+ clients. In the meantime, the Professional plan supports up to 200 clients and 5 GB of encrypted storage.",
+  },
+  {
     q: "What happens after my free trial ends?",
     a: "After 30 days, your account remains accessible but new uploads and client creations pause until you activate a paid plan. Your existing client checklist templates remain fully preserved.",
   },
 ];
 
 export default function PricingPage() {
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.q,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.a,
+      },
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-neutral-100 dark:selection:text-neutral-900 transition-colors duration-150">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
       {/* Header */}
       <header className="border-b border-neutral-200/80 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/90 backdrop-blur-md sticky top-0 z-50 transition-colors duration-150">
         <div className="max-w-6xl mx-auto px-5 sm:px-6 h-16 flex items-center justify-between">

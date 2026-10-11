@@ -4,9 +4,28 @@ import Link from "next/link";
 import { ArrowLeft, RefreshCw, CheckCircle, AlertCircle, Layers } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
-export const metadata = {
-  title: "Refund & Cancellation Policy | DocuCollect",
-  description: "Subscription renewal, cancellation, and refund terms for DocuCollect.",
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Refund & Cancellation Policy — Transparent Billing | DocuCollect",
+  description:
+    "30-day risk-free trial, zero hidden auto-debits, manual UPI & Bank transfers, and 48-hour grace period refund terms for DocuCollect subscribers.",
+  keywords: [
+    "DocuCollect refund policy",
+    "subscription cancellation terms",
+    "UPI transfer refund policy",
+    "CA software billing policy",
+  ],
+  alternates: {
+    canonical: "https://docucollect.app/refund",
+  },
+  openGraph: {
+    title: "Refund & Cancellation Policy — DocuCollect",
+    description:
+      "Transparent billing with no automatic card debits. Manual renewals and 48-hour grace period refunds.",
+    url: "https://docucollect.app/refund",
+    type: "website",
+  },
 };
 
 export default function RefundPage() {

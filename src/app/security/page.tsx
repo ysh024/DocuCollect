@@ -23,9 +23,27 @@ import {
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export const metadata: Metadata = {
-  title: "Security & Compliance Center | DocuCollect",
+  title: "Security & Compliance Center — Zero-Knowledge Architecture | DocuCollect",
   description:
-    "Zero-knowledge AES-256-GCM encryption, tenant isolation, and automated data purging built for Chartered Accountants and legal advisors.",
+    "Zero-Knowledge AES-256-GCM envelope encryption, tenant isolation, DPDP Act 2023 compliance, and practice audit trails built for Chartered Accountants and legal advisors.",
+  keywords: [
+    "DocuCollect security",
+    "Zero-Knowledge document encryption",
+    "AES-256-GCM client files",
+    "DPDP Act 2023 compliance CA",
+    "encrypted tax document intake",
+    "data retention policy 60 days",
+  ],
+  alternates: {
+    canonical: "https://docucollect.app/security",
+  },
+  openGraph: {
+    title: "Security Architecture — Zero-Knowledge AES-256-GCM | DocuCollect",
+    description:
+      "Client files are encrypted before storage. Cloud providers cannot inspect files. Automated retention up to 60 days max.",
+    url: "https://docucollect.app/security",
+    type: "website",
+  },
 };
 
 export default function SecurityPage() {
@@ -96,7 +114,7 @@ export default function SecurityPage() {
             </div>
             <h3 className="font-bold text-sm text-neutral-900 dark:text-white">Automated Data Purge</h3>
             <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-              Uploaded and rejected documents are permanently destroyed according to your plan's retention policy (7, 15, or 30 days) to prevent data hoarding.
+              Uploaded and rejected documents are permanently destroyed according to your plan's retention policy (14, 30, 45, or 60 days max) to prevent data hoarding.
             </p>
           </div>
 
@@ -270,15 +288,19 @@ export default function SecurityPage() {
             <ul className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-300">
               <li className="flex items-center gap-2">
                 <span className="font-bold text-neutral-900 dark:text-white w-24">Free Trial:</span>
-                <span>7-day automated purge cycle</span>
+                <span>14-day automated purge & audit trail</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="font-bold text-neutral-900 dark:text-white w-24">Starter Plan:</span>
-                <span>15-day automated purge cycle</span>
+                <span>30-day automated purge & audit trail</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="font-bold text-neutral-900 dark:text-white w-24">Pro Plan:</span>
-                <span>30-day automated purge cycle</span>
+                <span>45-day automated purge & audit trail</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="font-bold text-neutral-900 dark:text-white w-24">Firm Plan:</span>
+                <span>60-day maximum retention (Max 2 Months policy)</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="font-bold text-neutral-900 dark:text-white w-24">Rejected Files:</span>

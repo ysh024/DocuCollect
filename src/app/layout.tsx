@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s | DocuCollect",
   },
   description:
-    "Streamline client document collection for Chartered Accountants, Tax Consultants, and Law Firms. Encrypted WhatsApp links, instant checklists, review dashboard, and automatic 7-day purging.",
+    "Streamline client document collection for Chartered Accountants, Tax Consultants, and Law Firms. Zero-Knowledge AES-256-GCM encryption, WhatsApp upload links, structured checklists, multi-file downloads, and practice audit trails.",
   keywords: [
     "DocuCollect",
     "document collection portal",
@@ -27,9 +27,11 @@ export const metadata: Metadata = {
     "CA tax document collection",
     "WhatsApp document upload",
     "encrypted client portal",
+    "Zero-Knowledge encryption",
     "ITR document collection",
     "KYC collection software",
     "Chartered Accountant SaaS",
+    "practice audit trail",
   ],
   authors: [{ name: "DocuCollect Team" }],
   creator: "DocuCollect",
