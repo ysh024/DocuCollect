@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { DashboardTabContainer } from "@/components/dashboard/DashboardTabContainer";
+
 export default function DashboardLayout({
   children,
 }: {
@@ -31,10 +33,12 @@ export default function DashboardLayout({
           {/* Top Navbar with Dynamic User & Sign Out */}
           <Header />
 
-          {/* Content Area with Trial Expiry Guard and Native Next.js Page Routing */}
+          {/* Content Area with Trial Expiry Guard and Synchronous 0ms Tab Switching */}
           <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
             <TrialExpiryGuard>
-              {children}
+              <DashboardTabContainer>
+                {children}
+              </DashboardTabContainer>
             </TrialExpiryGuard>
           </main>
         </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -31,8 +31,16 @@ const navItems: { href: string; tab: DashboardTab; label: string; icon: any }[] 
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { toast } = useToast();
-  const { user } = useDashboardData();
+  const { user, activeTab, navigateToTab } = useDashboardData();
+
+  // Warm-up / prefetch all dashboard routes in the browser cache on initial mount
+  useEffect(() => {
+    navItems.forEach((item) => {
+      router.prefetch(item.href);
+    });
+  }, [router]);
 
   const getInitials = (name: string) => {
     if (!name) return "?";
@@ -54,6 +62,12 @@ export function Sidebar() {
       <div className="h-16 px-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center shrink-0">
         <Link
           href="/dashboard"
+          onClick={(e) => {
+            if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+              e.preventDefault();
+              navigateToTab("/dashboard");
+            }
+          }}
           className="flex items-center gap-2.5 group min-w-0"
         >
           {user?.logoUrl ? (
@@ -102,17 +116,21 @@ export function Sidebar() {
           </p>
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname === item.href || (pathname?.startsWith(item.href + "/") ?? false);
+            const targetTab = item.href === "/dashboard" ? "overview" : item.href.replace("/dashboard/", "");
+            const isActive = activeTab === targetTab;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 prefetch={true}
+                onClick={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                    e.preventDefault();
+                    navigateToTab(item.href);
+                  }
+                }}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer",
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-100 cursor-pointer",
                   isActive
                     ? "bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-sm font-semibold"
                     : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100/70 dark:hover:bg-neutral-800/70"
@@ -132,6 +150,12 @@ export function Sidebar() {
           <Link
             href="/dashboard/cases"
             prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
+                navigateToTab("/dashboard/cases");
+              }
+            }}
             className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group cursor-pointer"
           >
             <span>Active Checklists</span>
@@ -140,6 +164,12 @@ export function Sidebar() {
           <Link
             href="/dashboard/clients"
             prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
+                navigateToTab("/dashboard/clients");
+              }
+            }}
             className="flex items-center justify-between px-3 py-2 rounded-lg text-xs text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors group cursor-pointer"
           >
             <span>Client Vault</span>
@@ -154,30 +184,26 @@ export function Sidebar() {
           <Link
             href="/dashboard/settings"
             prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+                e.preventDefault();
+                navigateToTab("/dashboard/settings");
+              }
+            }}
             title="Manage Workspace Settings"
             className="p-2.5 bg-neutral-50 hover:bg-neutral-100/90 dark:bg-neutral-800/60 dark:hover:bg-neutral-800 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60 flex items-center gap-2.5 transition-colors group cursor-pointer"
           >
-            {user.logoUrl ? (
-              <div className="w-8 h-8 rounded-lg border border-neutral-200 dark:border-neutral-700 overflow-hidden shrink-0 shadow-xs flex items-center justify-center bg-white dark:bg-neutral-800 p-0.5">
-                <img
-                  src={user.logoUrl}
-                  alt={user.organizationName}
-                  className="w-full h-full object-cover rounded-md"
-                />
-              </div>
-            ) : (
-              <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-neutral-700 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                {getInitials(user.organizationName || "?")}
-              </div>
-            )}
+            <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-neutral-700 text-white text-xs font-bold flex items-center justify-center shrink-0 shadow-2xs">
+              {getInitials(user.fullName || user.email || "Advisor")}
+            </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate group-hover:text-neutral-950 dark:group-hover:text-white">
-                {user.organizationName}
+                {user.fullName || user.email?.split("@")[0] || "Advisor Profile"}
               </p>
               <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
                 {isOnTrial
                   ? `Trial · ${trialDaysLeft ?? "?"} days left`
-                  : user.subscription?.planDisplayName || "Active"}
+                  : user.subscription?.planDisplayName || "Lead Advisor"}
               </p>
             </div>
           </Link>

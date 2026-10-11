@@ -16,18 +16,21 @@ import {
   ChevronDown,
   ChevronUp,
   Briefcase,
+  Filter,
+  CheckCircle,
 } from "lucide-react";
-import { ChecklistTemplate, Client } from "@/types";
+import { ChecklistTemplate } from "@/types";
 import {
   getChecklistTemplatesAction,
   deleteChecklistTemplateAction,
   duplicateChecklistTemplateAction,
+  getCustomTemplateQuotaAction,
 } from "@/app/actions/templates";
-import { getDashboardData } from "@/app/actions/portal";
 import { TemplateEditorModal } from "@/components/templates/TemplateEditorModal";
 import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
+import { InfoPopover } from "@/components/ui/InfoPopover";
 
 let globalTemplatesCache: ChecklistTemplate[] | null = null;
 
@@ -37,6 +40,10 @@ export default function ChecklistTemplatesPage() {
 
   const [templates, setTemplates] = useState<ChecklistTemplate[]>(globalTemplatesCache || []);
   const [loading, setLoading] = useState(!globalTemplatesCache);
+  const [customQuota, setCustomQuota] = useState<{ currentCount: number; maxLimit: number }>({
+    currentCount: 0,
+    maxLimit: 5,
+  });
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState<"all" | "custom" | "system">("all");
@@ -53,9 +60,13 @@ export default function ChecklistTemplatesPage() {
   const loadData = async (silent = false) => {
     if (!silent && !globalTemplatesCache) setLoading(true);
     try {
-      const tpls = await getChecklistTemplatesAction();
+      const [tpls, quota] = await Promise.all([
+        getChecklistTemplatesAction(),
+        getCustomTemplateQuotaAction(),
+      ]);
       globalTemplatesCache = tpls;
       setTemplates(tpls);
+      if (quota) setCustomQuota(quota);
     } catch (err) {
       console.error(err);
     } finally {
@@ -105,6 +116,14 @@ export default function ChecklistTemplatesPage() {
   };
 
   const handleCreateNew = () => {
+    if (customQuota.currentCount >= customQuota.maxLimit) {
+      toast({
+        title: "Custom Template Limit Reached",
+        description: `You have used ${customQuota.currentCount} of ${customQuota.maxLimit} custom templates allowed on your plan. Upgrade your plan or delete unused templates.`,
+        type: "error",
+      });
+      return;
+    }
     setEditingTemplate(null);
     setIsEditorOpen(true);
   };
@@ -138,18 +157,28 @@ export default function ChecklistTemplatesPage() {
   const systemCount = templates.filter((t) => t.is_system).length;
 
   return (
-    <div className="space-y-6 w-full pb-12">
+    <div className="space-y-6 w-full pb-16">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-neutral-900">Checklist Templates</h1>
-            <span className="text-[11px] font-semibold bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full border border-neutral-200">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">Checklist Templates</h1>
+            <span className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700">
               {templates.length} Total
             </span>
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                customQuota.currentCount >= customQuota.maxLimit
+                  ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                  : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+              }`}
+              title={`${customQuota.currentCount} of ${customQuota.maxLimit} custom templates used on your plan`}
+            >
+              {customQuota.currentCount}/{customQuota.maxLimit} Custom Used
+            </span>
           </div>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Build standardized document checklists once and reuse them for multiple clients in 1 click.
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+            Standardized document checklists you can reuse for multiple clients in 1 click.
           </p>
         </div>
 
@@ -157,7 +186,7 @@ export default function ChecklistTemplatesPage() {
           <button
             type="button"
             onClick={handleCreateNew}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-sm transition-colors cursor-pointer self-start"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 dark:text-neutral-900 rounded-xl shadow-xs transition-colors cursor-pointer self-start"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Create Template</span>
@@ -165,8 +194,8 @@ export default function ChecklistTemplatesPage() {
         </div>
       </div>
 
-      {/* Filter & Search Bar */}
-      <div className="p-4 bg-white rounded-xl border border-neutral-200/80 space-y-3 shadow-2xs">
+      {/* Filter & Search Bar - Clean & Compact without overflowing buttons */}
+      <div className="p-3.5 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-xs space-y-3">
         <div className="flex flex-col sm:flex-row items-center gap-3">
           {/* Search Box */}
           <div className="relative flex-1 w-full">
@@ -176,19 +205,39 @@ export default function ChecklistTemplatesPage() {
               placeholder="Search by template name or document item..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-xs pl-9 pr-3 py-2 bg-neutral-50/80 border border-neutral-200 rounded-lg text-neutral-800 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 focus:bg-white"
+              className="w-full text-xs pl-9 pr-3 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-800 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white transition"
             />
           </div>
 
+          {/* Clean Category Select Dropdown (Replaces sprawling multi-line buttons) */}
+          <div className="flex items-center gap-1.5 w-full sm:w-auto shrink-0">
+            <div className="relative w-full sm:w-48">
+              <Filter className="w-3.5 h-3.5 text-neutral-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="w-full text-xs pl-8 pr-7 py-2 bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-xl text-neutral-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-white cursor-pointer appearance-none transition"
+              >
+                <option value="all">All Categories</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+
           {/* Type Filter Tabs */}
-          <div className="flex items-center gap-1 bg-neutral-100 p-1 rounded-lg shrink-0 w-full sm:w-auto">
+          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800 p-1 rounded-xl shrink-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setTypeFilter("all")}
-              className={`flex-1 sm:flex-none px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              className={`flex-1 sm:flex-none px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 typeFilter === "all"
-                  ? "bg-white text-neutral-900 shadow-2xs font-semibold"
-                  : "text-neutral-600 hover:text-neutral-900"
+                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               }`}
             >
               All ({templates.length})
@@ -196,81 +245,47 @@ export default function ChecklistTemplatesPage() {
             <button
               type="button"
               onClick={() => setTypeFilter("custom")}
-              className={`flex-1 sm:flex-none px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              className={`flex-1 sm:flex-none px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 typeFilter === "custom"
-                  ? "bg-white text-emerald-800 shadow-2xs font-semibold"
-                  : "text-neutral-600 hover:text-neutral-900"
+                  ? "bg-white dark:bg-neutral-700 text-emerald-800 dark:text-emerald-300 shadow-2xs font-semibold"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               }`}
             >
-              My Firm ({customCount})
+              Firm ({customCount})
             </button>
             <button
               type="button"
               onClick={() => setTypeFilter("system")}
-              className={`flex-1 sm:flex-none px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              className={`flex-1 sm:flex-none px-3 py-1 text-xs font-medium rounded-lg transition-colors cursor-pointer ${
                 typeFilter === "system"
-                  ? "bg-white text-neutral-900 shadow-2xs font-semibold"
-                  : "text-neutral-600 hover:text-neutral-900"
+                  ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-semibold"
+                  : "text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               }`}
             >
               Standard ({systemCount})
             </button>
           </div>
         </div>
-
-        {/* Categories Chips */}
-        {categories.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-neutral-100">
-            <span className="text-[10px] uppercase font-semibold text-neutral-400 mr-1">
-              Category:
-            </span>
-            <button
-              type="button"
-              onClick={() => setCategoryFilter("all")}
-              className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
-                categoryFilter === "all"
-                  ? "bg-neutral-900 text-white font-semibold"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              All Categories
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2 py-0.5 rounded text-[11px] transition-colors ${
-                  categoryFilter === cat
-                    ? "bg-neutral-900 text-white font-semibold"
-                    : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Templates Grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-44 bg-white rounded-2xl border border-neutral-200/80 p-5 space-y-3 animate-pulse">
-              <div className="w-1/2 h-4 bg-neutral-200 rounded" />
-              <div className="w-3/4 h-3 bg-neutral-100 rounded" />
-              <div className="w-full h-12 bg-neutral-50 rounded" />
+            <div key={i} className="h-44 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 space-y-3 animate-pulse">
+              <div className="w-1/2 h-4 bg-neutral-200 dark:bg-neutral-700 rounded" />
+              <div className="w-3/4 h-3 bg-neutral-100 dark:bg-neutral-800 rounded" />
+              <div className="w-full h-12 bg-neutral-50 dark:bg-neutral-800/50 rounded" />
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="p-12 text-center bg-white rounded-2xl border border-neutral-200/80 space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-neutral-100 text-neutral-400 flex items-center justify-center mx-auto">
+        <div className="p-12 text-center bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-400 flex items-center justify-center mx-auto">
             <Layers className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-neutral-900">No templates found</h3>
-          <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+          <h3 className="text-sm font-bold text-neutral-900 dark:text-white">No templates found</h3>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-sm mx-auto">
             {search
               ? "No checklist template matches your search query. Try clearing the filter."
               : "You haven't created any custom templates yet. Create your first template to reuse for clients!"}
@@ -278,7 +293,7 @@ export default function ChecklistTemplatesPage() {
           <button
             type="button"
             onClick={handleCreateNew}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl transition-colors mt-2"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 rounded-xl transition-colors mt-2 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Create First Custom Template</span>
@@ -294,45 +309,52 @@ export default function ChecklistTemplatesPage() {
             return (
               <div
                 key={tpl.id}
-                className="bg-white rounded-xl border border-neutral-200/80 hover:border-neutral-300 transition-all shadow-2xs hover:shadow-xs flex flex-col justify-between overflow-hidden group"
+                className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 transition-all shadow-2xs hover:shadow-xs flex flex-col justify-between overflow-hidden group"
               >
                 {/* Card Top */}
                 <div className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-neutral-600 bg-neutral-100 border border-neutral-200/60 px-2 py-0.5 rounded">
-                      {tpl.service_type || "General"}
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-600 dark:text-neutral-400">
+                      <Layers className="w-3 h-3 text-neutral-400 dark:text-neutral-500" />
+                      <span>{tpl.service_type || "General"}</span>
                     </span>
 
+                    {/* Icon Badges with Tooltips instead of bloated text */}
                     {!tpl.is_system ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Firm Custom
+                      <span
+                        title="Firm Custom Template"
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
                       </span>
                     ) : (
-                      <span className="text-[10px] font-medium text-neutral-400 bg-neutral-50 px-1.5 py-0.5 rounded border border-neutral-100">
-                        Standard
+                      <span
+                        title="Standard Verified Template"
+                        className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 shadow-2xs"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
                       </span>
                     )}
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-bold text-neutral-900 group-hover:text-neutral-800 leading-snug">
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white leading-snug">
                       {tpl.name}
                     </h3>
                     {tpl.description && (
-                      <p className="text-[11px] text-neutral-500 mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 line-clamp-2 leading-relaxed">
                         {tpl.description}
                       </p>
                     )}
                   </div>
 
-                  {/* Document Count Badge */}
-                  <div className="flex items-center justify-between text-[11px] text-neutral-600 bg-neutral-50/80 p-2 rounded-lg border border-neutral-200/60">
-                    <span className="font-semibold text-neutral-800 flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-neutral-600" />
+                  {/* Document Count Info Bar */}
+                  <div className="flex items-center justify-between text-[11px] text-neutral-600 dark:text-neutral-300 bg-neutral-50/80 dark:bg-neutral-800/50 p-2 rounded-xl border border-neutral-200/60 dark:border-neutral-750">
+                    <span className="font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-neutral-500" />
                       {tpl.requirements.length} Items
                     </span>
-                    <span className="text-[10px] text-neutral-500">
+                    <span className="text-[10px] text-neutral-500 dark:text-neutral-400">
                       {requiredCount} required · {optionalCount} optional
                     </span>
                   </div>
@@ -342,9 +364,9 @@ export default function ChecklistTemplatesPage() {
                     <button
                       type="button"
                       onClick={() => setExpandedId(isExpanded ? null : tpl.id)}
-                      className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 flex items-center justify-between w-full py-1"
+                      className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white flex items-center justify-between w-full py-1 cursor-pointer transition-colors"
                     >
-                      <span>{isExpanded ? "Hide checklist" : "Preview checklist"}</span>
+                      <span>{isExpanded ? "Hide checklist items" : "Preview checklist items"}</span>
                       {isExpanded ? (
                         <ChevronUp className="w-3.5 h-3.5" />
                       ) : (
@@ -353,27 +375,28 @@ export default function ChecklistTemplatesPage() {
                     </button>
 
                     {isExpanded && (
-                      <div className="space-y-1.5 pt-1.5 border-t border-neutral-100 max-h-48 overflow-y-auto">
+                      <div className="space-y-1.5 pt-1.5 border-t border-neutral-100 dark:border-neutral-800 max-h-48 overflow-y-auto">
                         {tpl.requirements.map((req, i) => (
                           <div
                             key={i}
-                            className="flex items-start gap-2 text-[11px] p-1.5 rounded bg-neutral-50/60"
+                            className="flex items-start gap-2 text-[11px] p-1.5 rounded-lg bg-neutral-50/60 dark:bg-neutral-800/40"
                           >
-                            <span className="w-3.5 h-3.5 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="w-3.5 h-3.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[9px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                               {i + 1}
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="font-medium text-neutral-800 truncate">{req.name}</p>
+                              <p className="font-medium text-neutral-800 dark:text-neutral-200 truncate">{req.name}</p>
                               {req.description && (
-                                <p className="text-[10px] text-neutral-400 truncate">
+                                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 truncate">
                                   {req.description}
                                 </p>
                               )}
                             </div>
                             {req.is_required && (
-                              <span className="text-[9px] text-rose-600 font-bold bg-rose-50 px-1 py-0.2 rounded border border-rose-200/60 shrink-0">
-                                Req
-                              </span>
+                              <span
+                                title="Mandatory Requirement"
+                                className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1"
+                              />
                             )}
                           </div>
                         ))}
@@ -383,14 +406,14 @@ export default function ChecklistTemplatesPage() {
                 </div>
 
                 {/* Card Bottom Controls */}
-                <div className="p-3 bg-neutral-50/60 border-t border-neutral-100 flex items-center justify-between gap-2">
+                <div className="p-3 bg-neutral-50/60 dark:bg-neutral-850 dark:bg-neutral-800/40 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
                     {!tpl.is_system ? (
                       <>
                         <button
                           type="button"
                           onClick={() => handleEdit(tpl)}
-                          className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-200/60 rounded-md transition-colors"
+                          className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 rounded-lg transition-colors cursor-pointer"
                           title="Edit template"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
@@ -398,7 +421,7 @@ export default function ChecklistTemplatesPage() {
                         <button
                           type="button"
                           onClick={() => handleDeleteTemplate(tpl)}
-                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+                          className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
                           title="Delete template"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -408,7 +431,7 @@ export default function ChecklistTemplatesPage() {
                       <button
                         type="button"
                         onClick={() => handleDuplicateTemplate(tpl)}
-                        className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-600 hover:text-neutral-900 px-2 py-1 hover:bg-neutral-200/60 rounded-md transition-colors"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white px-2 py-1 hover:bg-neutral-200/60 dark:hover:bg-neutral-700 rounded-lg transition-colors cursor-pointer"
                         title="Copy to custom templates to edit"
                       >
                         <Copy className="w-3 h-3" />
@@ -420,9 +443,9 @@ export default function ChecklistTemplatesPage() {
                   <button
                     type="button"
                     onClick={() => handleUseTemplate(tpl)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 rounded-xl text-xs font-bold shadow-2xs transition-colors cursor-pointer"
                   >
-                    <Briefcase className="w-3 h-3 text-emerald-400" />
+                    <Briefcase className="w-3 h-3 text-emerald-400 dark:text-emerald-600" />
                     <span>Use for Client</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>

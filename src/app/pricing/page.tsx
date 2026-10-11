@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import Link from "next/link";
 import { Metadata } from "next";
 import {
@@ -11,13 +13,14 @@ import {
   MessageSquareShare,
   Info,
   Building2,
+  Lock,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 
 export const metadata: Metadata = {
-  title: "Pricing Plans — Simple, Transparent Pricing",
+  title: "Pricing Plans — Simple, Transparent Pricing | DocuCollect",
   description:
-    "Flexible subscription plans for Chartered Accountants, Tax Consultants, and Law Firms. Start with a full-featured 30-day free trial.",
+    "Transparent subscription plans for Chartered Accountants, Tax Consultants, and Law Firms. Includes Zero-Knowledge AES-256-GCM encryption and 30-day free trial.",
 };
 
 const plans = [
@@ -25,17 +28,20 @@ const plans = [
     name: "Trial",
     icon: Zap,
     badge: "30 Days",
-    tagline: "For evaluating the workflow",
+    tagline: "For evaluating practice workflows",
     priceMonthly: 0,
     priceYearly: 0,
     isFree: true,
     highlight: false,
     features: [
-      "One firm workspace",
       "Up to 10 active clients",
+      "500 MB encrypted cloud storage",
+      "Zero-Knowledge AES-256-GCM encryption",
+      "14-day practice audit trail",
+      "Max 5 cases per client",
+      "Max 5 custom templates",
       "Reusable document checklists",
-      "Link-based uploads & review",
-      "Limited storage and retention",
+      "Direct client enquiry card",
     ],
     cta: "Start Free Trial",
     ctaHref: "/signup",
@@ -43,7 +49,7 @@ const plans = [
   {
     name: "Starter",
     icon: Shield,
-    badge: "Initial Offer",
+    badge: "Most Popular",
     tagline: "For solo consultants and small practices",
     priceMonthly: 399,
     priceYearly: 3999,
@@ -51,10 +57,14 @@ const plans = [
     highlight: true,
     features: [
       "Up to 50 active clients",
-      "Checklists & reusable templates",
-      "Secure upload links",
-      "Document review & rejection reasons",
-      "Basic activity history",
+      "2 GB encrypted cloud storage",
+      "Zero-Knowledge AES-256-GCM encryption",
+      "30-day practice audit trail",
+      "Max 10 cases per client",
+      "Max 5 custom templates",
+      "Client data export in Excel",
+      "Delete clients & portfolio management",
+      "WhatsApp & link sharing",
     ],
     cta: "Upgrade to Starter",
     ctaHref: "/signup",
@@ -63,17 +73,23 @@ const plans = [
     name: "Professional",
     icon: Crown,
     badge: null,
-    tagline: "For small firms with multiple staff members",
+    tagline: "For firms with multiple staff & high volume",
     priceMonthly: 799,
     priceYearly: 7999,
     isFree: false,
     highlight: false,
+    isUpcoming: false,
     features: [
       "Up to 200 active clients",
-      "Multiple staff accounts & roles",
-      "More reusable checklist templates",
-      "Expanded activity history & storage",
-      "Firm branding & configurable workflows",
+      "5 GB encrypted cloud storage",
+      "Zero-Knowledge AES-256-GCM encryption",
+      "45-day comprehensive audit trail",
+      "Max 25 cases per client",
+      "Max 10 custom templates",
+      "Client data export in Excel",
+      "Delete clients & case management",
+      "Multi-staff accounts & firm branding",
+      "Priority customer support",
     ],
     cta: "Upgrade to Professional",
     ctaHref: "/signup",
@@ -81,48 +97,52 @@ const plans = [
   {
     name: "Firm",
     icon: Building2,
-    badge: "Proposed",
-    tagline: "For growing firms and agencies",
+    badge: "Upcoming / Not Available",
+    tagline: "Upcoming tier in development — currently not available",
     priceMonthly: 1499,
     priceYearly: 14999,
     isFree: false,
     highlight: false,
+    isUpcoming: true,
     features: [
-      "Higher client & staff limits (500+)",
-      "Detailed permissions & audit history",
-      "Custom retention settings",
-      "Priority support",
-      "Tailored onboarding",
+      "500+ active clients (Upcoming)",
+      "20 GB+ custom storage quota",
+      "Zero-Knowledge AES-256-GCM encryption",
+      "60-day audit trail (Max 2 Months)",
+      "Max 50 cases per client",
+      "Max 25 custom templates",
+      "Advanced role-based access (RBAC)",
+      "Dedicated onboarding & SLA support",
     ],
-    cta: "Upgrade to Firm",
-    ctaHref: "/signup",
+    cta: "Upcoming Tier",
+    ctaHref: "#",
   },
 ];
 
 const faqs = [
   {
     q: "How does payment work?",
-    a: "We accept payments directly via UPI, QR code, and Net Banking (NEFT/RTGS/IMPS). Once payment is completed, notify us with the transaction screenshot and your plan is activated swiftly. You will receive an official activation confirmation.",
+    a: "We accept payments directly via UPI QR code and Net Banking (NEFT/RTGS/IMPS). Once payment is completed, share the transaction screenshot on WhatsApp from your dashboard Billing page. You will immediately receive a single-use license voucher key to unlock your plan.",
+  },
+  {
+    q: "What is Zero-Knowledge storage encryption?",
+    a: "Every document uploaded by your clients is encrypted at the application layer with AES-256-GCM before writing to cloud storage. Even our underlying cloud database and storage providers (Neon and AWS) cannot view or inspect client files. Only authenticated advisors can stream-decrypt them.",
+  },
+  {
+    q: "What is the automated file purge policy?",
+    a: "To keep infrastructure lean, prevent data hoarding, and comply with DPDP Act 2023 principles, files are automatically shredded after the plan retention window (7 days on Free Trial, 15 days on Starter, 30 days on Professional). You should download verified client files to your local office storage promptly.",
+  },
+  {
+    q: "Can I export client data to Excel?",
+    a: "Yes. Client master data export in Excel (.xlsx) is available on all paid plans (Starter, Professional, and Firm). You can export your full client directory in one click.",
+  },
+  {
+    q: "Can I delete clients and cases?",
+    a: "Yes. Active client and case deletion permissions are unlocked on paid plans (Starter, Professional, and Firm). Deleting a client immediately and permanently removes all associated tokens and stored documents.",
   },
   {
     q: "What happens after my free trial ends?",
-    a: "After 30 days, your account continues to work but file uploads will pause until you activate a paid plan. Your existing data and client links remain accessible. We'll notify you before the trial ends.",
-  },
-  {
-    q: "Can I upgrade my plan later?",
-    a: "Absolutely. You can start on Free Trial, and upgrade to Starter, Professional, or Firm whenever your practice expands. All your client data and documents remain fully preserved.",
-  },
-  {
-    q: "What is file retention?",
-    a: "Uploaded documents are automatically archived and deleted after the retention window to keep storage lean and compliant. Free Trial = 7 days, Starter = 30 days, Professional = 90 days, Firm = customizable retention.",
-  },
-  {
-    q: "Is the client portal free for my clients?",
-    a: "Yes. Your clients access the secure upload portal for free — they never need to create an account or pay anything. Only you (the firm or practitioner) need a plan.",
-  },
-  {
-    q: "How do I activate a paid plan?",
-    a: "Complete your payment via UPI in your dashboard Billing page and share the screenshot via WhatsApp. You will immediately receive a single-use license voucher key to instantly unlock your plan.",
+    a: "After 30 days, your account remains accessible but new uploads and client creations pause until you activate a paid plan. Your existing client checklist templates remain fully preserved.",
   },
 ];
 
@@ -156,21 +176,21 @@ export default function PricingPage() {
       {/* Hero */}
       <section className="max-w-4xl mx-auto px-5 sm:px-6 pt-16 pb-10 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs font-semibold mb-5 shadow-2xs">
-          <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>Pay by UPI · Bank Transfer · QR Code</span>
+          <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+          <span>Zero-Knowledge AES-256-GCM · Direct UPI / Bank Transfer</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-3">
-          Simple, honest pricing
+          Simple, honest pricing for professionals
         </h1>
         <p className="text-neutral-600 dark:text-neutral-400 text-sm max-w-lg mx-auto">
-          Start with a 30-day free trial. When you're ready to upgrade, choose the plan tailored to your practice size.
+          Start with a full 30-day free trial. Choose a plan tailored to your practice size with zero auto-debits and transparent limits.
         </p>
       </section>
 
       {/* Plans */}
       <section className="max-w-6xl mx-auto px-5 sm:px-6 pb-16">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {plans.map(({ name, icon: Icon, badge, tagline, priceMonthly, priceYearly, isFree, highlight, features, cta, ctaHref }) => (
+          {plans.map(({ name, icon: Icon, badge, tagline, priceMonthly, priceYearly, isFree, highlight, isUpcoming, features, cta, ctaHref }) => (
             <div
               key={name}
               className={`rounded-2xl border p-5 sm:p-6 flex flex-col relative transition-all ${
@@ -220,17 +240,23 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                href={ctaHref}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
-                  highlight
-                    ? "bg-white dark:bg-emerald-600 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-emerald-500 shadow-sm"
-                    : "bg-neutral-900 dark:bg-neutral-800 text-white hover:bg-neutral-800 dark:hover:bg-neutral-700"
-                }`}
-              >
-                <span>{cta}</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              {isUpcoming ? (
+                <div className="w-full flex items-center justify-center py-2.5 rounded-xl text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 cursor-not-allowed">
+                  <span>Upcoming Tier (Coming Soon)</span>
+                </div>
+              ) : (
+                <Link
+                  href={ctaHref}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
+                    highlight
+                      ? "bg-white dark:bg-emerald-600 text-neutral-900 dark:text-white hover:bg-neutral-100 dark:hover:bg-emerald-500 shadow-sm"
+                      : "bg-neutral-900 dark:bg-neutral-800 text-white hover:bg-neutral-800 dark:hover:bg-neutral-700"
+                  }`}
+                >
+                  <span>{cta}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -241,7 +267,7 @@ export default function PricingPage() {
           <div>
             <p className="text-sm font-bold text-amber-900 dark:text-amber-200 mb-1">Direct Bank & UPI Plan Activation</p>
             <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-              Sign up for the 30-day Free Trial with no credit card required. To activate a paid plan, make payment via UPI QR code or Direct Bank Transfer (NEFT/RTGS/IMPS) directly in your Billing dashboard. We activate plans within a few hours of confirmation.
+              Sign up for the 30-day Free Trial with no credit card required. To activate a paid plan, make payment via UPI QR code or Direct Bank Transfer (NEFT/RTGS/IMPS) directly in your Billing dashboard. We activate plans swiftly upon verification.
             </p>
           </div>
         </div>
@@ -265,15 +291,19 @@ export default function PricingPage() {
               <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                 {[
                   ["Monthly Price", "₹0", "₹399", "₹799", "₹1,499"],
-                  ["Active Clients", "Up to 10", "Up to 50", "Up to 200", "500+"],
-                  ["Workspaces & Staff", "1 firm workspace", "Solo / 1 account", "Multiple staff + roles", "Advanced staff + RBAC"],
-                  ["Checklist Templates", "Basic checklists", "Reusable templates", "More templates", "Customizable templates"],
-                  ["Secure Upload Links", "✓", "✓", "✓", "✓"],
-                  ["Document Review & Rejection", "✓", "✓", "✓", "✓"],
-                  ["Activity & Audit History", "Basic history", "Basic activity history", "Expanded activity history", "Detailed audit history"],
-                  ["File Retention", "7 days", "30 days", "90 days", "Custom retention"],
-                  ["Firm Branding", "—", "—", "✓", "✓"],
-                  ["Support Level", "Standard", "Standard", "Priority support", "Priority + tailored onboarding"],
+                  ["Active Clients Limit", "Up to 10", "Up to 50", "Up to 200", "500+ (Upcoming)"],
+                  ["Cloud Storage Quota", "500 MB", "2 GB", "5 GB", "20 GB+ (Upcoming)"],
+                  ["Cases Limit Per Client", "Max 5 cases", "Max 10 cases", "Max 25 cases", "Max 50 cases (Upcoming)"],
+                  ["Custom Checklist Templates", "Max 5 templates", "Max 5 templates", "Max 10 templates", "Max 25 templates (Upcoming)"],
+                  ["Zero-Knowledge AES-256-GCM", "✓ Included", "✓ Included", "✓ Included", "✓ Included"],
+                  ["Audit Trail History", "14 days", "30 days", "45 days", "60 days (Upcoming)"],
+                  ["Export Clients to Excel", "—", "✓ Included", "✓ Included", "✓ Included"],
+                  ["Delete Clients & Portfolios", "—", "✓ Included", "✓ Included", "✓ Included"],
+                  ["Client Upload Portal", "✓", "✓", "✓", "✓"],
+                  ["Advisor Direct Contact Card", "✓", "✓", "✓", "✓"],
+                  ["Workspaces & Staff", "1 firm workspace", "Solo account", "Multiple staff + roles", "Advanced staff + RBAC"],
+                  ["Firm Branding", "—", "—", "✓ Included", "✓ Included"],
+                  ["Support Level", "Standard", "Standard", "Priority support", "Upcoming SLA"],
                 ].map(([feature, free, starter, pro, firm]) => (
                   <tr key={feature} className="group hover:bg-neutral-50/50 dark:hover:bg-neutral-800/40 transition-colors">
                     <td className="py-2.5 pr-4 text-xs text-neutral-700 dark:text-neutral-300 font-medium">{feature}</td>
@@ -311,7 +341,7 @@ export default function PricingPage() {
       <section className="bg-neutral-900 dark:bg-neutral-900 border-t border-neutral-800 py-14">
         <div className="max-w-2xl mx-auto px-5 sm:px-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">Start collecting documents today</h2>
-          <p className="text-neutral-400 text-sm mb-6">30-day free trial. No credit card. No password. Just your email.</p>
+          <p className="text-neutral-400 text-sm mb-6">30-day free trial. Zero-knowledge encrypted. No credit card required.</p>
           <Link
             href="/signup"
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-neutral-100 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-neutral-900 dark:text-white font-semibold text-sm rounded-xl transition shadow-xs"
@@ -322,9 +352,22 @@ export default function PricingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-neutral-800 bg-neutral-900 py-6">
-        <div className="max-w-5xl mx-auto px-5 text-center text-xs text-neutral-500 dark:text-neutral-400">
-          © 2026 DocuCollect · Built for Indian professionals · UPI / Bank Transfer accepted
+      <footer className="border-t border-neutral-800 bg-neutral-900 py-8">
+        <div className="max-w-5xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-400">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold text-xs">
+              D
+            </div>
+            <span className="font-bold text-white">DocuCollect</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-5">
+            <Link href="/pricing" className="text-white hover:underline">Pricing</Link>
+            <Link href="/security" className="hover:text-white transition-colors">Security</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/refund" className="hover:text-white transition-colors">Refunds</Link>
+          </div>
+          <p>© 2026 DocuCollect · Built for Indian professionals · UPI / Bank Transfer</p>
         </div>
       </footer>
     </div>

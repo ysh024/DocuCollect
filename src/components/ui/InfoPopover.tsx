@@ -28,8 +28,47 @@ export function InfoPopover({
 }: InfoPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [effectiveAlign, setEffectiveAlign] = useState<"left" | "right" | "center">(align);
+  const [effectiveSide, setEffectiveSide] = useState<"top" | "bottom">(side);
 
-  // Close on outside click
+  const handleMouseEnter = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    if (containerRef.current && typeof window !== "undefined") {
+      const rect = containerRef.current.getBoundingClientRect();
+      const distFromRight = window.innerWidth - rect.right;
+      const distFromLeft = rect.left;
+      const distFromTop = rect.top;
+
+      // Smart horizontal alignment: if close to right edge, flip to right-aligned
+      if (distFromRight < 270) {
+        setEffectiveAlign("right");
+      } else if (distFromLeft < 140) {
+        setEffectiveAlign("left");
+      } else {
+        setEffectiveAlign(align);
+      }
+
+      // Smart vertical alignment: if close to top edge, open downwards
+      if (distFromTop < 140) {
+        setEffectiveSide("bottom");
+      } else {
+        setEffectiveSide(side);
+      }
+    }
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 180);
+  };
+
+  // Close on outside click or Escape
   useEffect(() => {
     if (!isOpen) return;
     function handleClickOutside(event: MouseEvent) {
@@ -45,18 +84,19 @@ export function InfoPopover({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
     };
   }, [isOpen]);
 
   const alignClasses =
-    align === "right"
+    effectiveAlign === "right"
       ? "right-0"
-      : align === "center"
+      : effectiveAlign === "center"
       ? "left-1/2 -translate-x-1/2"
       : "left-0";
 
   const sideClasses =
-    side === "bottom"
+    effectiveSide === "bottom"
       ? "top-full mt-1.5"
       : "bottom-full mb-1.5";
 
@@ -67,8 +107,8 @@ export function InfoPopover({
     <div
       ref={containerRef}
       className={`relative inline-flex items-center align-middle ${className}`}
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <button
         type="button"
@@ -80,7 +120,7 @@ export function InfoPopover({
         aria-label={title || "More information"}
         aria-expanded={isOpen}
         className={`inline-flex items-center gap-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400 rounded p-0.5 cursor-pointer ${
-          buttonLabel ? "text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-neutral-100/80 px-2 py-0.5 rounded-md" : ""
+          buttonLabel ? "text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100/80 dark:bg-neutral-800 px-2 py-0.5 rounded-md" : ""
         }`}
       >
         <Info className={iconClassName} />
@@ -90,11 +130,13 @@ export function InfoPopover({
       {isOpen && (
         <div
           role="tooltip"
-          className={`absolute ${sideClasses} ${alignClasses} z-50 w-64 max-w-xs bg-neutral-900 text-neutral-100 text-xs rounded-xl p-3 shadow-xl border border-neutral-800 animate-in fade-in-0 zoom-in-95 pointer-events-auto`}
-          style={{ minWidth: "180px" }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          className={`absolute ${sideClasses} ${alignClasses} z-50 w-64 max-w-[calc(100vw-2rem)] bg-neutral-900 dark:bg-neutral-800 text-neutral-100 text-xs rounded-xl p-3 shadow-2xl border border-neutral-700/80 animate-in fade-in-0 zoom-in-95 pointer-events-auto select-text`}
+          style={{ minWidth: "200px" }}
         >
           {title && (
-            <p className="font-semibold text-white mb-1 tracking-tight text-xs flex items-center gap-1.5">
+            <p className="font-bold text-white mb-1 tracking-tight text-xs flex items-center gap-1.5">
               <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" />
               {title}
             </p>

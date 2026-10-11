@@ -13,8 +13,8 @@ import {
   Check,
   Layers,
   Bell,
+  Loader2,
 } from "lucide-react";
-import { getDashboardData } from "@/app/actions/portal";
 import { CaseWithDetails, Client } from "@/types";
 import { getCaseStatusBadge, formatDate } from "@/lib/utils";
 import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
@@ -34,6 +34,7 @@ export default function CasesListPage() {
   const [selectedCaseForShare, setSelectedCaseForShare] = useState<CaseWithDetails | null>(null);
   const [selectedCaseForReminder, setSelectedCaseForReminder] = useState<CaseWithDetails | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [openingCaseId, setOpeningCaseId] = useState<string | null>(null);
 
   const filtered = (data?.cases || []).filter((c) => {
     const matchesSearch =
@@ -159,9 +160,17 @@ export default function CasesListPage() {
                     </span>
                   </div>
 
-                  <Link href={`/dashboard/cases/${c.id}`} className="block mt-2">
-                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                      {c.title}
+                  <Link
+                    href={`/dashboard/cases/${c.id}`}
+                    prefetch={false}
+                    onClick={() => setOpeningCaseId(c.id)}
+                    className="block mt-2"
+                  >
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+                      <span>{c.title}</span>
+                      {openingCaseId === c.id && (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+                      )}
                     </h3>
                     <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium mt-0.5">{c.client.name}</p>
                   </Link>
@@ -195,7 +204,7 @@ export default function CasesListPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedCaseForShare(c)}
-                      title="Share / Forward on WhatsApp"
+                      title="Share on WhatsApp"
                       className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/60 transition-colors cursor-pointer"
                     >
                       <MessageSquareShare className="w-3.5 h-3.5" />
@@ -212,10 +221,21 @@ export default function CasesListPage() {
 
                   <Link
                     href={`/dashboard/cases/${c.id}`}
+                    prefetch={false}
+                    onClick={() => setOpeningCaseId(c.id)}
                     className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 text-xs"
                   >
-                    <span>Open Case</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
+                    {openingCaseId === c.id ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Opening...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Open Case</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
                   </Link>
                 </div>
               </div>

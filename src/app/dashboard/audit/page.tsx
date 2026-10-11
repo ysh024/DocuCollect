@@ -23,6 +23,9 @@ let globalAuditLogsCache: any[] | null = null;
 
 export default function AuditTrailPage() {
   const [logs, setLogs] = useState<any[]>(globalAuditLogsCache || []);
+  const [retentionDays, setRetentionDays] = useState<number>(14);
+  const [planName, setPlanName] = useState<string>("Trial");
+  const [isProOrFirm, setIsProOrFirm] = useState<boolean>(false);
   const [loading, setLoading] = useState(!globalAuditLogsCache);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
@@ -34,10 +37,16 @@ export default function AuditTrailPage() {
       setLoading(true);
     }
     try {
-      const data = await getFullAuditLogsAction();
+      const data: any = await getFullAuditLogsAction();
       if (data) {
-        globalAuditLogsCache = data;
-        setLogs(data);
+        const rawLogs = Array.isArray(data) ? data : data.logs || [];
+        globalAuditLogsCache = rawLogs;
+        setLogs(rawLogs);
+        if (!Array.isArray(data)) {
+          setRetentionDays(data.retentionDays || 14);
+          setIsProOrFirm(!!data.isProOrFirm);
+          if (data.planDisplayName) setPlanName(data.planDisplayName);
+        }
       }
     } finally {
       setLoading(false);
@@ -147,14 +156,21 @@ export default function AuditTrailPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-neutral-900">Audit Trail & Compliance</h1>
-            <span className="text-[11px] font-semibold bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded-full border border-neutral-200">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">Audit Trail & Compliance</h1>
+            <span className="text-[11px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded-full border border-neutral-200 dark:border-neutral-700">
               Immutable Log
             </span>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+              isProOrFirm
+                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                : "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+            }`}>
+              {retentionDays}-Day Retention ({planName} Plan)
+            </span>
           </div>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Complete tamper-evident log of document uploads, CA reviews, link shares, and access events.
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+            Tamper-evident logs are automatically retained for {retentionDays} days per plan policy. Older entries are permanently auto-pruned.
           </p>
         </div>
 
@@ -162,7 +178,7 @@ export default function AuditTrailPage() {
           <button
             onClick={() => loadLogs(true)}
             disabled={loading}
-            className="p-2 border border-neutral-200 rounded-lg hover:bg-neutral-50 text-neutral-700 transition"
+            className="p-2 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-300 transition cursor-pointer"
             title="Refresh logs"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
@@ -170,7 +186,7 @@ export default function AuditTrailPage() {
           <button
             onClick={exportCsv}
             disabled={filteredLogs.length === 0}
-            className="inline-flex items-center gap-2 px-3.5 py-2 border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-3.5 py-2 border border-neutral-300 dark:border-neutral-700 rounded-lg text-sm font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition disabled:opacity-50 cursor-pointer"
           >
             <Download className="w-4 h-4" /> Export CSV
           </button>

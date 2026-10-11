@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DocumentRequirement, Document, PREDEFINED_REJECTION_REASONS } from "@/types";
 import { formatBytes, formatDateTime } from "@/lib/utils";
 import {
@@ -13,9 +13,11 @@ import {
   Download,
   Eye,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { reviewDocumentAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
+import { downloadFileWithFeedback } from "@/lib/download-client";
 
 interface ReviewModalProps {
   caseId: string;
@@ -39,6 +41,19 @@ export function ReviewModal({
   const [customReason, setCustomReason] = useState<string>("");
   const [isRejecting, setIsRejecting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -127,24 +142,27 @@ export function ReviewModal({
 
             {/* Quick Action Buttons for CA */}
             <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-neutral-200/60">
-              <a
-                href={downloadUrl}
-                download={document.file_name}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-800 hover:text-neutral-950 bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-lg border border-neutral-300 shadow-2xs transition-all"
+              <button
+                type="button"
+                disabled={isDownloading}
+                onClick={() => {
+                  downloadFileWithFeedback({
+                    url: `${downloadUrl}&download=1`,
+                    fileName: document.file_name,
+                    toast,
+                    onStart: () => setIsDownloading(true),
+                    onComplete: () => setIsDownloading(false),
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-800 hover:text-neutral-950 bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-lg border border-neutral-300 shadow-2xs transition-all cursor-pointer disabled:opacity-60"
               >
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Download Document</span>
-              </a>
-
-              <a
-                href={downloadUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-700 hover:text-neutral-900 bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-lg border border-neutral-300 shadow-2xs transition-all"
-              >
-                <Eye className="w-3.5 h-3.5 text-neutral-500" />
-                <span>Open Preview</span>
-              </a>
+                {isDownloading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                )}
+                <span>{isDownloading ? "Downloading..." : "Download Document"}</span>
+              </button>
             </div>
           </div>
 

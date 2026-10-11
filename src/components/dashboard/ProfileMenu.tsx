@@ -149,12 +149,12 @@ export function ProfileMenu() {
               <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
                 Appearance
               </span>
-              <span className="text-[10px] text-neutral-400 font-mono capitalize">
-                {theme === "system" ? `System (${resolvedTheme})` : theme}
+              <span className="text-[10px] text-neutral-400 font-mono capitalize min-w-[50px] text-right">
+                {theme}
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-xl border border-neutral-200/60 dark:border-neutral-800">
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-800/80 rounded-xl border border-neutral-200/60 dark:border-neutral-700/60">
               {themeOptions.map((opt) => {
                 const Icon = opt.icon;
                 const isSelected = theme === opt.value;
@@ -163,10 +163,10 @@ export function ProfileMenu() {
                     key={opt.value}
                     type="button"
                     onClick={() => setTheme(opt.value)}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-colors duration-100 cursor-pointer ${
                       isSelected
-                        ? "bg-white text-neutral-900 shadow-sm border border-neutral-200 dark:!bg-[#2e333b] dark:!text-white dark:!border-neutral-600"
-                        : "text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-white"
+                        ? "bg-white text-neutral-900 shadow-2xs border border-neutral-200 dark:bg-neutral-700 dark:text-white dark:border-neutral-600 font-bold"
+                        : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white border border-transparent"
                     }`}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" />

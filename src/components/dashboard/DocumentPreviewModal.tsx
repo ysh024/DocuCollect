@@ -13,11 +13,13 @@ import {
   Clock,
   ExternalLink,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Document, PREDEFINED_REJECTION_REASONS } from "@/types";
 import { formatBytes, formatDateTime } from "@/lib/utils";
 import { reviewDocumentAction } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
+import { downloadFileWithFeedback } from "@/lib/download-client";
 
 interface DocumentPreviewModalProps {
   document: Document | null;
@@ -47,15 +49,29 @@ export function DocumentPreviewModal({
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [loadingReject, setLoadingReject] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !document || !mounted) return null;
 
   const effectiveReqId = requirementId || document.requirement_id;
-  const downloadUrl = `/api/download?file=${encodeURIComponent(document.storage_path || "")}&name=${encodeURIComponent(document.file_name)}&id=${document.id}`;
+  const previewUrl = `/api/download?file=${encodeURIComponent(document.storage_path || "")}&name=${encodeURIComponent(document.file_name)}&id=${document.id}&inline=1`;
+  const downloadUrl = `/api/download?file=${encodeURIComponent(document.storage_path || "")}&name=${encodeURIComponent(document.file_name)}&id=${document.id}&download=1`;
 
   const isImage =
     document.mime_type?.startsWith("image/") ||
@@ -159,7 +175,7 @@ export function DocumentPreviewModal({
 
             {/* Open in New Window */}
             <a
-              href={downloadUrl}
+              href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
               title="Open document in new window"
@@ -169,15 +185,28 @@ export function DocumentPreviewModal({
             </a>
 
             {/* Download Button */}
-            <a
-              href={downloadUrl}
-              download={document.file_name}
-              title="Download file"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-100 text-neutral-700 rounded-xl text-xs font-semibold border border-neutral-200 shadow-2xs transition-colors"
+            <button
+              type="button"
+              disabled={isDownloading}
+              onClick={() => {
+                downloadFileWithFeedback({
+                  url: downloadUrl,
+                  fileName: document.file_name,
+                  toast,
+                  onStart: () => setIsDownloading(true),
+                  onComplete: () => setIsDownloading(false),
+                });
+              }}
+              title="Download file directly to computer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-100 text-neutral-700 rounded-xl text-xs font-semibold border border-neutral-200 shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
             >
-              <Download className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="hidden sm:inline">Download</span>
-            </a>
+              {isDownloading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+              ) : (
+                <Download className="w-3.5 h-3.5 text-emerald-600" />
+              )}
+              <span className="hidden sm:inline">{isDownloading ? "Downloading..." : "Download"}</span>
+            </button>
 
             {/* Close Button */}
             <button
@@ -196,7 +225,7 @@ export function DocumentPreviewModal({
           {isImage ? (
             <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
               <img
-                src={downloadUrl}
+                src={previewUrl}
                 alt={document.file_name}
                 style={{
                   transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
@@ -207,7 +236,7 @@ export function DocumentPreviewModal({
             </div>
           ) : isPdf ? (
             <iframe
-              src={`${downloadUrl}#toolbar=0`}
+              src={`${previewUrl}#toolbar=0`}
               title={document.file_name}
               className="w-full h-full border-0 bg-white"
             />

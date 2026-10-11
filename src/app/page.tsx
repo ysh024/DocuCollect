@@ -1,3 +1,5 @@
+export const dynamic = "force-static";
+
 import Link from "next/link";
 import {
   Layers,
@@ -87,13 +89,13 @@ const features = [
   },
   {
     icon: Shield,
-    title: "Secure by Design",
-    desc: "OTP-only login, cryptographic upload tokens, 7-day auto-purge on free plans. No passwords means no password leaks.",
+    title: "Zero-Knowledge Encryption",
+    desc: "AES-256-GCM file encryption before cloud storage. Cloud providers cannot inspect files. Multi-tenant isolation.",
   },
   {
     icon: Clock,
-    title: "Auto File Retention Policy",
-    desc: "Free plan: 7-day file retention keeps storage lean. Upgrade for 30–90 day retention based on your workflow.",
+    title: "Automated Data Purge",
+    desc: "Files auto-purge permanently in 7 to 30 days to enforce data minimization and keep compliance risks zero.",
   },
 ];
 
@@ -124,7 +126,7 @@ const steps = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 selection:bg-emerald-600 selection:text-white transition-colors duration-150 relative overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 selection:bg-emerald-600 selection:text-white transition-colors duration-150 relative overflow-x-clip">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[520px] bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent dark:from-emerald-500/15 dark:via-teal-700/5 dark:to-transparent blur-3xl pointer-events-none -z-10" />
 
@@ -148,6 +150,7 @@ export default function LandingPage() {
             <Link href="#how-it-works" className="hover:text-neutral-900 dark:hover:text-white transition-colors">How it Works</Link>
             <Link href="#features" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Features</Link>
             <Link href="/pricing" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
+            <Link href="/security" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Security</Link>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-2.5">
@@ -471,6 +474,7 @@ export default function LandingPage() {
           </div>
           <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-neutral-500 dark:text-neutral-400">
             <Link href="/pricing" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
+            <Link href="/security" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Security</Link>
             <Link href="/terms" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Terms of Service</Link>
             <Link href="/privacy" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="/refund" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Refunds</Link>

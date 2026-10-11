@@ -20,6 +20,7 @@ import {
   Download,
   AlertCircle,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/InfoPopover";
 import { getCaseDetails, reviewDocumentAction } from "@/app/actions/portal";
@@ -31,6 +32,11 @@ import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
 import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
+import { downloadFileWithFeedback } from "@/lib/download-client";
+
+// Module-level in-memory cache to stop repeated fetch/compilation thrashing and CPU spikes
+const caseDetailsClientCache = new Map<string, { data: CaseWithDetails; timestamp: number }>();
+const CASE_CACHE_TTL = 30000; // 30-second TTL
 
 export default function CaseDetailPage() {
   const params = useParams();
@@ -45,8 +51,10 @@ export default function CaseDetailPage() {
   // Instant Cache resolution: If case was already loaded on cases/clients list, show it on frame 1 (0ms)
   const cachedCase = dashboardData?.cases?.find((c) => c.id === caseId);
 
-  const [caseData, setCaseData] = useState<CaseWithDetails | null>(cachedCase || null);
-  const [loading, setLoading] = useState<boolean>(!cachedCase);
+  const [caseData, setCaseData] = useState<CaseWithDetails | null>(
+    () => caseDetailsClientCache.get(caseId)?.data || cachedCase || null
+  );
+  const [loading, setLoading] = useState<boolean>(!caseData);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [copied, setCopied] = useState(false);
@@ -61,6 +69,11 @@ export default function CaseDetailPage() {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isReminderOpen, setIsReminderOpen] = useState(false);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const [downloadingDocIds, setDownloadingDocIds] = useState<Set<string>>(new Set());
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [downloadingSelected, setDownloadingSelected] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   // Sync cache if available
   useEffect(() => {
@@ -70,14 +83,27 @@ export default function CaseDetailPage() {
     }
   }, [cachedCase]);
 
-  const loadCase = async () => {
+  const loadCase = async (force = false) => {
     if (!caseId) return;
+
+    // Check module-level memory cache to eliminate redundant CPU/network overhead
+    if (!force) {
+      const cached = caseDetailsClientCache.get(caseId);
+      if (cached && Date.now() - cached.timestamp < CASE_CACHE_TTL) {
+        setCaseData(cached.data);
+        setErrorMessage(null);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       // 1. Primary: Direct REST API to avoid Next.js Server Action hash skew
       const res = await fetch(`/api/cases/${caseId}`);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.caseData) {
+          caseDetailsClientCache.set(caseId, { data: json.caseData, timestamp: Date.now() });
           setCaseData(json.caseData);
           setErrorMessage(null);
           setLoading(false);
@@ -88,6 +114,7 @@ export default function CaseDetailPage() {
       // 2. Secondary fallback: Server Action
       const serverRes = await getCaseDetails(caseId);
       if (serverRes) {
+        caseDetailsClientCache.set(caseId, { data: serverRes, timestamp: Date.now() });
         setCaseData(serverRes);
         setErrorMessage(null);
       } else if (!cachedCase && !caseData) {
@@ -139,7 +166,8 @@ export default function CaseDetailPage() {
     try {
       await reviewDoc(caseData.id, req.id, doc.id, "approve");
       toast({ title: "Document approved", description: `${req.name} has been verified.` });
-      await loadCase();
+      caseDetailsClientCache.delete(caseData.id);
+      await loadCase(true);
       if (refreshDashboard) refreshDashboard();
     } catch (err: any) {
       console.error(err);
@@ -168,7 +196,8 @@ export default function CaseDetailPage() {
         title: "All documents approved",
         description: `Approved ${underReviewItems.length} documents in batch.`,
       });
-      await loadCase();
+      caseDetailsClientCache.delete(caseData.id);
+      await loadCase(true);
       if (refreshDashboard) refreshDashboard();
     } catch (err: any) {
       console.error(err);
@@ -236,6 +265,134 @@ export default function CaseDetailPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const downloadFileToSystem = async (storagePath: string, fileName: string, docId: string) => {
+    const url = `/api/download?file=${encodeURIComponent(storagePath || "")}&name=${encodeURIComponent(fileName)}&id=${docId}&download=1`;
+    await downloadFileWithFeedback({
+      url,
+      fileName,
+      toast,
+      onStart: () => setDownloadingDocIds((prev) => new Set(prev).add(docId)),
+      onComplete: () =>
+        setDownloadingDocIds((prev) => {
+          const next = new Set(prev);
+          next.delete(docId);
+          return next;
+        }),
+    });
+  };
+
+  const allUploadedValidDocs =
+    caseData?.requirements
+      ?.flatMap((r) => r.documents || [])
+      .filter((d) => Boolean(d.storage_path) && d.status !== "rejected") || [];
+
+  const handleToggleSelectDoc = (docId: string) => {
+    setSelectedDocIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(docId)) {
+        next.delete(docId);
+      } else {
+        next.add(docId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllDocs = () => {
+    if (selectedDocIds.size === allUploadedValidDocs.length && allUploadedValidDocs.length > 0) {
+      setSelectedDocIds(new Set());
+    } else {
+      setSelectedDocIds(new Set(allUploadedValidDocs.map((d) => d.id)));
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    if (selectedDocIds.size === 0) return;
+    const docsToDownload = allUploadedValidDocs.filter((d) => selectedDocIds.has(d.id));
+    if (docsToDownload.length === 0) return;
+
+    setDownloadingSelected(true);
+    toast({
+      title: "Downloading Selected Files",
+      description: `Starting download of ${docsToDownload.length} document(s)...`,
+    });
+
+    try {
+      for (const doc of docsToDownload) {
+        await downloadFileToSystem(doc.storage_path || "", doc.file_name, doc.id);
+        // Stagger downloads by 300ms to allow browser download manager to trigger cleanly
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    } finally {
+      setDownloadingSelected(false);
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    // Download all non-rejected case files
+    const validDocs = caseData?.requirements?.flatMap((r) => r.documents || []).filter((d) => d.status !== "rejected" && Boolean(d.storage_path)) || [];
+    if (validDocs.length === 0) {
+      toast({
+        title: "No valid documents",
+        description: "No uploaded files found to package. Any rejected documents are excluded.",
+        type: "error",
+      });
+      return;
+    }
+
+    setDownloadingAll(true);
+    toast({
+      title: "Packaging ZIP Archive",
+      description: `Bundling ${validDocs.length} valid document(s) for ${caseData.client?.name || "Client"}...`,
+    });
+
+    try {
+      const res = await fetch(`/api/cases/${caseData.id}/download-zip`);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Download failed with status ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get("Content-Disposition") || "";
+      let fileName = "case_documents.zip";
+      const matches = /filename\*?=['"]?(?:UTF-8'')?([^'";]+)['"]?/i.exec(contentDisposition);
+      if (matches && matches[1]) {
+        fileName = decodeURIComponent(matches[1]);
+      } else {
+        const clientNameClean = (caseData.client?.name || "Client").replace(/[^a-zA-Z0-9_-]/g, "_");
+        const caseRefClean = (caseData.reference_number || caseData.id.slice(0, 8)).replace(/[^a-zA-Z0-9_-]/g, "_");
+        fileName = `${clientNameClean}_${caseRefClean}_case_documents.zip`;
+      }
+
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.style.display = "none";
+      a.href = blobUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(blobUrl);
+      }, 500);
+
+      toast({
+        title: "ZIP Downloaded!",
+        description: `Saved ${fileName} containing ${validDocs.length} document(s).`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Download Failed",
+        description: err.message || "Could not generate case zip archive.",
+        type: "error",
+      });
+    } finally {
+      setDownloadingAll(false);
+    }
+  };
+
   const statusBadge = getCaseStatusBadge(caseData.status);
   const totalReqs = caseData.requirements.length;
   const requiredReqs = caseData.requirements.filter((r) => r.is_required);
@@ -247,14 +404,28 @@ export default function CaseDetailPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Visual Leaving Feedback Banner */}
+      {isLeaving && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-emerald-600 text-white text-[11px] font-semibold py-1.5 px-4 text-center shadow flex items-center justify-center gap-2 animate-in fade-in">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+          <span>Returning to Cases list...</span>
+        </div>
+      )}
+
       {/* Header with Quick Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/cases"
-            className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white flex items-center justify-center shadow-subtle transition-colors"
+            onClick={() => setIsLeaving(true)}
+            className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:white flex items-center justify-center shadow-subtle transition-colors cursor-pointer"
+            title="Back to Cases"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
+            {isLeaving ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <ArrowLeft className="w-3.5 h-3.5" />
+            )}
           </Link>
           <div>
             <div className="flex items-center gap-2">
@@ -268,16 +439,16 @@ export default function CaseDetailPage() {
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons Toolbar - Unified heights, paddings, and styles */}
         <div className="flex flex-wrap items-center gap-2">
           {underReviewCount > 0 && (
             <button
               type="button"
               disabled={batchLoading}
               onClick={handleApproveAll}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+              className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer disabled:opacity-50"
             >
-              <CheckCircle className="w-3.5 h-3.5" />
+              {batchLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
               <span>{batchLoading ? "Approving..." : `Approve All (${underReviewCount})`}</span>
             </button>
           )}
@@ -285,7 +456,7 @@ export default function CaseDetailPage() {
           <button
             type="button"
             onClick={() => setIsReminderOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200/70 dark:border-amber-800/60 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+            className="h-9 px-3.5 bg-amber-50 hover:bg-amber-100/80 active:scale-[0.98] dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
           >
             <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
             <span>Send Reminder</span>
@@ -294,19 +465,51 @@ export default function CaseDetailPage() {
           <button
             type="button"
             onClick={handleCopyLink}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 rounded-lg text-xs font-medium border border-neutral-200/80 dark:border-neutral-800 shadow-subtle transition-colors cursor-pointer"
+            className="h-9 px-3.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
           >
-            {copied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />}
             <span>{copied ? "Copied" : "Copy Link"}</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setIsShareOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            disabled={downloadingAll}
+            onClick={handleDownloadZip}
+            className="h-9 px-3.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+            title="Download all case documents (excluding rejected files) in a single ZIP file"
           >
-            <MessageSquareShare className="w-3.5 h-3.5 text-emerald-400 dark:text-white" />
-            <span>Share / Forward on WhatsApp</span>
+            {downloadingAll ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
+            )}
+            <span>{downloadingAll ? "Zipping..." : "Download ZIP"}</span>
+          </button>
+
+          {selectedDocIds.size > 0 && (
+            <button
+              type="button"
+              disabled={downloadingSelected}
+              onClick={handleDownloadSelected}
+              className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+              title="Download selected files directly to system"
+            >
+              {downloadingSelected ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
+              <span>Download Selected ({selectedDocIds.size})</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsShareOpen(true)}
+            className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+          >
+            <MessageSquareShare className="w-3.5 h-3.5 text-white" />
+            <span>Share on WhatsApp</span>
           </button>
         </div>
       </div>
@@ -400,11 +603,42 @@ export default function CaseDetailPage() {
 
       {/* Checklist Table Card with 1-Click Inline Review */}
       <div className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/80 dark:border-neutral-800 shadow-subtle overflow-hidden">
-        <div className="px-5 py-3.5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+        <div className="px-5 py-3.5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between flex-wrap gap-2.5">
           <h2 className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider flex items-center gap-1.5">
             <span>Document Checklist ({caseData.requirements.length})</span>
             <InfoPopover text="Quick approve clean scans with 1-click or open dialog to send revision feedback." />
           </h2>
+
+          {allUploadedValidDocs.length > 0 && (
+            <div className="flex items-center gap-3">
+              <label className="inline-flex items-center gap-1.5 text-xs text-neutral-600 dark:text-neutral-300 font-medium cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectedDocIds.size === allUploadedValidDocs.length && allUploadedValidDocs.length > 0}
+                  onChange={handleSelectAllDocs}
+                  className="w-3.5 h-3.5 rounded border-neutral-300 dark:border-neutral-700 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <span>Select All ({allUploadedValidDocs.length})</span>
+              </label>
+
+              {selectedDocIds.size > 0 && (
+                <button
+                  type="button"
+                  disabled={downloadingSelected}
+                  onClick={handleDownloadSelected}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                  title="Download all selected documents"
+                >
+                  {downloadingSelected ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Download className="w-3 h-3" />
+                  )}
+                  <span>Download Selected ({selectedDocIds.size})</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
@@ -475,51 +709,82 @@ export default function CaseDetailPage() {
 
                 {/* Submissions file info */}
                 {latestDoc ? (
-                  <div className="ml-7 p-2.5 bg-neutral-50/80 dark:bg-neutral-800/50 rounded-lg border border-neutral-200/60 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2.5">
-                      <FileText className="w-4 h-4 text-neutral-400 shrink-0" />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-medium text-neutral-800 dark:text-neutral-200 text-[11px]">{latestDoc.file_name}</span>
-                          <span className="text-[9px] font-medium px-1 bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded">
-                            v{latestDoc.version}
-                          </span>
+                  <div className="ml-7 mt-2 space-y-1.5">
+                    {/* Clickable Document Card */}
+                    <div
+                      onClick={() => setPreviewDoc({ req, doc: latestDoc })}
+                      className="p-2.5 bg-neutral-50/90 dark:bg-neutral-800/60 hover:bg-neutral-100/90 dark:hover:bg-neutral-800/90 rounded-xl border border-neutral-200/70 dark:border-neutral-800 flex items-center justify-between gap-3 text-xs cursor-pointer group transition-all shadow-2xs"
+                      title="Click anywhere to open document preview"
+                    >
+                      {/* Left side: Checkbox + Icon + File name + Version tag + Metadata */}
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {latestDoc.status !== "rejected" && Boolean(latestDoc.storage_path) && (
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleSelectDoc(latestDoc.id);
+                            }}
+                            className="p-1 -ml-1 rounded hover:bg-neutral-200/60 dark:hover:bg-neutral-700 cursor-pointer shrink-0"
+                            title={selectedDocIds.has(latestDoc.id) ? "Deselect document" : "Select document for download"}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDocIds.has(latestDoc.id)}
+                              onChange={() => {}}
+                              className="w-3.5 h-3.5 rounded border-neutral-300 dark:border-neutral-700 text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none"
+                            />
+                          </div>
+                        )}
+                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-700/60 border border-neutral-200/80 dark:border-neutral-700 flex items-center justify-center shrink-0 text-neutral-500 dark:text-neutral-300 group-hover:text-emerald-600 group-hover:border-emerald-300 dark:group-hover:border-emerald-700 transition-colors shadow-2xs">
+                          <FileText className="w-4 h-4" />
                         </div>
-                        <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                          {formatBytes(latestDoc.file_size)} • Uploaded {formatDateTime(latestDoc.uploaded_at)}
-                        </p>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-neutral-800 dark:text-neutral-200 text-xs truncate max-w-[200px] sm:max-w-sm md:max-w-md group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                              {latestDoc.file_name}
+                            </span>
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-neutral-200/80 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 rounded shrink-0">
+                              v{latestDoc.version}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+                            {formatBytes(latestDoc.file_size)} • Uploaded {formatDateTime(latestDoc.uploaded_at)} • <span className="text-emerald-600 dark:text-emerald-400 font-medium group-hover:underline">Click to open preview</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right side: STRICTLY Download button only! Stays pinned on the right for ALL documents */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          disabled={downloadingDocIds.has(latestDoc.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            downloadFileToSystem(latestDoc.storage_path || "", latestDoc.file_name, latestDoc.id);
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+                          title="Download document into system"
+                        >
+                          {downloadingDocIds.has(latestDoc.id) ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          )}
+                          <span>{downloadingDocIds.has(latestDoc.id) ? "Downloading..." : "Download"}</span>
+                        </button>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {/* Direct Pop-Up View Document Button */}
-                      <button
-                        type="button"
-                        onClick={() => setPreviewDoc({ req, doc: latestDoc })}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-neutral-800 hover:bg-neutral-900 hover:text-white dark:hover:bg-neutral-700 text-neutral-800 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700 rounded-md text-[11px] font-medium shadow-2xs transition-colors cursor-pointer group"
-                        title="Direct Pop-Up View"
-                      >
-                        <Eye className="w-3 h-3 text-emerald-600 group-hover:text-white" />
-                        <span>View</span>
-                      </button>
-
-                      <a
-                        href={`/api/download?file=${encodeURIComponent(latestDoc.storage_path || "")}&name=${encodeURIComponent(latestDoc.file_name)}&id=${latestDoc.id}`}
-                        download={latestDoc.file_name}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-700 rounded-md text-[11px] font-medium shadow-2xs transition-colors cursor-pointer"
-                        title="Download Document"
-                      >
-                        <Download className="w-3 h-3 text-emerald-600" />
-                        <span>Download</span>
-                      </a>
-
-                      {latestDoc.status === "rejected" && latestDoc.rejection_reason && (
-                        <div className="bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 px-2.5 py-1 rounded-md border border-rose-200/60 dark:border-rose-800 text-[11px]">
-                          <span className="font-semibold">Feedback: </span>
-                          {latestDoc.rejection_reason}
+                    {/* Dedicated Feedback Alert row below document row (does not distort button alignment) */}
+                    {latestDoc.status === "rejected" && latestDoc.rejection_reason && (
+                      <div className="p-2.5 bg-rose-50/90 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 rounded-xl border border-rose-200/80 dark:border-rose-900/60 text-xs flex items-start gap-2 shadow-2xs">
+                        <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Feedback: </span>
+                          <span className="font-medium">{latestDoc.rejection_reason}</span>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="ml-7 text-[11px] text-neutral-400 dark:text-neutral-500 italic">No file uploaded yet</p>
@@ -540,7 +805,8 @@ export default function CaseDetailPage() {
           isOpen={true}
           onClose={() => setPreviewDoc(null)}
           onStatusUpdated={() => {
-            loadCase();
+            if (caseData?.id) caseDetailsClientCache.delete(caseData.id);
+            loadCase(true);
             if (refreshDashboard) refreshDashboard();
           }}
         />
@@ -555,7 +821,8 @@ export default function CaseDetailPage() {
           isOpen={true}
           onClose={() => setSelectedForReview(null)}
           onSuccess={() => {
-            loadCase();
+            if (caseData?.id) caseDetailsClientCache.delete(caseData.id);
+            loadCase(true);
             if (refreshDashboard) refreshDashboard();
           }}
         />
@@ -568,7 +835,8 @@ export default function CaseDetailPage() {
           isOpen={isShareOpen}
           onClose={() => setIsShareOpen(false)}
           onLinkRenewed={() => {
-            loadCase();
+            if (caseData?.id) caseDetailsClientCache.delete(caseData.id);
+            loadCase(true);
             if (refreshDashboard) refreshDashboard();
           }}
         />

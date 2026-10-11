@@ -3,6 +3,22 @@
 import bcrypt from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
 import { getDb } from "@/lib/db";
+
+let cachedAuthSql: any = null;
+let cachedAuthDbUrl: string | null = null;
+
+function getAuthDb() {
+  const rawDbUrl = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL || "";
+  const authDbUrl = rawDbUrl.includes("/docucollect-db")
+    ? rawDbUrl.replace(/\/docucollect-db(?=[\/?]|$)/, "/neondb")
+    : rawDbUrl;
+  if (!authDbUrl) return null;
+  if (!cachedAuthSql || cachedAuthDbUrl !== authDbUrl) {
+    cachedAuthSql = neon(authDbUrl);
+    cachedAuthDbUrl = authDbUrl;
+  }
+  return cachedAuthSql;
+}
 import {
   generateOtp,
   storeOtp,
@@ -12,99 +28,70 @@ import {
   logoutUser,
   getSession,
   getCurrentUser,
+  invalidateUserCache,
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { uploadFileToStorage, isS3Configured } from "@/lib/storage";
+import { invalidateLogoCache } from "@/lib/logo-cache";
+import { invalidateDashboardCache } from "@/app/actions/portal";
 
 // =====================================================================
 // EMAIL OTP DELIVERY
 // =====================================================================
 
+import { sendNotificationEmail } from "@/lib/email";
+
 async function sendOtpEmail(email: string, code: string, purpose: "login" | "signup"): Promise<{ success: boolean; error?: string }> {
-  // If RESEND_API_KEY is set, send via Resend
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: process.env.EMAIL_FROM || "DocuCollect <noreply@docucollect.in>",
-          to: [email],
-          subject: purpose === "signup"
-            ? `Welcome to DocuCollect — Your Verification Code: ${code}`
-            : `DocuCollect Security Verification Code: ${code}`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5;">
-              <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
-                <div style="width: 36px; height: 36px; background: #111; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                  <span style="color: white; font-size: 18px;">📄</span>
-                </div>
-                <span style="font-size: 18px; font-weight: 700; color: #111;">DocuCollect</span>
-              </div>
-              <h2 style="font-size: 20px; font-weight: 700; color: #111; margin: 0 0 8px;">
-                ${purpose === "signup" ? "Verify Your Account" : "Security Verification Code"}
-              </h2>
-              <p style="color: #555; font-size: 14px; margin: 0 0 24px; line-height: 1.6;">
-                Use the following 6-digit one-time code to complete your verification. Do not share this code with anyone.
-              </p>
-              <div style="background: #f4f4f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
-                <div style="font-size: 34px; font-weight: 800; letter-spacing: 10px; color: #111; font-family: monospace;">
-                  ${code}
-                </div>
-                <p style="color: #71717a; font-size: 12px; margin: 10px 0 0;">
-                  Expires in 10 minutes
-                </p>
-              </div>
-              <p style="color: #a1a1aa; font-size: 12px; border-top: 1px solid #f4f4f5; padding-top: 16px; margin: 0;">
-                If you did not request this verification, please secure your account immediately.
-              </p>
-            </div>
-          `,
-        }),
-      });
+  const subject = purpose === "signup"
+    ? `Welcome to DocuCollect — Your Verification Code: ${code}`
+    : `DocuCollect Security Verification Code: ${code}`;
 
-      if (response.ok) {
-        return { success: true };
-      }
-      const err = await response.text();
-      console.warn("Resend email warning, attempting Neon delivery:", err);
-    } catch (err: any) {
-      console.warn("Resend dispatch error, attempting Neon delivery:", err);
-    }
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 24px;">
+        <div style="width: 36px; height: 36px; background: #111; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+          <span style="color: white; font-size: 18px;">📄</span>
+        </div>
+        <span style="font-size: 18px; font-weight: 700; color: #111;">DocuCollect</span>
+      </div>
+      <h2 style="font-size: 20px; font-weight: 700; color: #111; margin: 0 0 8px;">
+        ${purpose === "signup" ? "Verify Your Account" : "Security Verification Code"}
+      </h2>
+      <p style="color: #555; font-size: 14px; margin: 0 0 24px; line-height: 1.6;">
+        Use the following 6-digit one-time code to complete your verification. Do not share this code with anyone.
+      </p>
+      <div style="background: #f4f4f5; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 34px; font-weight: 800; letter-spacing: 10px; color: #111; font-family: monospace;">
+          ${code}
+        </div>
+        <p style="color: #71717a; font-size: 12px; margin: 10px 0 0;">
+          Expires in 10 minutes
+        </p>
+      </div>
+      <p style="color: #a1a1aa; font-size: 12px; border-top: 1px solid #f4f4f5; padding-top: 16px; margin: 0;">
+        If you did not request this verification, please secure your account immediately.
+      </p>
+    </div>
+  `;
+
+  const result = await sendNotificationEmail({
+    to: email,
+    subject,
+    html,
+    eventType: "auth_otp",
+    plan: "free",
+  });
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(`\n=================================================`);
+    console.log(`🔒 [SECURE EMAIL SERVICE]`);
+    console.log(`Recipient: ${email}`);
+    console.log(`Verification Code: ${code}`);
+    console.log(`Purpose: ${purpose} | Valid: 10 minutes`);
+    console.log(`=================================================\n`);
   }
 
-  // Try Neon Managed Better Auth built-in email service
-  const neonAuthUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.NEON_AUTH_BASE_URL;
-  if (neonAuthUrl) {
-    try {
-      const cleanBase = neonAuthUrl.replace(/\/$/, "");
-      const neonRes = await fetch(`${cleanBase}/email-otp/send-verification-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, type: "sign-in" }),
-      });
-      if (neonRes.ok) {
-        console.log(`[Neon Auth] Dispatched real verification code email to: ${email}`);
-      } else {
-        const text = await neonRes.text();
-        console.warn("[Neon Auth] Email delivery response:", text);
-      }
-    } catch (neonErr) {
-      console.warn("[Neon Auth] Email dispatch warning:", neonErr);
-    }
-  }
-
-  // Server console record for local development backup
-  console.log(`\n=================================================`);
-  console.log(`🔒 [SECURE EMAIL SERVICE]`);
-  console.log(`Recipient: ${email}`);
-  console.log(`Verification Code: ${code}`);
-  console.log(`Purpose: ${purpose} | Valid: 10 minutes`);
-  console.log(`=================================================\n`);
-  return { success: true };
+  return result;
 }
 
 // =====================================================================
@@ -512,6 +499,8 @@ export async function updateFirmSettingsAction(data: {
   firmName?: string;
   phone?: string;
   email?: string;
+  fullName?: string;
+  settings?: any;
 }) {
   const session = await getSession();
   if (!session?.organizationId || !session?.userId) {
@@ -526,17 +515,52 @@ export async function updateFirmSettingsAction(data: {
       await sql`
         UPDATE public.organizations
         SET name = ${data.firmName.trim()}, updated_at = now()
-        WHERE id = ${session.organizationId};
+        WHERE id::text = ${session.organizationId}::text;
+      `;
+    }
+
+    if (data.settings && typeof data.settings === "object") {
+      await sql`
+        UPDATE public.organizations
+        SET settings = ${JSON.stringify(data.settings)}::jsonb, updated_at = now()
+        WHERE id::text = ${session.organizationId}::text;
+      `;
+    }
+
+    if (data.fullName?.trim()) {
+      await sql`
+        UPDATE public.users
+        SET full_name = ${data.fullName.trim()}, updated_at = now()
+        WHERE id::text = ${session.userId}::text;
       `;
     }
 
     if (data.phone !== undefined) {
+      const cleanPhone = data.phone.trim();
       await sql`
         UPDATE public.users
-        SET phone = ${data.phone.trim() || null}, updated_at = now()
-        WHERE id::text = ${session.userId};
+        SET phone = ${cleanPhone || null}, updated_at = now()
+        WHERE id::text = ${session.userId}::text;
+      `;
+      if (cleanPhone) {
+        await sql`
+          UPDATE public.organizations
+          SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{contact_phone}', to_jsonb(${cleanPhone}::text)), updated_at = now()
+          WHERE id::text = ${session.organizationId}::text;
+        `;
+      }
+    }
+
+    if (data.email?.trim()) {
+      await sql`
+        UPDATE public.organizations
+        SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{contact_email}', to_jsonb(${data.email.trim()}::text)), updated_at = now()
+        WHERE id::text = ${session.organizationId}::text;
       `;
     }
+
+    // Invalidate server memory cache immediately
+    invalidateUserCache(session.userId);
 
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard");
@@ -576,6 +600,7 @@ export async function uploadFirmLogoAction({
         storagePath,
         fileBuffer: buffer,
         mimeType: mimeType || "image/webp",
+        encrypt: false, // Firm logos are public branding assets
       });
 
       if (!uploadRes.success) {
@@ -592,6 +617,10 @@ export async function uploadFirmLogoAction({
       SET logo_url = ${logoRecord}, updated_at = now()
       WHERE id = ${session.organizationId};
     `;
+
+    invalidateLogoCache(session.organizationId);
+    invalidateUserCache(session.userId);
+    invalidateDashboardCache(session.organizationId);
 
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard");
@@ -623,6 +652,10 @@ export async function removeFirmLogoAction() {
       SET logo_url = NULL, updated_at = now()
       WHERE id = ${session.organizationId};
     `;
+
+    invalidateLogoCache(session.organizationId);
+    invalidateUserCache(session.userId);
+    invalidateDashboardCache(session.organizationId);
 
     revalidatePath("/dashboard/settings");
     revalidatePath("/dashboard");
@@ -748,12 +781,9 @@ export async function resolveGoogleSessionAction(params?: {
   try {
     let googleUser: { id: string; email: string; name?: string } | null = null;
 
-    // Database connection for Neon Auth (neondb)
-    const rawDbUrl = process.env.DATABASE_URL || "";
-    const authDbUrl = rawDbUrl.includes("/docucollect-db")
-      ? rawDbUrl.replace(/\/docucollect-db(?=[\/?]|$)/, "/neondb")
-      : rawDbUrl;
-    const authSql = neon(authDbUrl);
+    // Singleton database connection for Neon Auth (neondb)
+    const authSql = getAuthDb();
+    if (!authSql) return { success: false, error: "Auth database configuration missing" };
 
     // 1. If explicit token passed
     if (params?.token) {
@@ -936,8 +966,8 @@ export async function resetPasswordWithOtpAction(data: {
       return { success: false, error: "Invalid or expired verification code. Please request a new code." };
     }
 
-    // Hash new password
-    const passwordHash = await bcrypt.hash(data.newPassword, 12);
+    // Hash new password securely
+    const passwordHash = await bcrypt.hash(data.newPassword, 10);
 
     // Update user record
     const updatedUsers = await sql`

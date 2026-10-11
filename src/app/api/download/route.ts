@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getSignedStorageDownloadUrl, getFileStreamFromStorage, isS3Configured } from "@/lib/storage";
+import { getFileBufferFromStorage, isS3Configured } from "@/lib/storage";
 
-// In-memory cache for presigned URLs (valid for 1 hr, cached for 50 mins)
+// In-memory cache for presigned preview URLs (valid for 1 hr, cached for 50 mins)
 const signedUrlCache = new Map<string, { url: string; expires: number }>();
 // In-memory cache for document metadata lookups by ID
 const docMetaCache = new Map<string, { storage_path: string; file_name: string; mime_type: string; expires: number }>();
@@ -12,31 +12,10 @@ export async function GET(req: NextRequest) {
   const filePath = searchParams.get("file") || searchParams.get("path") || "";
   const fileName = searchParams.get("name") || "document.pdf";
   const docId = searchParams.get("id");
+  const isInline = searchParams.get("inline") === "1" || searchParams.get("inline") === "true";
+  const asAttachment = !isInline;
 
-  // FAST PATH 1: If filePath is directly provided, generate presigned URL with 0ms DB delay
-  if (filePath && isS3Configured()) {
-    const cacheKey = `${filePath}::${fileName}`;
-    const cached = signedUrlCache.get(cacheKey);
-    if (cached && Date.now() < cached.expires) {
-      return NextResponse.redirect(cached.url, {
-        headers: { "Cache-Control": "private, max-age=3000" },
-      });
-    }
-
-    try {
-      const signedUrl = await getSignedStorageDownloadUrl(filePath, fileName, 3600);
-      if (signedUrl && signedUrl.startsWith("http")) {
-        signedUrlCache.set(cacheKey, { url: signedUrl, expires: Date.now() + 3000 * 1000 });
-        return NextResponse.redirect(signedUrl, {
-          headers: { "Cache-Control": "private, max-age=3000" },
-        });
-      }
-    } catch (err) {
-      console.warn("Fast path presigned URL generation error:", err);
-    }
-  }
-
-  // FAST PATH 2: Resolve document metadata from DB if only docId is provided
+  // Resolve target path and metadata
   let targetPath = filePath;
   let targetFileName = fileName;
   let targetMimeType = "application/octet-stream";
@@ -75,41 +54,41 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Redirect to signed storage URL if storage path is available
+  // Sanitize target filename for download headers
+  const safeFileName = targetFileName.replace(/["\r\n]/g, "").trim() || "document.pdf";
+
+  // Retrieve and in-memory decrypt document from Zero-Knowledge storage
   if (targetPath && isS3Configured()) {
-    const cacheKey = `${targetPath}::${targetFileName}`;
-    const cached = signedUrlCache.get(cacheKey);
-    if (cached && Date.now() < cached.expires) {
-      return NextResponse.redirect(cached.url, {
-        headers: { "Cache-Control": "private, max-age=3000" },
-      });
-    }
-
     try {
-      const signedUrl = await getSignedStorageDownloadUrl(targetPath, targetFileName, 3600);
-      if (signedUrl && signedUrl.startsWith("http")) {
-        signedUrlCache.set(cacheKey, { url: signedUrl, expires: Date.now() + 3000 * 1000 });
-        return NextResponse.redirect(signedUrl, {
-          headers: { "Cache-Control": "private, max-age=3000" },
-        });
-      }
+      const fileBuffer = await getFileBufferFromStorage(targetPath);
+      if (fileBuffer) {
+        if (asAttachment) {
+          return new Response(fileBuffer as unknown as BodyInit, {
+            status: 200,
+            headers: {
+              "Content-Type": "application/octet-stream",
+              "Content-Disposition": `attachment; filename="${safeFileName}"; filename*="UTF-8''${encodeURIComponent(safeFileName)}"`,
+              "Content-Length": fileBuffer.length.toString(),
+              "Cache-Control": "private, no-cache, no-store, must-revalidate",
+              "X-Content-Type-Options": "nosniff",
+            },
+          });
+        }
 
-      // Stream directly if redirect not feasible
-      const s3Obj = await getFileStreamFromStorage(targetPath);
-      if (s3Obj && s3Obj.Body) {
-        const stream = (s3Obj.Body as any).transformToWebStream();
-        return new Response(stream, {
+        // Inline modal preview
+        return new Response(fileBuffer as unknown as BodyInit, {
           status: 200,
           headers: {
-            "Content-Type": s3Obj.ContentType || targetMimeType,
-            "Content-Disposition": `inline; filename="${targetFileName}"`,
-            ...(s3Obj.ContentLength ? { "Content-Length": s3Obj.ContentLength.toString() } : {}),
+            "Content-Type": targetMimeType || "application/pdf",
+            "Content-Disposition": `inline; filename="${safeFileName}"`,
+            "Content-Length": fileBuffer.length.toString(),
             "Cache-Control": "private, max-age=3600",
+            "X-Content-Type-Options": "nosniff",
           },
         });
       }
     } catch (err) {
-      console.warn("Storage fetch error:", err);
+      console.warn("Storage retrieval/decryption error:", err);
     }
   }
 
@@ -119,7 +98,7 @@ export async function GET(req: NextRequest) {
       <rect width="800" height="1000" fill="#f8fafc"/>
       <rect x="40" y="40" width="720" height="920" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
       <text x="70" y="100" font-family="system-ui, sans-serif" font-size="22" font-weight="bold" fill="#0f172a">Verified Document Storage • DocuCollect Cloud</text>
-      <text x="70" y="140" font-family="system-ui, sans-serif" font-size="14" fill="#64748b">File: ${targetFileName}</text>
+      <text x="70" y="140" font-family="system-ui, sans-serif" font-size="14" fill="#64748b">File: ${safeFileName}</text>
       <text x="70" y="165" font-family="system-ui, sans-serif" font-size="12" fill="#94a3b8">Retention: Secure retention per active plan</text>
       <line x1="70" y1="190" x2="730" y2="190" stroke="#f1f5f9" stroke-width="2"/>
       <rect x="70" y="220" width="660" height="680" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-dasharray="4"/>
@@ -131,8 +110,8 @@ export async function GET(req: NextRequest) {
   return new Response(svgPlaceholder.trim(), {
     status: 200,
     headers: {
-      "Content-Type": "image/svg+xml",
-      "Content-Disposition": `inline; filename="${targetFileName}.svg"`,
+      "Content-Type": asAttachment ? "application/octet-stream" : "image/svg+xml",
+      "Content-Disposition": `${asAttachment ? "attachment" : "inline"}; filename="${safeFileName}${asAttachment ? "" : ".svg"}"`,
     },
   });
 }

@@ -3,6 +3,8 @@ import { getDb } from "@/lib/db";
 import { getS3Client, getStorageBucket, isS3Configured } from "@/lib/storage";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 
+import { getCachedLogo, setCachedLogo } from "@/lib/logo-cache";
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
@@ -12,22 +14,37 @@ export async function GET(
     return new NextResponse("Missing organization ID", { status: 400 });
   }
 
-  const sql = getDb();
-  if (!sql) {
-    return new NextResponse("Database unavailable", { status: 503 });
+  const versionParam = req.nextUrl.searchParams.get("v");
+
+  // Check fast in-memory cache unless version parameter is passed
+  const cached = !versionParam ? getCachedLogo(orgId) : null;
+  let logoUrl: string | null = null;
+
+  if (cached && Date.now() < cached.expires) {
+    logoUrl = cached.logoUrl;
+  } else {
+    const sql = getDb();
+    if (!sql) {
+      return new NextResponse("Database unavailable", { status: 503 });
+    }
+
+    try {
+      const orgs = await sql`
+        SELECT id, name, logo_url FROM public.organizations WHERE id::text = ${orgId} LIMIT 1;
+      `;
+      logoUrl = orgs.length > 0 && orgs[0].logo_url ? (orgs[0].logo_url as string) : null;
+      setCachedLogo(orgId, { logoUrl, expires: Date.now() + 10 * 60 * 1000 });
+    } catch (err: any) {
+      console.warn("Database error loading logo:", err);
+      return new NextResponse("Failed to load logo", { status: 500 });
+    }
+  }
+
+  if (!logoUrl) {
+    return new NextResponse("Logo not found", { status: 404 });
   }
 
   try {
-    const orgs = await sql`
-      SELECT id, name, logo_url FROM public.organizations WHERE id::text = ${orgId} LIMIT 1;
-    `;
-
-    if (orgs.length === 0 || !orgs[0].logo_url) {
-      return new NextResponse("Logo not found", { status: 404 });
-    }
-
-    const logoUrl = orgs[0].logo_url as string;
-
     // 1. If stored as Base64 Data URL
     if (logoUrl.startsWith("data:")) {
       const matches = logoUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -38,7 +55,7 @@ export async function GET(
           headers: {
             "Content-Type": mimeType,
             "Content-Length": buffer.length.toString(),
-            "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+            "Cache-Control": versionParam ? "public, max-age=31536000, immutable" : "public, max-age=60, stale-while-revalidate=300",
           },
         });
       }
@@ -67,7 +84,7 @@ export async function GET(
             headers: {
               "Content-Type": obj.ContentType || "image/webp",
               "Content-Length": buffer.length.toString(),
-              "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+              "Cache-Control": versionParam ? "public, max-age=31536000, immutable" : "public, max-age=60, stale-while-revalidate=300",
             },
           });
         }

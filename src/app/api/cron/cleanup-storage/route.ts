@@ -12,12 +12,16 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const querySecret = req.nextUrl.searchParams.get("secret");
-  const expectedSecret = process.env.CRON_SECRET || process.env.ADMIN_SECRET || "admin123";
+  const expectedSecret =
+    process.env.CRON_SECRET ||
+    process.env.ADMIN_SECRET ||
+    (process.env.NODE_ENV === "development" ? "admin123" : "");
 
   const isAuthorized =
-    (authHeader && authHeader === `Bearer ${expectedSecret}`) ||
-    (querySecret && querySecret === expectedSecret) ||
-    process.env.NODE_ENV === "development";
+    Boolean(expectedSecret) &&
+    ((authHeader && authHeader === `Bearer ${expectedSecret}`) ||
+      (querySecret && querySecret === expectedSecret) ||
+      process.env.NODE_ENV === "development");
 
   if (!isAuthorized) {
     return NextResponse.json({ error: "Unauthorized cron execution" }, { status: 401 });

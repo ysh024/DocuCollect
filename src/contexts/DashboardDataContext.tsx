@@ -153,7 +153,12 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     const targetPath = target.startsWith("/dashboard") ? target : dashboardTabToPath(tab);
 
     setActiveTab(tab);
-    router.push(targetPath);
+    if (tab === "subroute") {
+      router.push(targetPath);
+    } else if (typeof window !== "undefined") {
+      window.history.pushState({ tab }, "", targetPath);
+    }
+
     // Instantly scroll content to top
     if (typeof window !== "undefined") {
       const scrollEl = document.getElementById("dashboard-scroll-container");
@@ -183,8 +188,8 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       // Parallel fetch for user, dashboard data, and notifications
       const [dashRes, userRes, notifsRes] = await Promise.all([
         getDashboardData({ forceFresh }),
-        !globalUserCache ? getCurrentUserAction() : Promise.resolve(globalUserCache),
-        globalNotificationsCache.length === 0
+        !globalUserCache || forceFresh ? getCurrentUserAction() : Promise.resolve(globalUserCache),
+        globalNotificationsCache.length === 0 || forceFresh
           ? getAdvisorNotificationsAction()
           : Promise.resolve(globalNotificationsCache),
       ]);

@@ -67,6 +67,11 @@ export function InteractiveFileUpload({
   const handleConfirmUpload = async () => {
     if (!selectedFile) return;
 
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("No internet connection. Please check your network and try again.");
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(20);
 
@@ -109,7 +114,17 @@ export function InteractiveFileUpload({
       }
     } catch (err: any) {
       clearInterval(interval);
-      setError(err.message || "Failed to upload document. Please retry.");
+      const isNet =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        err?.message?.includes("fetch") ||
+        err?.message?.includes("network") ||
+        err?.name === "TypeError";
+
+      setError(
+        isNet
+          ? "No internet connection. Please check your network and try again."
+          : (err.message || "Failed to upload document. Please retry.")
+      );
       setUploading(false);
     }
   };

@@ -17,6 +17,12 @@ export interface StorageUploadOptions {
   mimeType: string;
 }
 
+import https from "https";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
+import { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } from "./crypto";
+
+export { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer };
+
 let cachedS3Client: S3Client | null = null;
 
 export function isS3Configured(): boolean {
@@ -41,6 +47,13 @@ export function getS3Client(): S3Client {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       },
       forcePathStyle: true,
+      requestHandler: new NodeHttpHandler({
+        httpsAgent: new https.Agent({
+          keepAlive: true,
+          maxSockets: 50,
+          keepAliveMsecs: 60000,
+        }),
+      }),
     });
   }
   return cachedS3Client;
@@ -56,27 +69,34 @@ export function generateStoragePath(opts: StorageUploadOptions): string {
 }
 
 /**
- * Uploads file buffer directly to Neon Object Storage (S3-compatible)
+ * Uploads file buffer directly to Neon Object Storage (S3-compatible).
+ * By default, encrypts files with AES-256-GCM Zero-Knowledge encryption
+ * before writing to cloud storage, ensuring even Neon and AWS cannot view files.
  */
 export async function uploadFileToStorage({
   storagePath,
   fileBuffer,
   mimeType,
+  encrypt = true,
 }: {
   storagePath: string;
   fileBuffer: Buffer | Uint8Array;
   mimeType: string;
+  encrypt?: boolean;
 }): Promise<{ success: boolean; storagePath: string; error?: string }> {
   try {
     const s3 = getS3Client();
     const bucket = getStorageBucket();
 
+    // Zero-Knowledge Encryption: Encrypt in-memory before sending to cloud bucket
+    const bodyToSend = encrypt ? encryptFileBuffer(fileBuffer) : fileBuffer;
+
     await s3.send(
       new PutObjectCommand({
         Bucket: bucket,
         Key: storagePath,
-        Body: fileBuffer,
-        ContentType: mimeType || "application/octet-stream",
+        Body: bodyToSend,
+        ContentType: encrypt ? "application/octet-stream" : (mimeType || "application/octet-stream"),
       })
     );
 
@@ -93,10 +113,14 @@ export async function uploadFileToStorage({
 export async function getSignedStorageDownloadUrl(
   storagePath: string,
   fileName?: string,
-  expiresInSeconds: number = 3600
+  expiresInSeconds: number = 3600,
+  asAttachment: boolean = true
 ): Promise<string> {
+  const safeFileName = (fileName || "document.pdf").replace(/["\r\n]/g, "");
+  const disposition = asAttachment ? "attachment" : "inline";
+
   if (!isS3Configured()) {
-    return `/api/download?path=${encodeURIComponent(storagePath)}&name=${encodeURIComponent(fileName || "document.pdf")}`;
+    return `/api/download?path=${encodeURIComponent(storagePath)}&name=${encodeURIComponent(safeFileName)}${asAttachment ? "&download=1" : "&inline=1"}`;
   }
 
   try {
@@ -106,13 +130,13 @@ export async function getSignedStorageDownloadUrl(
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: storagePath,
-      ResponseContentDisposition: fileName ? `inline; filename="${fileName}"` : undefined,
+      ResponseContentDisposition: `${disposition}; filename="${safeFileName}"`,
     });
 
     return await getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
   } catch (err) {
     console.warn("Error creating signed URL from storage, falling back to stream endpoint:", err);
-    return `/api/download?path=${encodeURIComponent(storagePath)}&name=${encodeURIComponent(fileName || "document.pdf")}`;
+    return `/api/download?path=${encodeURIComponent(storagePath)}&name=${encodeURIComponent(safeFileName)}${asAttachment ? "&download=1" : "&inline=1"}`;
   }
 }
 
@@ -158,3 +182,21 @@ export async function getFileStreamFromStorage(storagePath: string) {
     return null;
   }
 }
+
+/**
+ * Fetches complete file buffer from storage and decrypts in-memory on the fly.
+ * Handles both AES-256-GCM Zero-Knowledge encrypted files and legacy files transparently.
+ */
+export async function getFileBufferFromStorage(storagePath: string): Promise<Buffer | null> {
+  const streamRes = await getFileStreamFromStorage(storagePath);
+  if (!streamRes || !streamRes.Body) return null;
+  try {
+    const bytes = await streamRes.Body.transformToByteArray();
+    const rawBuffer = Buffer.from(bytes);
+    return decryptFileBuffer(rawBuffer);
+  } catch (err) {
+    console.warn("Failed to read/decrypt stream to buffer:", err);
+    return null;
+  }
+}
+

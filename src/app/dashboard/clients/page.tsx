@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, Fragment } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Users,
@@ -24,12 +23,15 @@ import {
   Pencil,
   Briefcase,
   ChevronRight,
-  ChevronDown,
   Copy,
   Check,
   Folder,
+  ArrowLeft,
+  Trash2,
+  Lock,
+  ShieldCheck,
+  Loader2,
 } from "lucide-react";
-import { getDashboardData } from "@/app/actions/portal";
 import { Client, CaseWithDetails, Document } from "@/types";
 import { formatDate, formatBytes, getCaseStatusBadge } from "@/lib/utils";
 import { NewClientModal } from "@/components/dashboard/NewClientModal";
@@ -39,10 +41,12 @@ import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { Pagination } from "@/components/ui/Pagination";
+import { deleteClientAction } from "@/app/actions/portal";
+import { downloadFileWithFeedback } from "@/lib/download-client";
 
 export default function ClientsPage() {
   const { toast } = useToast();
-  const { clients, cases, loading, refresh } = useDashboardData();
+  const { clients, cases, subscription, loading, refresh } = useDashboardData();
   const [mounted, setMounted] = useState(false);
   const [search, setSearch] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
@@ -52,10 +56,19 @@ export default function ClientsPage() {
   const [isNewCaseOpen, setIsNewCaseOpen] = useState(false);
   const [newCaseClientId, setNewCaseClientId] = useState<string | undefined>(undefined);
   const [copiedCaseId, setCopiedCaseId] = useState<string | null>(null);
-  const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
-  const [activeClientTab, setActiveClientTab] = useState<"all" | "cases" | "vault">("all");
+  const [downloadingDocId, setDownloadingDocId] = useState<string | null>(null);
+  const [downloadingZipCaseId, setDownloadingZipCaseId] = useState<string | null>(null);
+  const [openingCaseId, setOpeningCaseId] = useState<string | null>(null);
 
-  // Client Pagination State
+  // Dedicated Client View State (Full-page view, eliminating nested accordion buckets)
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [clientViewTab, setClientViewTab] = useState<"all" | "cases" | "vault">("all");
+
+  // Client Deletion State (Paid Plan Only)
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+  const [isDeletingClient, setIsDeletingClient] = useState(false);
+
+  // Pagination State for main client list
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -63,10 +76,16 @@ export default function ClientsPage() {
     setMounted(true);
   }, []);
 
-  // Reset to first page when search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
+
+  // Determine if current workspace has an active paid subscription
+  const isPaid = !!(
+    subscription?.status === "active" &&
+    subscription?.plan_name !== "trial" &&
+    subscription?.plan_name !== "free"
+  );
 
   const filtered = clients.filter((c) => {
     return (
@@ -116,17 +135,752 @@ export default function ClientsPage() {
     return docs;
   };
 
+  // Export client data to Excel (CSV with BOM) - restricted to paid plans
+  const handleExportExcel = () => {
+    if (!isPaid) {
+      toast({
+        title: "Paid Feature Only",
+        description:
+          "Exporting client portfolios to Excel is exclusive to paid subscription plans (Starter, Professional, Firm). Upgrade to unlock data exports.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (clients.length === 0) {
+      toast({ title: "No Clients", description: "There are no client records to export." });
+      return;
+    }
+
+    const headers = [
+      "Client Name",
+      "Reference ID",
+      "Phone",
+      "Email",
+      "Company / Entity",
+      "Address",
+      "Notes",
+      "Total Cases",
+      "Total Documents",
+      "Created Date",
+    ];
+
+    const rows = clients.map((c) => {
+      const cCases = cases.filter((cs) => cs.client_id === c.id);
+      let docCount = 0;
+      cCases.forEach((cs) => {
+        cs.requirements?.forEach((r) => {
+          docCount += r.documents?.length || 0;
+        });
+      });
+
+      return [
+        `"${(c.name || "").replace(/"/g, '""')}"`,
+        `"${(c.client_ref_id || c.id || "").replace(/"/g, '""')}"`,
+        `"${(c.phone || "").replace(/"/g, '""')}"`,
+        `"${(c.email || "").replace(/"/g, '""')}"`,
+        `"${(c.company || "").replace(/"/g, '""')}"`,
+        `"${(c.address || "").replace(/"/g, '""')}"`,
+        `"${(c.notes || "").replace(/"/g, '""')}"`,
+        cCases.length,
+        docCount,
+        c.created_at ? new Date(c.created_at).toISOString().slice(0, 10) : "",
+      ].join(",");
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `docucollect_clients_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({ title: "Export Complete", description: `Exported ${clients.length} client portfolios to Excel format.` });
+  };
+
+  // Delete client - restricted to paid plans
+  const handleDeleteClient = async () => {
+    if (!clientToDelete) return;
+
+    if (!isPaid) {
+      toast({
+        title: "Paid Feature Only",
+        description:
+          "Deleting clients is only available on paid subscription plans (Starter, Professional, Firm). Free trial accounts cannot delete client portfolios.",
+        type: "error",
+      });
+      setClientToDelete(null);
+      return;
+    }
+
+    setIsDeletingClient(true);
+    try {
+      const res = await deleteClientAction(clientToDelete.id);
+      if (res?.success) {
+        toast({ title: "Client Deleted", description: `${clientToDelete.name} and associated cases were deleted.` });
+        if (selectedClientId === clientToDelete.id) {
+          setSelectedClientId(null);
+        }
+        setClientToDelete(null);
+        await refresh();
+      } else {
+        toast({ title: "Delete Failed", description: res?.error || "Could not delete client", type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setIsDeletingClient(false);
+    }
+  };
+
+  const selectedClient = clients.find((c) => c.id === selectedClientId) || null;
+
+  // -------------------------------------------------------------
+  // DEDICATED CLIENT FULL-PAGE VIEW
+  // -------------------------------------------------------------
+  if (selectedClient) {
+    const clientCases = getClientCases(selectedClient.id);
+    const clientDocs = getClientDocuments(selectedClient.id);
+    const cleanPhone = selectedClient.phone.replace(/[^0-9]/g, "");
+    const activeCasesCount = clientCases.filter((c) => c.status !== "completed" && c.status !== "archived").length;
+    const completedCasesCount = clientCases.filter((c) => c.status === "completed").length;
+    const approvedDocsCount = clientDocs.filter((d) => d.doc.status === "approved").length;
+
+    return (
+      <div className="space-y-6 w-full max-w-full pb-16 min-w-0">
+        {/* Breadcrumb & Navigation */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setSelectedClientId(null)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer shadow-2xs"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to All Clients</span>
+            </button>
+            <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <span>Clients</span>
+              <span>/</span>
+              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{selectedClient.name}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                setNewCaseClientId(selectedClient.id);
+                setIsNewCaseOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 rounded-xl shadow-xs transition cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Create New Case</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEditingClient(selectedClient)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-xl transition cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Edit Client</span>
+            </button>
+
+            <a
+              href={`https://wa.me/${cleanPhone}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 rounded-xl transition"
+            >
+              <MessageSquareShare className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (!isPaid) {
+                  toast({
+                    title: "Paid Feature Only",
+                    description:
+                      "Deleting clients is only available on paid subscription plans (Starter, Professional, Firm).",
+                    type: "error",
+                  });
+                  return;
+                }
+                setClientToDelete(selectedClient);
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                isPaid
+                  ? "text-rose-600 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 border-rose-200 dark:border-rose-800/80"
+                  : "text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800/40 border-neutral-200 dark:border-neutral-800 cursor-not-allowed"
+              }`}
+              title={isPaid ? "Delete client" : "Deleting clients requires an active paid plan"}
+            >
+              {isPaid ? <Trash2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              <span>Delete Client</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Client Header Profile Banner */}
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-5 sm:p-6 shadow-subtle space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-center font-black text-lg shrink-0">
+                {selectedClient.name.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">
+                    {selectedClient.name}
+                  </h1>
+                  <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-md border border-neutral-200 dark:border-neutral-700 font-semibold">
+                    {selectedClient.client_ref_id || selectedClient.id}
+                  </span>
+                  {selectedClient.company && (
+                    <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300 bg-neutral-50 dark:bg-neutral-800/60 px-2.5 py-0.5 rounded-full border border-neutral-200/60 dark:border-neutral-700">
+                      {selectedClient.company}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-4 text-xs text-neutral-500 dark:text-neutral-400 mt-1 flex-wrap">
+                  <span className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-neutral-400" />
+                    {selectedClient.phone}
+                  </span>
+                  {selectedClient.email && (
+                    <span className="flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-neutral-400" />
+                      {selectedClient.email}
+                    </span>
+                  )}
+                  {selectedClient.address && (
+                    <span className="truncate max-w-xs text-neutral-400">
+                      • {selectedClient.address}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+              <div className="bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-700/60 rounded-xl p-2.5 sm:px-4">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">Cases</span>
+                <span className="text-base sm:text-lg font-black text-neutral-900 dark:text-neutral-100">{clientCases.length}</span>
+              </div>
+              <div className="bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-700/60 rounded-xl p-2.5 sm:px-4">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">Active</span>
+                <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400">{activeCasesCount}</span>
+              </div>
+              <div className="bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/60 dark:border-neutral-700/60 rounded-xl p-2.5 sm:px-4">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">Vault Files</span>
+                <span className="text-base sm:text-lg font-black text-blue-600 dark:text-blue-400">{clientDocs.length}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Section View Switcher */}
+          <div className="flex items-center justify-between gap-4 pt-1 flex-wrap">
+            <div className="inline-flex items-center p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setClientViewTab("all")}
+                className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                  clientViewTab === "all"
+                    ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-bold"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
+              >
+                Side-by-Side Overview
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientViewTab("cases")}
+                className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                  clientViewTab === "cases"
+                    ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-bold"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
+              >
+                Cases ({clientCases.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setClientViewTab("vault")}
+                className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+                  clientViewTab === "vault"
+                    ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs font-bold"
+                    : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                }`}
+              >
+                Vault Documents ({clientDocs.length})
+              </button>
+            </div>
+
+            {selectedClient.notes && (
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 italic max-w-md truncate">
+                Note: {selectedClient.notes}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Dedicated Main Grid: Cases & Vault */}
+        <div className={clientViewTab === "all" ? "grid grid-cols-1 lg:grid-cols-2 gap-6 items-start" : "w-full"}>
+          {/* SECTION A: CASES & CHECKLISTS */}
+          {(clientViewTab === "all" || clientViewTab === "cases") && (
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-5 shadow-subtle space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <Briefcase className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                      Cases & Document Checklists
+                    </h3>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {clientCases.length} total cases for this client
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewCaseClientId(selectedClient.id);
+                    setIsNewCaseOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-xs transition cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Case</span>
+                </button>
+              </div>
+
+              {clientCases.length === 0 ? (
+                <div className="text-center py-12 space-y-2.5 bg-neutral-50/50 dark:bg-neutral-800/40 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
+                  <Briefcase className="w-8 h-8 text-neutral-400 mx-auto" />
+                  <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100">No cases created yet</p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto">
+                    Create a case to send an encrypted document upload link to {selectedClient.name}.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCaseClientId(selectedClient.id);
+                      setIsNewCaseOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 dark:bg-emerald-600 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer mt-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Create First Case</span>
+                  </button>
+                </div>
+              ) : (
+                <div className={clientViewTab === "cases" ? "grid grid-cols-1 sm:grid-cols-2 gap-3.5" : "space-y-3.5"}>
+                  {clientCases.map((c) => {
+                    const caseDocs = getCaseDocuments(c);
+                    const badge = getCaseStatusBadge(c.status);
+                    const totalReqs = c.requirements?.length || 0;
+                    const approvedCount = c.requirements?.filter((r) => r.status === "approved").length || 0;
+                    const underReviewCount =
+                      c.requirements?.filter((r) => r.status === "under_review" || r.status === "uploaded").length ||
+                      0;
+                    const percentage = totalReqs > 0 ? Math.round((approvedCount / totalReqs) * 100) : 0;
+                    const token = c.upload_link?.token_hash || `token-${c.id.slice(0, 8)}`;
+                    const uploadUrl = typeof window !== "undefined" ? `${window.location.origin}/upload/${token}` : "";
+                    const waText = encodeURIComponent(
+                      `Hello ${selectedClient.name}, please upload your documents for ${c.title} (${c.reference_number}) using this secure portal link:\n${uploadUrl}\n\nThank you!`
+                    );
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="bg-neutral-50/70 dark:bg-neutral-800/40 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 p-4 shadow-2xs space-y-3 hover:border-neutral-300 dark:hover:border-neutral-600 transition flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-mono text-[10px] font-bold text-neutral-500 dark:text-neutral-400 bg-white dark:bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200 dark:border-neutral-700 shrink-0">
+                              {c.reference_number}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badge.className}`}>
+                              {badge.label}
+                            </span>
+                          </div>
+
+                          <Link
+                            href={`/dashboard/cases/${c.id}`}
+                            prefetch={false}
+                            onClick={() => setOpeningCaseId(c.id)}
+                            className="text-xs font-bold text-neutral-900 dark:text-neutral-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition mt-2 block truncate hover:underline"
+                            title={c.title}
+                          >
+                            <span className="flex items-center gap-1.5 truncate">
+                              <span className="truncate">{c.title}</span>
+                              {openingCaseId === c.id && (
+                                <Loader2 className="w-3 h-3 animate-spin text-emerald-600 shrink-0" />
+                              )}
+                            </span>
+                          </Link>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                            {c.service_type} • <strong className="text-neutral-700 dark:text-neutral-300">{caseDocs.length}</strong> file{caseDocs.length !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="space-y-1 bg-white dark:bg-neutral-900/70 p-2.5 rounded-lg border border-neutral-200/60 dark:border-neutral-700/60">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-semibold text-neutral-600 dark:text-neutral-400">
+                              {approvedCount}/{totalReqs} requirements approved
+                            </span>
+                            <span className="font-bold text-neutral-900 dark:text-neutral-100">{percentage}%</span>
+                          </div>
+                          <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden flex">
+                            <div
+                              className="bg-emerald-500 h-full transition-all"
+                              style={{ width: `${totalReqs > 0 ? (approvedCount / totalReqs) * 100 : 0}%` }}
+                            />
+                            <div
+                              className="bg-amber-500 h-full transition-all"
+                              style={{ width: `${totalReqs > 0 ? (underReviewCount / totalReqs) * 100 : 0}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-neutral-200/60 dark:border-neutral-700/60 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(uploadUrl);
+                                setCopiedCaseId(c.id);
+                                toast({ title: "Link Copied!", description: `Upload link for ${c.title} copied.` });
+                                setTimeout(() => setCopiedCaseId(null), 2000);
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[11px] font-medium border border-neutral-200 dark:border-neutral-700 transition cursor-pointer"
+                              title="Copy upload link"
+                            >
+                              {copiedCaseId === c.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Copied</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-neutral-400" />
+                                  <span className="text-[10px]">Copy Link</span>
+                                </>
+                              )}
+                            </button>
+
+                            <a
+                              href={`https://wa.me/${cleanPhone}?text=${waText}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium transition"
+                              title="Share on WhatsApp"
+                            >
+                              <MessageSquareShare className="w-3 h-3" />
+                              <span className="text-[10px]">WhatsApp</span>
+                            </a>
+
+                            <button
+                              type="button"
+                              disabled={downloadingZipCaseId === c.id}
+                              onClick={() => {
+                                const zipName = `${selectedClient.name.replace(/\s+/g, "_")}_${c.reference_number || c.id.slice(0, 8)}_case_documents.zip`;
+                                downloadFileWithFeedback({
+                                  url: `/api/cases/${c.id}/download-zip`,
+                                  fileName: zipName,
+                                  toast,
+                                  onStart: () => setDownloadingZipCaseId(c.id),
+                                  onComplete: () => setDownloadingZipCaseId(null),
+                                });
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 text-[11px] font-medium transition cursor-pointer disabled:opacity-60"
+                              title="Download ZIP of case documents (excluding rejected files)"
+                            >
+                              {downloadingZipCaseId === c.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <Download className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+                              )}
+                              <span className="text-[10px]">{downloadingZipCaseId === c.id ? "Zipping..." : "ZIP"}</span>
+                            </button>
+                          </div>
+
+                          <Link
+                            href={`/dashboard/cases/${c.id}`}
+                            prefetch={false}
+                            onClick={() => setOpeningCaseId(c.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-md text-[11px] font-semibold transition shrink-0 cursor-pointer"
+                          >
+                            {openingCaseId === c.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Opening...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Open Case</span>
+                                <ChevronRight className="w-3 h-3" />
+                              </>
+                            )}
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION B: DOCUMENT VAULT FOR THIS CLIENT */}
+          {(clientViewTab === "all" || clientViewTab === "vault") && (
+            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-5 shadow-subtle space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-100 dark:border-neutral-800">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <FolderOpen className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                      Document Storage Vault
+                    </h3>
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                      {clientDocs.length} uploaded files across all cases
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-[11px] font-bold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2.5 py-1 rounded-full border border-neutral-200 dark:border-neutral-700">
+                  {approvedDocsCount} Approved
+                </span>
+              </div>
+
+              {clientDocs.length === 0 ? (
+                <div className="text-center py-12 space-y-2 bg-neutral-50/50 dark:bg-neutral-800/40 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
+                  <FolderOpen className="w-8 h-8 text-neutral-400 mx-auto" />
+                  <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100">No documents in vault yet</p>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto">
+                    Files uploaded by {selectedClient.name} will appear here directly with instant preview and download.
+                  </p>
+                </div>
+              ) : (
+                <div className={clientViewTab === "vault" ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "space-y-3"}>
+                  {clientDocs.map(({ doc, caseTitle, caseId, reqName }) => (
+                    <div
+                      key={doc.id}
+                      onClick={() => setPreviewDoc({ doc, reqName, caseId })}
+                      className="p-3.5 bg-neutral-50/70 dark:bg-neutral-800/40 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-700 hover:shadow-xs transition flex flex-col justify-between gap-3 cursor-pointer group"
+                      title="Click anywhere on card to open document preview"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center shrink-0 group-hover:border-emerald-300 dark:group-hover:border-emerald-700 transition">
+                          <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition" title={doc.file_name}>
+                            {doc.file_name}
+                          </p>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                            <span className="font-semibold text-neutral-700 dark:text-neutral-300">{caseTitle}</span> • {reqName}
+                          </p>
+                          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">
+                            {formatBytes(doc.file_size)} • Uploaded {formatDate(doc.uploaded_at)} • <span className="text-emerald-600 dark:text-emerald-400 font-medium group-hover:underline">Click to view</span>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status and Action Buttons */}
+                      <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-neutral-200/60 dark:border-neutral-700/60 text-xs">
+                        <div>
+                          {doc.status === "approved" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/70 dark:border-emerald-800">
+                              <CheckCircle className="w-2.5 h-2.5" /> Approved
+                            </span>
+                          )}
+                          {doc.status === "under_review" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200/70 dark:border-amber-800">
+                              <Clock className="w-2.5 h-2.5" /> In Review
+                            </span>
+                          )}
+                          {doc.status === "rejected" && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-full border border-rose-200/70 dark:border-rose-800">
+                              <AlertCircle className="w-2.5 h-2.5" /> Rejected
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            disabled={downloadingDocId === doc.id}
+                            onClick={() => {
+                              downloadFileWithFeedback({
+                                url: `/api/download?file=${encodeURIComponent(doc.storage_path || "")}&name=${encodeURIComponent(doc.file_name)}&id=${doc.id}&download=1`,
+                                fileName: doc.file_name,
+                                toast,
+                                onStart: () => setDownloadingDocId(doc.id),
+                                onComplete: () => setDownloadingDocId(null),
+                              });
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 rounded-lg text-[11px] font-semibold transition shadow-2xs cursor-pointer disabled:opacity-60"
+                            title="Download File directly to system"
+                          >
+                            {downloadingDocId === doc.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-emerald-600 dark:text-emerald-400" />
+                            ) : (
+                              <Download className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                            )}
+                            <span>{downloadingDocId === doc.id ? "Downloading..." : "Download"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Delete Confirmation Modal (Paid Only) */}
+        {clientToDelete && (
+          <div className="fixed inset-0 z-50 bg-neutral-950/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 flex items-center justify-center">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                  Delete Client Portfolio?
+                </h3>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                  Are you sure you want to delete <strong className="text-neutral-900 dark:text-neutral-100">{clientToDelete.name}</strong>? This will permanently delete all {getClientCases(clientToDelete.id).length} associated cases and uploaded documents.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setClientToDelete(null)}
+                  disabled={isDeletingClient}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteClient}
+                  disabled={isDeletingClient}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {isDeletingClient ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <span>Confirm Delete</span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Document Preview Modal */}
+        {previewDoc && (
+          <DocumentPreviewModal
+            document={previewDoc.doc}
+            requirementName={previewDoc.reqName}
+            requirementId={previewDoc.doc.requirement_id}
+            caseId={previewDoc.caseId}
+            isOpen={true}
+            onClose={() => setPreviewDoc(null)}
+            onStatusUpdated={() => refresh()}
+          />
+        )}
+
+        {/* Edit Client Modal */}
+        {editingClient && (
+          <EditClientModal
+            isOpen={!!editingClient}
+            client={editingClient}
+            onClose={() => setEditingClient(null)}
+            onSuccess={() => refresh()}
+          />
+        )}
+
+        {/* New Case Modal */}
+        <NewCaseModal
+          clients={clients}
+          isOpen={isNewCaseOpen}
+          initialClientId={newCaseClientId}
+          onClose={() => {
+            setIsNewCaseOpen(false);
+            setNewCaseClientId(undefined);
+          }}
+          onSuccess={() => {
+            setIsNewCaseOpen(false);
+            setNewCaseClientId(undefined);
+            refresh();
+          }}
+        />
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // MAIN CLIENTS LIST (Clean, Fast, No Nested Accordion Buckets)
+  // -------------------------------------------------------------
   return (
     <div className="space-y-6 w-full max-w-full pb-12 min-w-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 min-h-[48px]">
         <div>
-          <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">Clients & Document Storage Vault</h1>
+          <h1 className="text-xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight">Clients Directory</h1>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            View client portfolios, access structured document vaults, download files, and track client cases.
+            Click any client to open their dedicated portfolio with full cases and encrypted document vault.
           </p>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0 flex-wrap">
+          {/* Excel Export Button (Paid Plan Only) */}
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border shadow-2xs transition-colors cursor-pointer ${
+              isPaid
+                ? "text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 border-neutral-200/90 dark:border-neutral-800"
+                : "text-neutral-500 dark:text-neutral-400 bg-neutral-100/70 dark:bg-neutral-800/40 border-neutral-200 dark:border-neutral-800"
+            }`}
+            title={isPaid ? "Export client directory to Excel" : "Excel export is available on paid plans only"}
+          >
+            {isPaid ? (
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Lock className="w-3.5 h-3.5 text-amber-500" />
+            )}
+            <span>Export Excel</span>
+            {!isPaid && (
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                Paid
+              </span>
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -135,9 +889,10 @@ export default function ClientsPage() {
             }}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-neutral-200/90 dark:border-neutral-800 rounded-xl shadow-2xs transition-colors cursor-pointer"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
             <span>Import CSV</span>
           </button>
+
           <button
             type="button"
             onClick={() => {
@@ -174,22 +929,23 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* Clients Table Card */}
+      {/* Clean Flat Clients Table */}
       <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-subtle overflow-hidden transition-colors w-full">
         <div className="w-full overflow-x-auto">
           <table className="w-full text-left text-xs table-auto">
             <thead className="bg-neutral-50/80 dark:bg-neutral-800/70 border-b border-neutral-100 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 font-semibold uppercase tracking-wider text-[11px]">
               <tr>
-                <th className="py-3.5 px-4 sm:px-6">Client Group & Entity</th>
+                <th className="py-3.5 px-4 sm:px-6">Client & Entity</th>
                 <th className="py-3.5 px-4 hidden md:table-cell">Contact & Email</th>
-                <th className="py-3.5 px-3 text-center w-24 sm:w-28">Cases</th>
-                <th className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">Document Vault & Actions</th>
+                <th className="py-3.5 px-3 text-center w-28">Cases</th>
+                <th className="py-3.5 px-3 text-center w-28">Vault Files</th>
+                <th className="py-3.5 px-4 sm:px-6 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {loading && clients.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-16 text-center">
+                  <td colSpan={5} className="py-16 text-center">
                     <div className="flex flex-col items-center justify-center gap-2.5">
                       <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                       <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Loading client portfolios...</p>
@@ -198,7 +954,7 @@ export default function ClientsPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-16 text-center">
+                  <td colSpan={5} className="py-16 text-center">
                     <div className="max-w-sm mx-auto space-y-2.5">
                       <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 flex items-center justify-center mx-auto">
                         <Users className="w-6 h-6" />
@@ -216,7 +972,7 @@ export default function ClientsPage() {
                             setModalTab("manual");
                             setIsNewClientOpen(true);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer mt-2"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer mt-2"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Add First Client</span>
@@ -230,499 +986,129 @@ export default function ClientsPage() {
                   const clientCases = getClientCases(client.id);
                   const clientDocs = getClientDocuments(client.id);
                   const cleanPhone = client.phone.replace(/[^0-9]/g, "");
-                  const isExpanded = expandedClientId === client.id;
 
                   return (
-                    <Fragment key={client.id}>
-                      <tr className={`hover:bg-neutral-50/60 dark:hover:bg-neutral-800/40 transition-colors ${isExpanded ? "bg-neutral-50/40 dark:bg-neutral-800/20" : ""}`}>
-                        {/* Expandable Client Group Toggle & Portfolio */}
-                        <td className="py-4 px-4 sm:px-6">
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isExpanded) {
-                                  setExpandedClientId(null);
-                                } else {
-                                  setExpandedClientId(client.id);
-                                  setActiveClientTab("all");
-                                }
-                              }}
-                              className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
-                              title={isExpanded ? "Collapse client group" : "Expand client cases and uploaded documents in grid"}
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                              ) : (
-                                <ChevronRight className="w-4 h-4" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isExpanded) {
-                                  setExpandedClientId(null);
-                                } else {
-                                  setExpandedClientId(client.id);
-                                  setActiveClientTab("all");
-                                }
-                              }}
-                              className="text-left group/client cursor-pointer focus:outline-none min-w-0 flex-1 block"
-                              title={`Click to open ${client.name}'s cases & document vault grid`}
-                            >
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <p className="font-semibold text-neutral-900 dark:text-neutral-100 group-hover/client:text-emerald-600 dark:group-hover/client:text-emerald-400 group-hover/client:underline text-xs truncate transition-colors">
-                                  {client.name}
-                                </p>
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 group-hover/client:bg-emerald-50 dark:group-hover/client:bg-emerald-950/40 text-neutral-600 dark:text-neutral-300 group-hover/client:text-emerald-700 dark:group-hover/client:text-emerald-400 border border-neutral-200/80 dark:border-neutral-700 shrink-0 transition-colors">
-                                  <Briefcase className="w-2.5 h-2.5 text-neutral-400 group-hover/client:text-emerald-600 dark:group-hover/client:text-emerald-400" />
-                                  {clientCases.length}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 text-[10px] text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
-                                <span className="font-mono">{client.client_ref_id || client.id}</span>
-                                {client.company && (
-                                  <span className="truncate hidden sm:inline text-neutral-600 dark:text-neutral-400 font-medium">• {client.company}</span>
-                                )}
-                              </div>
-                              {/* Mobile contact info */}
-                              <div className="md:hidden flex items-center gap-2 text-[10px] text-neutral-500 mt-0.5">
-                                <span>{client.phone}</span>
-                                {client.email && <span className="truncate max-w-[120px]">• {client.email}</span>}
-                              </div>
-                            </button>
+                    <tr
+                      key={client.id}
+                      onClick={() => {
+                        setSelectedClientId(client.id);
+                        setClientViewTab("all");
+                      }}
+                      className="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors cursor-pointer group/row"
+                    >
+                      {/* Client Entity & Name */}
+                      <td className="py-4 px-4 sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-center font-bold text-xs shrink-0 group-hover/row:scale-105 transition-transform">
+                            {client.name.slice(0, 2).toUpperCase()}
                           </div>
-                        </td>
-
-                        {/* Contact & Email (Tablet & Desktop) */}
-                        <td className="py-4 px-4 hidden md:table-cell text-neutral-700 dark:text-neutral-300 font-medium">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <Phone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-semibold text-neutral-900 dark:text-neutral-100 group-hover/row:text-emerald-600 dark:group-hover/row:text-emerald-400 text-xs truncate transition-colors">
+                              {client.name}
+                            </p>
+                            <div className="flex items-center gap-2 text-[10px] text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
+                              <span className="font-mono">{client.client_ref_id || client.id}</span>
+                              {client.company && (
+                                <span className="truncate hidden sm:inline text-neutral-600 dark:text-neutral-400 font-medium">
+                                  • {client.company}
+                                </span>
+                              )}
+                            </div>
+                            <div className="md:hidden flex items-center gap-2 text-[10px] text-neutral-500 mt-0.5">
                               <span>{client.phone}</span>
                             </div>
-                            {client.email ? (
-                              <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 truncate max-w-[200px]" title={client.email}>
-                                <Mail className="w-3 h-3 text-neutral-400 dark:text-neutral-500 shrink-0" />
-                                <span className="truncate">{client.email}</span>
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-neutral-400 dark:text-neutral-600 italic block">No email</span>
-                            )}
                           </div>
-                        </td>
+                        </div>
+                      </td>
 
-                        {/* Clickable Cases Count Badge (Opens Cases in Grid) */}
-                        <td className="py-4 px-3 text-center whitespace-nowrap">
+                      {/* Contact & Email */}
+                      <td className="py-4 px-4 hidden md:table-cell text-neutral-700 dark:text-neutral-300 font-medium">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Phone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                            <span>{client.phone}</span>
+                          </div>
+                          {client.email ? (
+                            <div className="flex items-center gap-1.5 text-[11px] text-neutral-500 dark:text-neutral-400 truncate max-w-[200px]" title={client.email}>
+                              <Mail className="w-3 h-3 text-neutral-400 dark:text-neutral-500 shrink-0" />
+                              <span className="truncate">{client.email}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-neutral-400 dark:text-neutral-600 italic block">No email</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Cases Count Badge */}
+                      <td className="py-4 px-3 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedClientId(client.id);
+                            setClientViewTab("cases");
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold text-[10px] bg-neutral-100 dark:bg-neutral-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-neutral-700 dark:text-neutral-300 hover:text-emerald-700 dark:hover:text-emerald-400 border border-neutral-200 dark:border-neutral-700 transition cursor-pointer"
+                          title="Open client cases"
+                        >
+                          <Briefcase className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+                          <span>{clientCases.length} {clientCases.length === 1 ? "Case" : "Cases"}</span>
+                        </button>
+                      </td>
+
+                      {/* Vault Count Badge */}
+                      <td className="py-4 px-3 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedClientId(client.id);
+                            setClientViewTab("vault");
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-semibold text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200/80 dark:border-blue-800/80 transition cursor-pointer"
+                          title="Open document vault"
+                        >
+                          <FolderOpen className="w-3 h-3 text-blue-500" />
+                          <span>{clientDocs.length} {clientDocs.length === 1 ? "File" : "Files"}</span>
+                        </button>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => {
-                              if (isExpanded && activeClientTab === "cases") {
-                                setExpandedClientId(null);
-                              } else {
-                                setExpandedClientId(client.id);
-                                setActiveClientTab("cases");
-                              }
+                              setSelectedClientId(client.id);
+                              setClientViewTab("all");
                             }}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-[10px] border transition-colors cursor-pointer shrink-0 shadow-2xs ${
-                              isExpanded && activeClientTab === "cases"
-                                ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-700"
-                                : "bg-neutral-100 hover:bg-emerald-50 dark:bg-neutral-800 dark:hover:bg-emerald-950/40 text-neutral-700 hover:text-emerald-700 dark:text-neutral-300 dark:hover:text-emerald-400 border-neutral-200 hover:border-emerald-300 dark:border-neutral-700 dark:hover:border-emerald-600/50"
-                            }`}
-                            title={`Open cases grid for ${client.name}`}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
                           >
-                            <Briefcase className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
-                            <span>{clientCases.length} {clientCases.length === 1 ? "Case" : "Cases"}</span>
+                            <span>Open</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
                           </button>
-                        </td>
 
-                        {/* Document Vault & Actions (Opens Vault in Grid) */}
-                        <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1.5 shrink-0">
-                            {/* Edit Client Details */}
-                            <button
-                              type="button"
-                              onClick={() => setEditingClient(client)}
-                              title="Edit client details"
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white text-xs font-semibold transition-colors cursor-pointer shrink-0"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Edit</span>
-                            </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingClient(client)}
+                            title="Edit client details"
+                            className="p-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 transition cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
 
-                            {/* Open Document Vault in Grid */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isExpanded && activeClientTab === "vault") {
-                                  setExpandedClientId(null);
-                                } else {
-                                  setExpandedClientId(client.id);
-                                  setActiveClientTab("vault");
-                                }
-                              }}
-                              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer shrink-0 ${
-                                isExpanded && activeClientTab === "vault"
-                                  ? "bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-500"
-                                  : "bg-neutral-900 text-white hover:bg-neutral-800 dark:bg-emerald-600 dark:hover:bg-emerald-500"
-                              }`}
-                              title={`Open document vault grid for ${client.name}`}
-                            >
-                              <FolderOpen className="w-3.5 h-3.5 text-emerald-400 dark:text-white" />
-                              <span>Vault ({clientDocs.length})</span>
-                            </button>
-
-                            {/* WhatsApp Link */}
-                            <a
-                              href={`https://wa.me/${cleanPhone}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="Open WhatsApp chat with client"
-                              className="inline-flex items-center justify-center p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800/60 text-xs font-semibold transition-colors shrink-0"
-                            >
-                              <MessageSquareShare className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
-                        </td>
-                      </tr>
-
-                      {/* Expandable Client Group Grid: Cases & Document Vault */}
-                      {isExpanded && (
-                        <tr className="bg-neutral-50/70 dark:bg-neutral-950/40 border-b border-neutral-200/80 dark:border-neutral-800">
-                          <td colSpan={4} className="p-3 sm:p-5">
-                            <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-4 sm:p-5 shadow-xs space-y-4 max-w-full overflow-hidden">
-                              {/* Header & Segmented Grid Switcher */}
-                              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-neutral-100 dark:border-neutral-800 pb-3.5">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-center font-bold text-sm shrink-0">
-                                    <Users className="w-4 h-4" />
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">{client.name} — Client Group Grid</h3>
-                                      <span className="font-mono text-[10px] text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200/60 dark:border-neutral-700 shrink-0">
-                                        {client.client_ref_id || client.id}
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                                      {client.company ? `${client.company} • ` : ""}{client.phone} {client.email ? `• ${client.email}` : ""}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center gap-2 self-start md:self-auto flex-wrap shrink-0">
-                                  {/* Grid View Selector */}
-                                  <div className="inline-flex items-center p-1 bg-neutral-100 dark:bg-neutral-800 rounded-xl text-xs font-semibold">
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveClientTab("all")}
-                                      className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                                        activeClientTab === "all"
-                                          ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs"
-                                          : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
-                                      }`}
-                                    >
-                                      Side-by-Side
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveClientTab("cases")}
-                                      className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                                        activeClientTab === "cases"
-                                          ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs"
-                                          : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
-                                      }`}
-                                    >
-                                      Cases ({clientCases.length})
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveClientTab("vault")}
-                                      className={`px-3 py-1 rounded-lg transition-colors cursor-pointer ${
-                                        activeClientTab === "vault"
-                                          ? "bg-white dark:bg-neutral-700 text-neutral-900 dark:text-white shadow-2xs"
-                                          : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200"
-                                      }`}
-                                    >
-                                      Vault ({clientDocs.length})
-                                    </button>
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setNewCaseClientId(client.id);
-                                      setIsNewCaseOpen(true);
-                                    }}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
-                                  >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    <span>New Case</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => setExpandedClientId(null)}
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                                    title="Close client grid"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              {/* Main Grid: Cases & Document Vault */}
-                              <div className={activeClientTab === "all" ? "grid grid-cols-1 lg:grid-cols-2 gap-4 items-start" : "w-full"}>
-                                {/* CASES SECTION */}
-                                {(activeClientTab === "all" || activeClientTab === "cases") && (
-                                  <div className="space-y-3 bg-neutral-50/60 dark:bg-neutral-800/30 p-3.5 sm:p-4 rounded-xl border border-neutral-200/70 dark:border-neutral-800">
-                                    <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 dark:border-neutral-700/60">
-                                      <div className="flex items-center gap-2">
-                                        <Briefcase className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                        <h4 className="text-xs font-bold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
-                                          Client Cases ({clientCases.length})
-                                        </h4>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setNewCaseClientId(client.id);
-                                          setIsNewCaseOpen(true);
-                                        }}
-                                        className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-                                      >
-                                        <Plus className="w-3 h-3" />
-                                        <span>Add Case</span>
-                                      </button>
-                                    </div>
-
-                                    {clientCases.length === 0 ? (
-                                      <div className="text-center py-8 space-y-2 bg-white dark:bg-neutral-800/60 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
-                                        <Briefcase className="w-6 h-6 text-neutral-400 mx-auto" />
-                                        <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">No cases found in this client group</p>
-                                        <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Create a case to start collecting client documents.</p>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setNewCaseClientId(client.id);
-                                            setIsNewCaseOpen(true);
-                                          }}
-                                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-neutral-900 dark:bg-emerald-600 text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer mt-1"
-                                        >
-                                          <Plus className="w-3.5 h-3.5" />
-                                          <span>Create Case</span>
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className={activeClientTab === "cases" ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3" : "grid grid-cols-1 gap-3"}>
-                                        {clientCases.map((c) => {
-                                          const caseDocs = getCaseDocuments(c);
-                                          const badge = getCaseStatusBadge(c.status);
-                                          const totalReqs = c.requirements?.length || 0;
-                                          const approvedCount = c.requirements?.filter((r) => r.status === "approved").length || 0;
-                                          const underReviewCount = c.requirements?.filter((r) => r.status === "under_review" || r.status === "uploaded").length || 0;
-                                          const percentage = totalReqs > 0 ? Math.round((approvedCount / totalReqs) * 100) : 0;
-                                          const token = c.upload_link?.token_hash || `token-${c.id.slice(0, 8)}`;
-                                          const uploadUrl = typeof window !== "undefined" ? `${window.location.origin}/upload/${token}` : "";
-                                          const waText = encodeURIComponent(
-                                            `Hello ${client.name}, please upload your documents for ${c.title} (${c.reference_number}) using this secure portal link:\n${uploadUrl}\n\nThank you!`
-                                          );
-
-                                          return (
-                                            <div
-                                              key={c.id}
-                                              className="bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 p-3.5 shadow-2xs space-y-2.5 transition-colors flex flex-col justify-between"
-                                            >
-                                              <div>
-                                                <div className="flex items-center justify-between gap-2">
-                                                  <span className="font-mono text-[10px] font-bold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-200/60 dark:border-neutral-700 shrink-0">
-                                                    {c.reference_number}
-                                                  </span>
-                                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${badge.className}`}>
-                                                    {badge.label}
-                                                  </span>
-                                                </div>
-
-                                                <Link
-                                                  href={`/dashboard/cases/${c.id}`}
-                                                  className="text-xs font-bold text-neutral-900 dark:text-neutral-100 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors mt-1.5 block truncate hover:underline"
-                                                  title={c.title}
-                                                >
-                                                  {c.title}
-                                                </Link>
-                                                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                                                  {c.service_type} • <strong className="text-neutral-700 dark:text-neutral-300">{caseDocs.length}</strong> doc{caseDocs.length !== 1 ? "s" : ""}
-                                                </p>
-                                              </div>
-
-                                              {/* Progress bar */}
-                                              <div className="space-y-1 bg-neutral-50 dark:bg-neutral-800/50 p-2 rounded-lg border border-neutral-100 dark:border-neutral-800">
-                                                <div className="flex items-center justify-between text-[10px]">
-                                                  <span className="font-medium text-neutral-600 dark:text-neutral-400">
-                                                    {approvedCount}/{totalReqs} approved
-                                                  </span>
-                                                  <span className="font-bold text-neutral-800 dark:text-neutral-200">{percentage}%</span>
-                                                </div>
-                                                <div className="w-full bg-neutral-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden flex">
-                                                  <div className="bg-emerald-500 h-full transition-all" style={{ width: `${totalReqs > 0 ? (approvedCount / totalReqs) * 100 : 0}%` }} />
-                                                  <div className="bg-amber-500 h-full transition-all" style={{ width: `${totalReqs > 0 ? (underReviewCount / totalReqs) * 100 : 0}%` }} />
-                                                </div>
-                                              </div>
-
-                                              {/* Case Actions */}
-                                              <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-neutral-100 dark:border-neutral-800 text-xs">
-                                                <div className="flex items-center gap-1">
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                      navigator.clipboard.writeText(uploadUrl);
-                                                      setCopiedCaseId(c.id);
-                                                      toast({ title: "Upload Link Copied!", description: `Direct link for ${c.title} copied.` });
-                                                      setTimeout(() => setCopiedCaseId(null), 2000);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 text-[11px] font-medium transition-colors cursor-pointer"
-                                                    title="Copy upload link"
-                                                  >
-                                                    {copiedCaseId === c.id ? (
-                                                      <>
-                                                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">Copied</span>
-                                                      </>
-                                                    ) : (
-                                                      <>
-                                                        <Copy className="w-3 h-3 text-neutral-400" />
-                                                        <span className="text-[10px]">Link</span>
-                                                      </>
-                                                    )}
-                                                  </button>
-
-                                                  <a
-                                                    href={`https://wa.me/${cleanPhone}?text=${waText}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[11px] font-medium transition-colors"
-                                                    title="Share link on WhatsApp"
-                                                  >
-                                                    <MessageSquareShare className="w-3 h-3" />
-                                                    <span className="text-[10px]">WhatsApp</span>
-                                                  </a>
-                                                </div>
-
-                                                <Link
-                                                  href={`/dashboard/cases/${c.id}`}
-                                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 text-white rounded-md text-[11px] font-semibold transition-colors shrink-0"
-                                                >
-                                                  <span>Open</span>
-                                                  <ChevronRight className="w-3 h-3" />
-                                                </Link>
-                                              </div>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* DOCUMENT VAULT SECTION */}
-                                {(activeClientTab === "all" || activeClientTab === "vault") && (
-                                  <div className="space-y-3 bg-neutral-50/60 dark:bg-neutral-800/30 p-3.5 sm:p-4 rounded-xl border border-neutral-200/70 dark:border-neutral-800">
-                                    <div className="flex items-center justify-between pb-1.5 border-b border-neutral-200/60 dark:border-neutral-700/60">
-                                      <div className="flex items-center gap-2">
-                                        <FolderOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                        <h4 className="text-xs font-bold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
-                                          Document Vault ({clientDocs.length} Files)
-                                        </h4>
-                                      </div>
-                                      <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">
-                                        Encrypted Cloud Vault
-                                      </span>
-                                    </div>
-
-                                    {clientDocs.length === 0 ? (
-                                      <div className="text-center py-8 space-y-2 bg-white dark:bg-neutral-800/60 rounded-xl border border-dashed border-neutral-200 dark:border-neutral-700">
-                                        <FolderOpen className="w-6 h-6 text-neutral-400 mx-auto" />
-                                        <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">No documents in vault yet</p>
-                                        <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                                          Files uploaded by this client will appear in this organized grid.
-                                        </p>
-                                      </div>
-                                    ) : (
-                                      <div className={activeClientTab === "vault" ? "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5" : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2.5"}>
-                                        {clientDocs.map(({ doc, caseTitle, caseId, reqName }) => (
-                                          <div
-                                            key={doc.id}
-                                            className="p-3 bg-white dark:bg-neutral-900 rounded-xl border border-neutral-200/80 dark:border-neutral-700/80 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-600 transition-colors flex flex-col justify-between gap-2.5"
-                                          >
-                                            <div className="flex items-start gap-2.5 min-w-0">
-                                              <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 flex items-center justify-center shrink-0 mt-0.5">
-                                                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                              </div>
-                                              <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate" title={doc.file_name}>
-                                                  {doc.file_name}
-                                                </p>
-                                                <p className="text-[10px] text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                                                  {caseTitle} • {reqName}
-                                                </p>
-                                                <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">
-                                                  {formatBytes(doc.file_size)}
-                                                </p>
-                                              </div>
-                                            </div>
-
-                                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800 text-xs">
-                                              <div>
-                                                {doc.status === "approved" && (
-                                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/70 dark:border-emerald-800">
-                                                    <CheckCircle className="w-2.5 h-2.5" /> Approved
-                                                  </span>
-                                                )}
-                                                {doc.status === "under_review" && (
-                                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-200/70 dark:border-amber-800">
-                                                    <Clock className="w-2.5 h-2.5" /> In Review
-                                                  </span>
-                                                )}
-                                                {doc.status === "rejected" && (
-                                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 rounded-full border border-rose-200/70 dark:border-rose-800">
-                                                    <AlertCircle className="w-2.5 h-2.5" /> Rejected
-                                                  </span>
-                                                )}
-                                              </div>
-
-                                              <div className="flex items-center gap-1 shrink-0">
-                                                <button
-                                                  type="button"
-                                                  onClick={() => setPreviewDoc({ doc, reqName, caseId })}
-                                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-neutral-800 hover:bg-neutral-900 dark:hover:bg-neutral-700 hover:text-white dark:hover:text-white text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
-                                                  title="Direct View"
-                                                >
-                                                  <Eye className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                                  <span>View</span>
-                                                </button>
-
-                                                <a
-                                                  href={`/api/download?file=${encodeURIComponent(doc.storage_path || "")}&name=${encodeURIComponent(doc.file_name)}&id=${doc.id}`}
-                                                  download={doc.file_name}
-                                                  className="inline-flex items-center gap-1 px-2 py-1 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 rounded-lg text-[11px] font-semibold transition-colors"
-                                                  title="Download File"
-                                                >
-                                                  <Download className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
-                                                </a>
-                                              </div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
+                          <a
+                            href={`https://wa.me/${cleanPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open WhatsApp chat"
+                            className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60 transition"
+                          >
+                            <MessageSquareShare className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -730,7 +1116,7 @@ export default function ClientsPage() {
           </table>
         </div>
 
-        {/* Clients Pagination */}
+        {/* Pagination */}
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
@@ -742,21 +1128,6 @@ export default function ClientsPage() {
           itemLabel="clients"
         />
       </div>
-
-
-
-      {/* Document Preview Pop-up Window Modal */}
-      {previewDoc && (
-        <DocumentPreviewModal
-          document={previewDoc.doc}
-          requirementName={previewDoc.reqName}
-          requirementId={previewDoc.doc.requirement_id}
-          caseId={previewDoc.caseId}
-          isOpen={true}
-          onClose={() => setPreviewDoc(null)}
-          onStatusUpdated={() => refresh()}
-        />
-      )}
 
       {/* New Client Modal */}
       <NewClientModal
@@ -775,22 +1146,6 @@ export default function ClientsPage() {
           onSuccess={() => refresh()}
         />
       )}
-
-      {/* New Case Modal */}
-      <NewCaseModal
-        clients={clients}
-        isOpen={isNewCaseOpen}
-        initialClientId={newCaseClientId}
-        onClose={() => {
-          setIsNewCaseOpen(false);
-          setNewCaseClientId(undefined);
-        }}
-        onSuccess={() => {
-          setIsNewCaseOpen(false);
-          setNewCaseClientId(undefined);
-          refresh();
-        }}
-      />
     </div>
   );
 }

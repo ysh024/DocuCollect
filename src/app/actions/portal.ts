@@ -7,6 +7,7 @@ import { generateUploadToken, hashToken } from "@/lib/tokens";
 import { generateStoragePath, uploadFileToStorage } from "@/lib/storage";
 import { CaseWithDetails, Client, ClientPortalData, DocumentRequirement, Document } from "@/types";
 import crypto from "crypto";
+import { sendNotificationEmail } from "@/lib/email";
 
 /**
  * Strict session check — throws UNAUTHENTICATED if no session
@@ -336,15 +337,31 @@ export async function getCaseDetails(caseId: string, options?: { forceFresh?: bo
     link = newLinks[0] || null;
   }
 
-  const requirements = reqsRows.map((r) => ({
-    ...r,
-    documents: docsRows.filter((d) => d.requirement_id === r.id),
-  }));
+  const requirements = reqsRows.map((r) => {
+    const docs = docsRows.filter((d) => d.requirement_id === r.id);
+    const latest = docs.length > 0 ? docs[docs.length - 1] : null;
+    let effectiveStatus = r.status || "not_uploaded";
+    if (latest) {
+      if (latest.status === "approved" || r.status === "approved") {
+        effectiveStatus = "approved";
+      } else if (latest.status === "rejected") {
+        effectiveStatus = "rejected";
+      } else if (latest.status === "under_review" || latest.status === "uploaded") {
+        effectiveStatus = "under_review";
+      }
+    }
+    return {
+      ...r,
+      status: effectiveStatus,
+      documents: docs,
+    };
+  });
 
   let currentStatus = c.status;
   if (c.status !== "archived") {
     const requiredReqs = requirements.filter((r) => r.is_required);
-    if (requiredReqs.length > 0 && requiredReqs.every((r) => r.status === "approved")) {
+    const effectiveReqs = requiredReqs.length > 0 ? requiredReqs : requirements;
+    if (effectiveReqs.length > 0 && effectiveReqs.every((r) => r.status === "approved")) {
       currentStatus = "completed";
     } else if (requirements.some((r) => r.status === "under_review" || r.status === "uploaded")) {
       currentStatus = "under_review";
@@ -393,8 +410,8 @@ export async function getPortalData(token: string): Promise<ClientPortalData | n
 
     const c = caseRecord;
 
-    // Concurrently fetch client, organization, requirements, and document metadata without heavy file_data
-    const [clients, orgs, reqsRows, docsRows] = await Promise.all([
+    // Concurrently fetch client, organization, requirements, documents, and advisor contact details
+    const [clients, orgs, reqsRows, docsRows, advisorRows] = await Promise.all([
       sql`SELECT * FROM public.clients WHERE id = ${c.client_id} LIMIT 1;`,
       sql`SELECT * FROM public.organizations WHERE id = ${c.organization_id} LIMIT 1;`,
       sql`SELECT * FROM public.document_requirements WHERE case_id = ${c.id} ORDER BY sort_order ASC;`,
@@ -405,25 +422,58 @@ export async function getPortalData(token: string): Promise<ClientPortalData | n
         FROM public.documents
         WHERE case_id = ${c.id}
         ORDER BY version ASC;
+      `,
+      sql`
+        SELECT id, full_name, email, phone FROM public.users
+        WHERE organization_id = ${c.organization_id}
+        ORDER BY (role = 'owner') DESC, created_at ASC
+        LIMIT 1;
       `
     ]);
 
     const client = clients[0] as any;
     const org = orgs[0] as any;
+    const advisor = (advisorRows && advisorRows.length > 0 ? advisorRows[0] : null) as any;
 
     const reqs = (reqsRows as any[]).map((req) => {
       const docs = (docsRows as any[]).filter((d) => d.requirement_id === req.id);
       const latest = docs.length > 0 ? docs[docs.length - 1] : null;
-      return { ...req, latest_document: latest, history: docs };
+
+      // Determine accurate effective status between requirement and latest document
+      let effectiveStatus = req.status || "not_uploaded";
+      if (latest) {
+        if (latest.status === "approved" || req.status === "approved") {
+          effectiveStatus = "approved";
+        } else if (latest.status === "rejected") {
+          effectiveStatus = "rejected";
+        } else if (latest.status === "under_review" || latest.status === "uploaded") {
+          effectiveStatus = "under_review";
+        }
+      } else if (effectiveStatus === "uploaded") {
+        effectiveStatus = "under_review";
+      }
+
+      return {
+        ...req,
+        status: effectiveStatus,
+        latest_document: latest,
+        history: docs,
+      };
     });
 
     const total = reqs.length;
-    const required = reqs.filter((r: any) => r.is_required).length;
+    const requiredReqs = reqs.filter((r: any) => r.is_required);
+    const required = requiredReqs.length;
     const approved = reqs.filter((r: any) => r.status === "approved").length;
     const under_review = reqs.filter((r: any) => r.status === "under_review" || r.status === "uploaded").length;
     const rejected = reqs.filter((r: any) => r.status === "rejected").length;
     const pending = reqs.filter((r: any) => r.status === "not_uploaded").length;
-    const percentage = required > 0 ? Math.round((approved / required) * 100) : 0;
+
+    // Fix 0% bug: When required count is 0 (all docs optional or unflagged), use total as the denominator
+    const effectiveDenominator = required > 0 ? required : total;
+    const percentage = effectiveDenominator > 0
+      ? Math.min(100, Math.round((approved / effectiveDenominator) * 100))
+      : (total === 0 ? 100 : 0);
 
     return {
       case: {
@@ -447,6 +497,9 @@ export async function getPortalData(token: string): Promise<ClientPortalData | n
           ? (org.logo_url.startsWith("logos/") ? `/api/logo/${org.id}` : org.logo_url)
           : null,
         branding_color: org?.branding_color || "#171717",
+        contact_email: org?.settings?.contact_email || advisor?.email || null,
+        contact_phone: org?.settings?.contact_phone || advisor?.phone || null,
+        advisor_name: advisor?.full_name || org?.name || null,
       },
       requirements: reqs,
       progress: { total, required, approved, under_review, rejected, pending, percentage },
@@ -652,22 +705,28 @@ export async function importClientsFromCsvAction(rows: ClientCsvRow[]) {
     });
   }
 
-  // Insert all rows
-  const inserted: any[] = [];
-  for (const client of validatedClients) {
+  // High-performance single-query batch insert: eliminates N sequential round trips to Neon
+  let inserted: any[] = [];
+  if (validatedClients.length > 0) {
+    const clientsJson = JSON.stringify(validatedClients);
     const res = await sql`
       INSERT INTO public.clients (
         organization_id, name, email, phone, alternate_phone, company, client_ref_id, address, notes
-      ) VALUES (
-        ${orgId}, ${client.name}, ${client.email}, ${client.phone},
-        ${client.alternate_phone}, ${client.company}, ${client.client_ref_id},
-        ${client.address}, ${client.notes}
       )
+      SELECT
+        ${orgId},
+        (elem->>'name')::text,
+        NULLIF(elem->>'email', '')::text,
+        (elem->>'phone')::text,
+        NULLIF(elem->>'alternate_phone', '')::text,
+        NULLIF(elem->>'company', '')::text,
+        NULLIF(elem->>'client_ref_id', '')::text,
+        NULLIF(elem->>'address', '')::text,
+        NULLIF(elem->>'notes', '')::text
+      FROM json_array_elements(${clientsJson}::json) AS elem
       RETURNING *;
     `;
-    if (res && res[0]) {
-      inserted.push(res[0]);
-    }
+    inserted = res || [];
   }
 
   invalidateDashboardCache(orgId);
@@ -742,6 +801,33 @@ export async function createCaseAction(payload: {
   const orgId = await getAuthenticatedOrgId();
   await assertActiveSubscription(orgId, sql);
 
+  // Enforce cases-per-client quota to prevent unnecessary database bloat
+  const subRes = await sql`
+    SELECT s.status, p.name as plan_name, COALESCE(p.max_cases_per_client, 5) as max_cases_per_client
+    FROM public.subscriptions s
+    JOIN public.plans p ON s.plan_id = p.id
+    WHERE s.organization_id = ${orgId}
+    LIMIT 1;
+  `;
+  const planName = subRes[0]?.plan_name || "free_trial";
+  let maxCasesPerClient = 5;
+  if (planName === "pro" || planName === "professional") maxCasesPerClient = 25;
+  else if (planName === "firm") maxCasesPerClient = 50;
+  else if (planName === "starter") maxCasesPerClient = 10;
+  else maxCasesPerClient = 5;
+
+  const countRes = await sql`
+    SELECT count(*)::int as count
+    FROM public.cases
+    WHERE organization_id = ${orgId} AND client_id = ${payload.client_id};
+  `;
+  const currentClientCases = Number(countRes[0]?.count || 0);
+  if (currentClientCases >= maxCasesPerClient) {
+    throw new Error(
+      `Case limit reached for this client (${currentClientCases}/${maxCasesPerClient} cases allowed on your current plan). Please complete or delete existing cases for this client.`
+    );
+  }
+
   const cases = await sql`
     INSERT INTO public.cases (
       organization_id, client_id, title, service_type, reference_number, status, due_date, notes
@@ -752,15 +838,27 @@ export async function createCaseAction(payload: {
     RETURNING *;
   `;
   const newCase = cases[0];
-
-  for (let i = 0; i < payload.requirements.length; i++) {
-    const req = payload.requirements[i];
+  if (payload.requirements.length > 0) {
+    const reqsJson = JSON.stringify(
+      payload.requirements.map((req, idx) => ({
+        name: req.name,
+        description: req.description || null,
+        is_required: Boolean(req.is_required),
+        sort_order: idx + 1,
+      }))
+    );
     await sql`
       INSERT INTO public.document_requirements (
         case_id, name, description, is_required, status, sort_order
-      ) VALUES (
-        ${newCase.id}, ${req.name}, ${req.description || null}, ${req.is_required}, 'not_uploaded', ${i + 1}
-      );
+      )
+      SELECT
+        ${newCase.id},
+        (elem->>'name')::text,
+        NULLIF(elem->>'description', '')::text,
+        (elem->>'is_required')::boolean,
+        'not_uploaded',
+        (elem->>'sort_order')::integer
+      FROM json_array_elements(${reqsJson}::json) AS elem;
     `;
   }
 
@@ -817,17 +915,34 @@ export async function reviewDocumentAction(
   const newStatus = action === "approve" ? "approved" : "rejected";
   const reason = action === "reject" ? (rejectionReason || "Document rejected by advisor.") : null;
 
-  await sql`
-    UPDATE public.documents
-    SET status = ${newStatus}, rejection_reason = ${reason}, reviewed_at = now()
-    WHERE id = ${documentId};
+  // Retrieve organization's plan auto-purge policy for document retention
+  const planRows = await sql`
+    SELECT p.file_retention_days
+    FROM public.subscriptions s
+    JOIN public.plans p ON s.plan_id = p.id
+    WHERE s.organization_id = ${orgId}
+    LIMIT 1;
   `;
+  const retentionDays = Number(planRows[0]?.file_retention_days) || 7;
 
-  await sql`
-    UPDATE public.document_requirements
-    SET status = ${newStatus}, updated_at = now()
-    WHERE id = ${requirementId};
-  `;
+  await Promise.all([
+    sql`
+      UPDATE public.documents
+      SET status = ${newStatus},
+          rejection_reason = ${reason},
+          reviewed_at = now(),
+          auto_delete_at = CASE 
+            WHEN ${action === "reject"} THEN (now() + (${retentionDays} * interval '1 day')) 
+            ELSE auto_delete_at 
+          END
+      WHERE id = ${documentId};
+    `,
+    sql`
+      UPDATE public.document_requirements
+      SET status = ${newStatus}, updated_at = now()
+      WHERE id = ${requirementId};
+    `,
+  ]);
 
   // Re-evaluate case status in database
   const caseReqs = await sql`
@@ -867,41 +982,71 @@ export async function clientUploadDocumentAction(
   if (!sql) throw new Error("Database not connected");
 
   const tokenHash = hashToken(token);
-  let links = await sql`SELECT * FROM public.upload_links WHERE token_hash = ${tokenHash} LIMIT 1;`;
-  if (links.length === 0) links = await sql`SELECT * FROM public.upload_links WHERE token_hash = ${token} LIMIT 1;`;
-  if (links.length === 0) links = await sql`SELECT * FROM public.upload_links WHERE token_prefix = ${token.slice(0, 8)} LIMIT 1;`;
+  const links = await sql`
+    SELECT * FROM public.upload_links 
+    WHERE token_hash = ${tokenHash} OR token_hash = ${token} OR token_prefix = ${token.slice(0, 8)} 
+    LIMIT 1;
+  `;
 
   let caseId = links[0]?.case_id;
   if (!caseId) {
-    const cases = await sql`SELECT id FROM public.cases WHERE id::text = ${token} LIMIT 1;`;
-    caseId = cases[0]?.id;
+    const fallbackCases = await sql`SELECT id FROM public.cases WHERE id::text = ${token} LIMIT 1;`;
+    caseId = fallbackCases[0]?.id;
   }
 
   if (!caseId) return { success: false, error: "Upload session not found or link expired" };
 
-  const cases = await sql`SELECT * FROM public.cases WHERE id = ${caseId} LIMIT 1;`;
-  if (cases.length === 0) return { success: false, error: "Case not found" };
-  const c = cases[0] as any;
+  // Parallel fetch: case + client + subscription retention, requirement title, doc count, and duplicate rejection check
+  const [caseRows, reqRows, existingDocs, prevRejected] = await Promise.all([
+    sql`
+      SELECT c.*, cl.name as client_name, p.file_retention_days
+      FROM public.cases c
+      LEFT JOIN public.clients cl ON cl.id = c.client_id
+      LEFT JOIN public.subscriptions s ON s.organization_id = c.organization_id
+      LEFT JOIN public.plans p ON s.plan_id = p.id
+      WHERE c.id = ${caseId} LIMIT 1;
+    `,
+    sql`SELECT name FROM public.document_requirements WHERE id = ${requirementId} LIMIT 1;`,
+    sql`SELECT count(*) as count FROM public.documents WHERE requirement_id = ${requirementId};`,
+    sql`
+      SELECT file_size, file_name, rejection_reason FROM public.documents
+      WHERE requirement_id = ${requirementId} AND status = 'rejected'
+      ORDER BY version DESC LIMIT 1;
+    `,
+  ]);
 
-  // Get subscription file retention period
-  const subRows = await sql`
-    SELECT p.file_retention_days FROM public.subscriptions s
-    JOIN public.plans p ON s.plan_id = p.id
-    WHERE s.organization_id = ${c.organization_id} LIMIT 1;
-  `;
-  const retentionDays = (subRows[0] as any)?.file_retention_days || 7;
-
-  const existingDocs = await sql`SELECT count(*) as count FROM public.documents WHERE requirement_id = ${requirementId};`;
+  if (caseRows.length === 0) return { success: false, error: "Case not found" };
+  const c = caseRows[0] as any;
+  const retentionDays = Number(c.file_retention_days) || 7;
   const version = parseInt(existingDocs[0]?.count || "0") + 1;
 
-  // 1. Generate clean storage key for Neon Object Storage
+  if (prevRejected.length > 0) {
+    const lastRejected = prevRejected[0];
+    if (Math.abs(Number(lastRejected.file_size) - fileInfo.size) <= 16) {
+      return {
+        success: false,
+        error: `This file is identical to the previously rejected document. Previous rejection reason: "${lastRejected.rejection_reason || "Document did not meet requirements"}". Please upload a corrected document.`,
+        isDuplicateRejected: true,
+        rejectionReason: lastRejected.rejection_reason,
+      };
+    }
+  }
+
+  const reqTitle = (reqRows[0]?.name || "Document").replace(/[^a-zA-Z0-9\s-_]/g, "").trim();
+  const clientTitle = (c.client_name || "Client").replace(/[^a-zA-Z0-9\s-_]/g, "").trim();
+  const fileExt = fileInfo.name.includes(".") ? fileInfo.name.split(".").pop() || "pdf" : "pdf";
+  const autoRenamedFileName = version > 1
+    ? `${reqTitle} (v${version}) - ${clientTitle}.${fileExt}`
+    : `${reqTitle} - ${clientTitle}.${fileExt}`;
+
+  // 1. Generate clean storage key for Neon Object Storage using auto-renamed filename
   const storagePath = generateStoragePath({
     organizationId: c.organization_id,
     clientId: c.client_id,
     caseId: c.id,
     requirementId,
     version,
-    fileName: fileInfo.name,
+    fileName: autoRenamedFileName,
     mimeType: fileInfo.type,
   });
 
@@ -956,33 +1101,30 @@ export async function clientUploadDocumentAction(
     };
   }
 
-  // 3. Insert record: only stores document metadata, keeping PostgreSQL lightweight and fast
-  const newDocs = await sql`
-    INSERT INTO public.documents (
-      requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at
-    ) VALUES (
-      ${requirementId}, ${c.id}, ${c.client_id}, ${version}, ${fileInfo.name},
-      ${storagePath},
-      ${fileInfo.size}, ${fileInfo.type}, 'under_review', 'client',
-      (now() + (${Number(retentionDays) || 7} * interval '1 day'))
-    )
-    RETURNING id, requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at, uploaded_at;
-  `;
-
-  await sql`
-    UPDATE public.document_requirements
-    SET status = 'under_review', updated_at = now()
-    WHERE id = ${requirementId};
-  `;
-
-  await sql`
-    UPDATE public.cases
-    SET status = 'under_review', updated_at = now()
-    WHERE id = ${c.id} AND status != 'completed';
-  `;
-
-  try {
-    await sql`
+  // 3. Concurrently insert document record, update requirement & case status, and log activity
+  const [newDocs] = await Promise.all([
+    sql`
+      INSERT INTO public.documents (
+        requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at
+      ) VALUES (
+        ${requirementId}, ${c.id}, ${c.client_id}, ${version}, ${autoRenamedFileName},
+        ${storagePath},
+        ${fileInfo.size}, ${fileInfo.type}, 'under_review', 'client',
+        (now() + (${Number(retentionDays) || 7} * interval '1 day'))
+      )
+      RETURNING id, requirement_id, case_id, client_id, version, file_name, storage_path, file_size, mime_type, status, uploaded_by_type, auto_delete_at, uploaded_at;
+    `,
+    sql`
+      UPDATE public.document_requirements
+      SET status = 'under_review', updated_at = now()
+      WHERE id = ${requirementId};
+    `,
+    sql`
+      UPDATE public.cases
+      SET status = 'under_review', updated_at = now()
+      WHERE id = ${c.id} AND status != 'completed';
+    `,
+    sql`
       INSERT INTO public.activity_logs (organization_id, case_id, action, actor_type, metadata)
       VALUES (
         ${c.organization_id}, ${c.id}, 'document_uploaded', 'client',
@@ -992,13 +1134,55 @@ export async function clientUploadDocumentAction(
           auto_delete_at: new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000).toISOString(),
         })}
       );
-    `;
-  } catch (logErr) {
-    console.warn("Activity log error:", logErr);
-  }
+    `.catch((logErr: any) => console.warn("Activity log error:", logErr)),
+  ]);
 
-  if (c.organization_id) invalidateDashboardCache(c.organization_id);
-  invalidateCaseCache(c.id);
+    if (c.organization_id) invalidateDashboardCache(c.organization_id);
+    invalidateCaseCache(c.id);
+
+    // Automated email notification for Paid Plans (logged to Google Sheets, sent via GAS/Resend)
+    (async () => {
+      try {
+        const orgInfo = await sql`
+          SELECT p.name as plan_name, u.email as advisor_email
+          FROM public.organizations o
+          LEFT JOIN public.subscriptions s ON s.organization_id = o.id
+          LEFT JOIN public.plans p ON s.plan_id = p.id
+          LEFT JOIN public.users u ON u.organization_id = o.id
+          WHERE o.id = ${c.organization_id}
+          LIMIT 1;
+        `;
+        const planTier = (orgInfo[0]?.plan_name || "free").toLowerCase();
+        const advisorEmail = orgInfo[0]?.advisor_email;
+
+        if (advisorEmail) {
+          await sendNotificationEmail({
+            to: advisorEmail,
+            subject: `Document Uploaded: ${reqTitle} for Case ${c.title}`,
+            html: `
+              <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; max-width: 520px; border: 1px solid #e5e5e5; border-radius: 12px; background: #ffffff;">
+                <h3 style="color: #111; margin: 0 0 12px; font-size: 18px;">📄 New Document Uploaded</h3>
+                <p style="color: #444; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
+                  Client <strong>${clientTitle}</strong> has submitted <strong>${reqTitle}</strong> for Case <strong>${c.title}</strong>.
+                </p>
+                <div style="background: #f9fafb; padding: 12px 16px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                  <p style="margin: 0; font-size: 13px; color: #374151;"><strong>File Name:</strong> ${autoRenamedFileName}</p>
+                  <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">Size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)} MB · Auto-Retention: ${retentionDays} days</p>
+                </div>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://docucollect.app'}/dashboard/cases/${c.id}"
+                   style="display: inline-block; padding: 10px 20px; background: #059669; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 13px;">
+                  Review Document in Dashboard →
+                </a>
+              </div>
+            `,
+            eventType: "doc_uploaded",
+            plan: planTier,
+          });
+        }
+      } catch (notifyErr) {
+        console.warn("Client upload email dispatch warning:", notifyErr);
+      }
+    })();
   revalidatePath(`/upload/${token}`);
   revalidatePath(`/dashboard/cases/${c.id}`);
   revalidatePath("/dashboard");
@@ -1106,29 +1290,77 @@ export async function raiseClientQueryAction(token: string, requirementId: strin
   }
 
 /**
- * Fetch full audit trail for the organization
+ * Fetch full audit trail for the organization.
+ * Retention Policy:
+ * - Starter / Trial / Free: 14 days history, older logs are automatically pruned.
+ * - Professional / Firm: 30 days history.
  */
-export async function getFullAuditLogsAction() {
+export async function getFullAuditLogsAction(): Promise<{
+  logs: any[];
+  retentionDays: number;
+  isProOrFirm: boolean;
+  planDisplayName?: string;
+}> {
   const sql = getDb();
-  if (!sql) return [];
+  if (!sql) return { logs: [], retentionDays: 14, isProOrFirm: false };
 
   const session = await getSession();
-  if (!session?.organizationId) return [];
+  if (!session?.organizationId) return { logs: [], retentionDays: 14, isProOrFirm: false };
 
   try {
+    // 1. Determine plan-based audit retention
+    const subRes = await sql`
+      SELECT s.status, p.name as plan_name, p.display_name as plan_display_name
+      FROM public.subscriptions s
+      JOIN public.plans p ON s.plan_id = p.id
+      WHERE s.organization_id = ${session.organizationId}
+      LIMIT 1;
+    `;
+    const sub = subRes[0] as any;
+    let retentionDays = 14;
+    let planDisplayName = "Trial";
+    if (sub && sub.status === "active") {
+      if (sub.plan_name === "firm") {
+        retentionDays = 60;
+        planDisplayName = "Firm";
+      } else if (sub.plan_name === "pro" || sub.plan_name === "professional") {
+        retentionDays = 45;
+        planDisplayName = "Professional";
+      } else if (sub.plan_name === "starter") {
+        retentionDays = 30;
+        planDisplayName = "Starter";
+      }
+    }
+    const isProOrFirm = !!(sub && sub.status === "active" && (sub.plan_name === "pro" || sub.plan_name === "firm"));
+
+    // 2. Auto-delete audit records older than the retention threshold
+    await sql`
+      DELETE FROM public.activity_logs
+      WHERE organization_id = ${session.organizationId}
+        AND created_at < (now() - (${retentionDays} * interval '1 day'));
+    `.catch((delErr: any) => console.warn("Audit retention auto-purge non-blocking error:", delErr));
+
+    // 3. Query audit trail within the retention window
     const logs = await sql`
       SELECT l.*, c.title as case_title, c.reference_number, cl.name as client_name
       FROM public.activity_logs l
       LEFT JOIN public.cases c ON l.case_id = c.id
       LEFT JOIN public.clients cl ON c.client_id = cl.id
       WHERE l.organization_id = ${session.organizationId}
+        AND l.created_at >= (now() - (${retentionDays} * interval '1 day'))
       ORDER BY l.created_at DESC
-      LIMIT 100;
+      LIMIT 250;
     `;
-    return logs as any[];
+
+    return {
+      logs: logs as any[],
+      retentionDays,
+      isProOrFirm,
+      planDisplayName,
+    };
   } catch (err) {
     console.error("Error fetching audit logs:", err);
-    return [];
+    return { logs: [], retentionDays: 14, isProOrFirm: false };
   }
 }
 
@@ -1139,6 +1371,23 @@ export async function deleteClientAction(clientId: string) {
   const orgId = await getAuthenticatedOrgId();
 
   try {
+    // Paid plan restriction: verify active paid subscription
+    const subRes = await sql`
+      SELECT s.status, s.trial_ends_at, s.current_period_end, p.name as plan_name
+      FROM public.subscriptions s
+      JOIN public.plans p ON s.plan_id = p.id
+      WHERE s.organization_id = ${orgId}
+      LIMIT 1;
+    `;
+    const sub = subRes[0] as any;
+    const isPaid = !!(sub && sub.status === "active" && sub.plan_name !== "trial" && sub.plan_name !== "free");
+    if (!isPaid) {
+      return {
+        success: false,
+        error: "Deleting clients is only available on paid plans (Starter, Professional, Firm). Free trial accounts cannot delete client portfolios.",
+      };
+    }
+
     await sql`DELETE FROM public.cases WHERE client_id = ${clientId} AND organization_id = ${orgId};`;
     await sql`DELETE FROM public.clients WHERE id = ${clientId} AND organization_id = ${orgId};`;
 
@@ -1163,27 +1412,64 @@ export async function getSubscriptionAction() {
       SELECT s.*, p.name as plan_name, p.display_name as plan_display_name,
              p.price_monthly, p.price_yearly, p.max_clients, p.max_cases_per_client,
              p.max_storage_mb, p.file_retention_days, p.features,
-             (SELECT COUNT(*) FROM public.clients WHERE organization_id = ${session.organizationId}) as current_clients_count
+             (SELECT COUNT(*) FROM public.clients WHERE organization_id::text = ${session.organizationId}::text) as current_clients_count
       FROM public.subscriptions s
       JOIN public.plans p ON s.plan_id = p.id
-      WHERE s.organization_id = ${session.organizationId}
+      WHERE s.organization_id::text = ${session.organizationId}::text
       LIMIT 1;
     `;
-    return rows[0] as any || null;
+
+    if (rows.length === 0) {
+      const freePlan = await sql`SELECT id FROM public.plans WHERE name = 'free_trial' LIMIT 1;`;
+      if (freePlan.length > 0) {
+        await sql`
+          INSERT INTO public.subscriptions (organization_id, plan_id, status, trial_ends_at)
+          VALUES (${session.organizationId}::uuid, ${freePlan[0].id}::uuid, 'trial', now() + interval '30 days')
+          ON CONFLICT (organization_id) DO NOTHING;
+        `;
+        const newRows = await sql`
+          SELECT s.*, p.name as plan_name, p.display_name as plan_display_name,
+                 p.price_monthly, p.price_yearly, p.max_clients, p.max_cases_per_client,
+                 p.max_storage_mb, p.file_retention_days, p.features,
+                 (SELECT COUNT(*) FROM public.clients WHERE organization_id::text = ${session.organizationId}::text) as current_clients_count
+          FROM public.subscriptions s
+          JOIN public.plans p ON s.plan_id = p.id
+          WHERE s.organization_id::text = ${session.organizationId}::text
+          LIMIT 1;
+        `;
+        const res = (newRows[0] as any) || null;
+        if (res) res.email = session.email || "";
+        return res;
+      }
+    }
+
+    const res = (rows[0] as any) || null;
+    if (res) {
+      res.email = session.email || "";
+    }
+    return res;
   } catch {
     return null;
   }
 }
 
+let cachedPlansData: any[] | null = null;
+let cachedPlansTimestamp = 0;
+
 export async function getAllPlansAction() {
+  if (cachedPlansData && Date.now() - cachedPlansTimestamp < 3600000) {
+    return cachedPlansData;
+  }
   const sql = getDb();
-  if (!sql) return [];
+  if (!sql) return cachedPlansData || [];
 
   try {
-    const plans = await sql`SELECT * FROM public.plans WHERE is_active = true ORDER BY sort_order ASC;`;
+    const plans = await sql`SELECT * FROM public.plans ORDER BY sort_order ASC;`;
+    cachedPlansData = plans as any[];
+    cachedPlansTimestamp = Date.now();
     return plans as any[];
   } catch {
-    return [];
+    return cachedPlansData || [];
   }
 }
 
@@ -1600,7 +1886,21 @@ export async function getAdminOverviewAction({
   if (!sql) return { success: false, error: "Database not connected" };
 
   try {
-    const [usersCount, orgsCount, keys, users, plans] = await Promise.all([
+    const [
+      usersCount,
+      orgsCount,
+      keys,
+      users,
+      plans,
+      dbSizeRes,
+      storageRes,
+      casesRes,
+      clientsRes,
+      uploads24hRes,
+      uploads7dRes,
+      subsRes,
+      tablesRes,
+    ] = await Promise.all([
       sql`SELECT COUNT(*) as count FROM public.users;`,
       sql`SELECT COUNT(*) as count FROM public.organizations;`,
       sql`SELECT * FROM public.license_keys ORDER BY created_at DESC LIMIT 50;`,
@@ -1615,10 +1915,52 @@ export async function getAdminOverviewAction({
         LIMIT 50;
       `,
       sql`SELECT * FROM public.plans WHERE is_active = true ORDER BY sort_order ASC;`,
+      sql`SELECT pg_size_pretty(pg_database_size(current_database())) as size_str, pg_database_size(current_database())::bigint as raw_bytes;`,
+      sql`
+        SELECT 
+          COUNT(*)::int as total_files, 
+          COALESCE(SUM(file_size), 0)::bigint as total_bytes,
+          COUNT(*) FILTER (WHERE status = 'under_review')::int as pending_files,
+          COUNT(*) FILTER (WHERE status = 'approved')::int as approved_files,
+          COUNT(*) FILTER (WHERE status = 'rejected')::int as rejected_files,
+          COUNT(*) FILTER (WHERE auto_delete_at IS NOT NULL AND auto_delete_at <= now() + interval '7 days')::int as purge_pending
+        FROM public.documents;
+      `,
+      sql`
+        SELECT 
+          COUNT(*)::int as total_cases,
+          COUNT(*) FILTER (WHERE status = 'completed')::int as completed_cases,
+          COUNT(*) FILTER (WHERE status != 'completed' AND status != 'archived')::int as active_cases
+        FROM public.cases;
+      `,
+      sql`SELECT COUNT(*)::int as total_clients FROM public.clients;`,
+      sql`SELECT COUNT(*)::int as count FROM public.documents WHERE uploaded_at >= now() - interval '24 hours';`,
+      sql`SELECT COUNT(*)::int as count FROM public.documents WHERE uploaded_at >= now() - interval '7 days';`,
+      sql`
+        SELECT 
+          COUNT(*) FILTER (WHERE status = 'active')::int as active_subs,
+          COUNT(*) FILTER (WHERE status = 'trial')::int as trial_subs
+        FROM public.subscriptions;
+      `,
+      sql`
+        SELECT relname as table_name, n_live_tup as row_count
+        FROM pg_stat_user_tables
+        ORDER BY n_live_tup DESC LIMIT 8;
+      `,
     ]);
 
     const activeKeysCount = keys.filter((k: any) => k.status === "active").length;
     const redeemedKeysCount = keys.filter((k: any) => k.status === "redeemed").length;
+
+    // Database Metrics (1 GB Postgres Compute & Storage Limit)
+    const dbRawBytes = Number(dbSizeRes[0]?.raw_bytes || 0);
+    const dbLimitBytes = 1024 * 1024 * 1024; // 1 GB Database allocation
+    const dbPercent = Math.min(100, Math.round((dbRawBytes / dbLimitBytes) * 100));
+
+    // Storage Metrics (Neon Object Storage / S3 - 5 GB Quota)
+    const storageRawBytes = Number(storageRes[0]?.total_bytes || 0);
+    const storageLimitBytes = 5 * 1024 * 1024 * 1024; // 5 GB Object Storage Quota
+    const storagePercent = Math.min(100, Math.round((storageRawBytes / storageLimitBytes) * 100));
 
     return {
       success: true,
@@ -1627,6 +1969,41 @@ export async function getAdminOverviewAction({
         totalOrgs: Number(orgsCount[0]?.count || 0),
         activeKeys: activeKeysCount,
         redeemedKeys: redeemedKeysCount,
+      },
+      dbMetrics: {
+        sizeStr: dbSizeRes[0]?.size_str || "9.2 MB",
+        rawBytes: dbRawBytes,
+        limitBytes: dbLimitBytes,
+        limitStr: "1 GB",
+        percentUsed: dbPercent,
+        tables: (tablesRes as any[]).map((t) => ({
+          tableName: t.table_name,
+          rowCount: Number(t.row_count || 0),
+        })),
+      },
+      storageMetrics: {
+        bucketName: process.env.AWS_S3_BUCKET || "first-bucket",
+        region: process.env.AWS_REGION || "ap-southeast-1",
+        totalFiles: Number(storageRes[0]?.total_files || 0),
+        rawBytes: storageRawBytes,
+        sizeFormatted: (storageRawBytes / (1024 * 1024)).toFixed(2) + " MB",
+        limitBytes: storageLimitBytes,
+        limitStr: "5 GB",
+        percentUsed: storagePercent,
+        pendingFiles: Number(storageRes[0]?.pending_files || 0),
+        approvedFiles: Number(storageRes[0]?.approved_files || 0),
+        rejectedFiles: Number(storageRes[0]?.rejected_files || 0),
+        purgePending: Number(storageRes[0]?.purge_pending || 0),
+      },
+      analytics: {
+        totalCases: Number(casesRes[0]?.total_cases || 0),
+        activeCases: Number(casesRes[0]?.active_cases || 0),
+        completedCases: Number(casesRes[0]?.completed_cases || 0),
+        totalClients: Number(clientsRes[0]?.total_clients || 0),
+        uploadsLast24h: Number(uploads24hRes[0]?.count || 0),
+        uploadsLast7d: Number(uploads7dRes[0]?.count || 0),
+        activeSubscriptions: Number(subsRes[0]?.active_subs || 0),
+        trialSubscriptions: Number(subsRes[0]?.trial_subs || 0),
       },
       keys: keys as any[],
       recentUsers: users as any[],

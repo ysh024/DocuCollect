@@ -40,6 +40,9 @@ export interface ClientPortalData {
     name: string;
     logo_url: string | null;
     branding_color: string;
+    contact_email?: string | null;
+    contact_phone?: string | null;
+    advisor_name?: string | null;
   };
   requirements: (DocumentRequirement & {
     latest_document?: Document | null;
