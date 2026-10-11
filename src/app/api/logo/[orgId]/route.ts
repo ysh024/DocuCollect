@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getS3Client, getStorageBucket, isS3Configured } from "@/lib/storage";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { isS3Configured, getFileBufferFromStorage } from "@/lib/storage";
 
 import { getCachedLogo, setCachedLogo } from "@/lib/logo-cache";
 
@@ -64,7 +63,6 @@ export async function GET(
     // 2. If stored as S3 Storage Path
     if (isS3Configured() && (logoUrl.startsWith("logos/") || logoUrl.startsWith("org-"))) {
       try {
-        const { getFileBufferFromStorage } = await import("@/lib/storage");
         const buffer = await getFileBufferFromStorage(logoUrl);
         if (buffer && buffer.length > 0) {
           const mimeType = logoUrl.endsWith(".png")

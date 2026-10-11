@@ -1,10 +1,7 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { AwsClient } from "aws4fetch";
+import { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } from "./crypto";
+
+export { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer };
 
 export interface StorageUploadOptions {
   organizationId: string;
@@ -17,13 +14,7 @@ export interface StorageUploadOptions {
   mimeType: string;
 }
 
-import https from "https";
-import { NodeHttpHandler } from "@smithy/node-http-handler";
-import { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } from "./crypto";
-
-export { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer };
-
-let cachedS3Client: S3Client | null = null;
+let cachedAwsClient: AwsClient | null = null;
 
 export function isS3Configured(): boolean {
   return Boolean(
@@ -37,40 +28,23 @@ export function getStorageBucket(): string {
   return process.env.AWS_S3_BUCKET || "first-bucket";
 }
 
-export function getS3Client(): S3Client {
-  if (!cachedS3Client) {
-    const config: any = {
-      endpoint: process.env.AWS_ENDPOINT_URL_S3,
+export function getAwsClient(): AwsClient {
+  if (!cachedAwsClient) {
+    cachedAwsClient = new AwsClient({
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       region: process.env.AWS_REGION || "ap-southeast-1",
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
-      },
-      forcePathStyle: true,
-    };
-
-    // Use connection-pooling NodeHttpHandler in Node.js, fallback to SDK default for Cloudflare Worker / Edge
-    try {
-      if (
-        typeof process !== "undefined" &&
-        process.release?.name === "node" &&
-        !process.env.NEXT_RUNTIME?.includes("edge")
-      ) {
-        config.requestHandler = new NodeHttpHandler({
-          httpsAgent: new https.Agent({
-            keepAlive: true,
-            maxSockets: 50,
-            keepAliveMsecs: 60000,
-          }),
-        });
-      }
-    } catch {
-      // Allow AWS SDK v3 to use its native FetchHttpHandler in Cloudflare Workers / Edge
-    }
-
-    cachedS3Client = new S3Client(config);
+      service: "s3",
+    });
   }
-  return cachedS3Client;
+  return cachedAwsClient;
+}
+
+export function getS3ObjectUrl(storagePath: string): string {
+  const endpoint = (process.env.AWS_ENDPOINT_URL_S3 || "").replace(/\/+$/, "");
+  const bucket = getStorageBucket();
+  const cleanKey = storagePath.startsWith("/") ? storagePath.slice(1) : storagePath;
+  return `${endpoint}/${bucket}/${cleanKey}`;
 }
 
 export function generateStoragePath(opts: StorageUploadOptions): string {
@@ -84,8 +58,8 @@ export function generateStoragePath(opts: StorageUploadOptions): string {
 
 /**
  * Uploads file buffer directly to Neon Object Storage (S3-compatible).
- * By default, encrypts files with AES-256-GCM Zero-Knowledge encryption
- * before writing to cloud storage, ensuring even Neon and AWS cannot view files.
+ * Uses fetch-native aws4fetch (zero Node.js fs dependencies, fully compatible with Cloudflare Workers).
+ * By default, encrypts files with AES-256-GCM Zero-Knowledge encryption before writing to cloud storage.
  */
 export async function uploadFileToStorage({
   storagePath,
@@ -99,20 +73,24 @@ export async function uploadFileToStorage({
   encrypt?: boolean;
 }): Promise<{ success: boolean; storagePath: string; error?: string }> {
   try {
-    const s3 = getS3Client();
-    const bucket = getStorageBucket();
+    const aws = getAwsClient();
+    const url = getS3ObjectUrl(storagePath);
 
     // Zero-Knowledge Encryption: Encrypt in-memory before sending to cloud bucket
     const bodyToSend = encrypt ? encryptFileBuffer(fileBuffer) : fileBuffer;
 
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: storagePath,
-        Body: bodyToSend,
-        ContentType: encrypt ? "application/octet-stream" : (mimeType || "application/octet-stream"),
-      })
-    );
+    const res = await aws.fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": encrypt ? "application/octet-stream" : (mimeType || "application/octet-stream"),
+      },
+      body: bodyToSend as unknown as BodyInit,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      return { success: false, storagePath, error: `S3 upload failed (${res.status}): ${errText}` };
+    }
 
     return { success: true, storagePath };
   } catch (err: any) {
@@ -138,18 +116,19 @@ export async function getSignedStorageDownloadUrl(
   }
 
   try {
-    const s3 = getS3Client();
-    const bucket = getStorageBucket();
+    const aws = getAwsClient();
+    const url = getS3ObjectUrl(storagePath);
+    const queryUrl = `${url}?X-Amz-Expires=${expiresInSeconds}&response-content-disposition=${encodeURIComponent(
+      `${disposition}; filename="${safeFileName}"`
+    )}`;
 
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: storagePath,
-      ResponseContentDisposition: `${disposition}; filename="${safeFileName}"`,
+    const signedReq = await aws.sign(new Request(queryUrl, { method: "GET" }), {
+      aws: { signQuery: true },
     });
 
-    return await getSignedUrl(s3, command, { expiresIn: expiresInSeconds });
+    return signedReq.url;
   } catch (err) {
-    console.warn("Error creating signed URL from storage, falling back to stream endpoint:", err);
+    console.warn("Signed URL generation fallback error:", err);
     return `/api/download?path=${encodeURIComponent(storagePath)}&name=${encodeURIComponent(safeFileName)}${asAttachment ? "&download=1" : "&inline=1"}`;
   }
 }
@@ -160,16 +139,10 @@ export async function getSignedStorageDownloadUrl(
 export async function deleteFileFromStorage(storagePath: string): Promise<boolean> {
   if (!isS3Configured()) return false;
   try {
-    const s3 = getS3Client();
-    const bucket = getStorageBucket();
-
-    await s3.send(
-      new DeleteObjectCommand({
-        Bucket: bucket,
-        Key: storagePath,
-      })
-    );
-    return true;
+    const aws = getAwsClient();
+    const url = getS3ObjectUrl(storagePath);
+    const res = await aws.fetch(url, { method: "DELETE" });
+    return res.ok;
   } catch (err) {
     console.error("Failed to delete object from storage:", err);
     return false;
@@ -177,64 +150,22 @@ export async function deleteFileFromStorage(storagePath: string): Promise<boolea
 }
 
 /**
- * Fetches file stream and metadata directly from Neon Object Storage
- */
-export async function getFileStreamFromStorage(storagePath: string) {
-  if (!isS3Configured()) return null;
-  try {
-    const s3 = getS3Client();
-    const bucket = getStorageBucket();
-    const res = await s3.send(
-      new GetObjectCommand({
-        Bucket: bucket,
-        Key: storagePath,
-      })
-    );
-    return res;
-  } catch (err) {
-    console.warn("Failed to get file stream from storage:", err);
-    return null;
-  }
-}
-
-/**
- * Safely converts AWS SDK stream/body to Buffer across Node.js, Web Streams, and Cloudflare Workers
- */
-async function readBodyToBuffer(body: any): Promise<Buffer> {
-  if (typeof body?.transformToByteArray === "function") {
-    const bytes = await body.transformToByteArray();
-    return Buffer.from(bytes);
-  }
-  if (typeof body?.arrayBuffer === "function") {
-    const ab = await body.arrayBuffer();
-    return Buffer.from(ab);
-  }
-  if (typeof body?.getReader === "function") {
-    const reader = body.getReader();
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
-    }
-    return Buffer.concat(chunks.map((c: Uint8Array) => Buffer.from(c)));
-  }
-  const chunks: Buffer[] = [];
-  for await (const chunk of body) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks);
-}
-
-/**
  * Fetches complete file buffer from storage and decrypts in-memory on the fly.
  * Handles both AES-256-GCM Zero-Knowledge encrypted files and legacy files transparently.
  */
 export async function getFileBufferFromStorage(storagePath: string): Promise<Buffer | null> {
-  const streamRes = await getFileStreamFromStorage(storagePath);
-  if (!streamRes || !streamRes.Body) return null;
+  if (!isS3Configured()) return null;
   try {
-    const rawBuffer = await readBodyToBuffer(streamRes.Body);
+    const aws = getAwsClient();
+    const url = getS3ObjectUrl(storagePath);
+    const res = await aws.fetch(url, { method: "GET" });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      console.warn(`S3 fetch returned status ${res.status} for ${storagePath}`);
+      return null;
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    const rawBuffer = Buffer.from(arrayBuffer);
     return decryptFileBuffer(rawBuffer);
   } catch (err: any) {
     console.warn(`Failed to read/decrypt stream to buffer for "${storagePath}":`, err?.message || err);
@@ -242,3 +173,26 @@ export async function getFileBufferFromStorage(storagePath: string): Promise<Buf
   }
 }
 
+/**
+ * Legacy compatibility stubs
+ */
+export function getS3Client(): any {
+  return getAwsClient();
+}
+
+export async function getFileStreamFromStorage(storagePath: string) {
+  if (!isS3Configured()) return null;
+  try {
+    const aws = getAwsClient();
+    const url = getS3ObjectUrl(storagePath);
+    const res = await aws.fetch(url, { method: "GET" });
+    if (!res.ok) return null;
+    return {
+      Body: res.body,
+      ContentType: res.headers.get("content-type"),
+      ContentLength: Number(res.headers.get("content-length") || 0),
+    };
+  } catch {
+    return null;
+  }
+}
