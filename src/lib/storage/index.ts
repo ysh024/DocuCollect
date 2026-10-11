@@ -39,7 +39,7 @@ export function getStorageBucket(): string {
 
 export function getS3Client(): S3Client {
   if (!cachedS3Client) {
-    cachedS3Client = new S3Client({
+    const config: any = {
       endpoint: process.env.AWS_ENDPOINT_URL_S3,
       region: process.env.AWS_REGION || "ap-southeast-1",
       credentials: {
@@ -47,14 +47,28 @@ export function getS3Client(): S3Client {
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
       },
       forcePathStyle: true,
-      requestHandler: new NodeHttpHandler({
-        httpsAgent: new https.Agent({
-          keepAlive: true,
-          maxSockets: 50,
-          keepAliveMsecs: 60000,
-        }),
-      }),
-    });
+    };
+
+    // Use connection-pooling NodeHttpHandler in Node.js, fallback to SDK default for Cloudflare Worker / Edge
+    try {
+      if (
+        typeof process !== "undefined" &&
+        process.release?.name === "node" &&
+        !process.env.NEXT_RUNTIME?.includes("edge")
+      ) {
+        config.requestHandler = new NodeHttpHandler({
+          httpsAgent: new https.Agent({
+            keepAlive: true,
+            maxSockets: 50,
+            keepAliveMsecs: 60000,
+          }),
+        });
+      }
+    } catch {
+      // Allow AWS SDK v3 to use its native FetchHttpHandler in Cloudflare Workers / Edge
+    }
+
+    cachedS3Client = new S3Client(config);
   }
   return cachedS3Client;
 }
