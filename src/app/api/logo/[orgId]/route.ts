@@ -64,27 +64,22 @@ export async function GET(
     // 2. If stored as S3 Storage Path
     if (isS3Configured() && (logoUrl.startsWith("logos/") || logoUrl.startsWith("org-"))) {
       try {
-        const s3 = getS3Client();
-        const bucket = getStorageBucket();
-        const obj = await s3.send(
-          new GetObjectCommand({
-            Bucket: bucket,
-            Key: logoUrl,
-          })
-        );
-
-        if (obj.Body) {
-          const stream = obj.Body as any;
-          const chunks: Buffer[] = [];
-          for await (const chunk of stream) {
-            chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
-          }
-          const buffer = Buffer.concat(chunks);
-          return new NextResponse(buffer, {
+        const { getFileBufferFromStorage } = await import("@/lib/storage");
+        const buffer = await getFileBufferFromStorage(logoUrl);
+        if (buffer && buffer.length > 0) {
+          const mimeType = logoUrl.endsWith(".png")
+            ? "image/png"
+            : logoUrl.endsWith(".jpg") || logoUrl.endsWith(".jpeg")
+            ? "image/jpeg"
+            : "image/webp";
+          return new Response(buffer as unknown as BodyInit, {
+            status: 200,
             headers: {
-              "Content-Type": obj.ContentType || "image/webp",
+              "Content-Type": mimeType,
               "Content-Length": buffer.length.toString(),
-              "Cache-Control": versionParam ? "public, max-age=31536000, immutable" : "public, max-age=60, stale-while-revalidate=300",
+              "Cache-Control": versionParam
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=60, stale-while-revalidate=300",
             },
           });
         }

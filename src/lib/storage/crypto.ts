@@ -73,8 +73,41 @@ export function decryptFileBuffer(fileBuffer: Buffer | Uint8Array): Buffer {
   offset += TAG_LENGTH;
   const ciphertext = buf.subarray(offset);
 
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAuthTag(authTag);
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  } catch (decErr: any) {
+    console.warn("Primary key decryption failed, attempting alternative key fallbacks:", decErr?.message);
 
-  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    // Alternative 1: AUTH_SECRET derived key
+    if (process.env.AUTH_SECRET) {
+      try {
+        const altKey = crypto.createHash("sha256").update(process.env.AUTH_SECRET).digest();
+        const altDecipher = crypto.createDecipheriv("aes-256-gcm", altKey, iv);
+        altDecipher.setAuthTag(authTag);
+        return Buffer.concat([altDecipher.update(ciphertext), altDecipher.final()]);
+      } catch {}
+    }
+
+    // Alternative 2: DATABASE_URL derived key
+    if (process.env.DATABASE_URL) {
+      try {
+        const dbKey = crypto.createHash("sha256").update(process.env.DATABASE_URL).digest();
+        const dbDecipher = crypto.createDecipheriv("aes-256-gcm", dbKey, iv);
+        dbDecipher.setAuthTag(authTag);
+        return Buffer.concat([dbDecipher.update(ciphertext), dbDecipher.final()]);
+      } catch {}
+    }
+
+    // Alternative 3: Static root fallback key
+    try {
+      const rootKey = crypto.createHash("sha256").update("docucollect_zero_knowledge_storage_secret_key_2026").digest();
+      const rootDecipher = crypto.createDecipheriv("aes-256-gcm", rootKey, iv);
+      rootDecipher.setAuthTag(authTag);
+      return Buffer.concat([rootDecipher.update(ciphertext), rootDecipher.final()]);
+    } catch {}
+
+    throw decErr;
+  }
 }

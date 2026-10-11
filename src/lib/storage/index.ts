@@ -198,6 +198,35 @@ export async function getFileStreamFromStorage(storagePath: string) {
 }
 
 /**
+ * Safely converts AWS SDK stream/body to Buffer across Node.js, Web Streams, and Cloudflare Workers
+ */
+async function readBodyToBuffer(body: any): Promise<Buffer> {
+  if (typeof body?.transformToByteArray === "function") {
+    const bytes = await body.transformToByteArray();
+    return Buffer.from(bytes);
+  }
+  if (typeof body?.arrayBuffer === "function") {
+    const ab = await body.arrayBuffer();
+    return Buffer.from(ab);
+  }
+  if (typeof body?.getReader === "function") {
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    return Buffer.concat(chunks.map((c: Uint8Array) => Buffer.from(c)));
+  }
+  const chunks: Buffer[] = [];
+  for await (const chunk of body) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
  * Fetches complete file buffer from storage and decrypts in-memory on the fly.
  * Handles both AES-256-GCM Zero-Knowledge encrypted files and legacy files transparently.
  */
@@ -205,11 +234,10 @@ export async function getFileBufferFromStorage(storagePath: string): Promise<Buf
   const streamRes = await getFileStreamFromStorage(storagePath);
   if (!streamRes || !streamRes.Body) return null;
   try {
-    const bytes = await streamRes.Body.transformToByteArray();
-    const rawBuffer = Buffer.from(bytes);
+    const rawBuffer = await readBodyToBuffer(streamRes.Body);
     return decryptFileBuffer(rawBuffer);
-  } catch (err) {
-    console.warn("Failed to read/decrypt stream to buffer:", err);
+  } catch (err: any) {
+    console.warn(`Failed to read/decrypt stream to buffer for "${storagePath}":`, err?.message || err);
     return null;
   }
 }

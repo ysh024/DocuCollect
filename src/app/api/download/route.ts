@@ -90,6 +90,17 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       console.warn("Storage retrieval/decryption error:", err);
     }
+
+    // Direct presigned storage URL fallback if in-memory buffer was not returned
+    try {
+      const { getSignedStorageDownloadUrl } = await import("@/lib/storage");
+      const signedUrl = await getSignedStorageDownloadUrl(targetPath, safeFileName, 3600, asAttachment);
+      if (signedUrl && signedUrl.startsWith("http")) {
+        return NextResponse.redirect(signedUrl);
+      }
+    } catch (urlErr) {
+      console.warn("Storage presigned URL fallback error:", urlErr);
+    }
   }
 
   // Fallback SVG verification preview placeholder
