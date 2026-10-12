@@ -4,7 +4,7 @@ import { getDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateUploadToken, hashToken } from "@/lib/tokens";
-import { generateStoragePath, uploadFileToStorage } from "@/lib/storage";
+import { generateStoragePath, uploadFileToStorage, deleteFileFromStorage } from "@/lib/storage";
 import { CaseWithDetails, Client, ClientPortalData, DocumentRequirement, Document } from "@/types";
 import crypto from "crypto";
 import { sendNotificationEmail } from "@/lib/email";
@@ -1240,6 +1240,259 @@ export async function clientUploadDocumentAction(
   invalidatePortalCache(c.id);
 
   return uploadResponse;
+}
+
+/**
+ * Re-evaluates and updates case status after document additions or deletions
+ */
+async function updateCaseStatusAfterDocChange(caseId: string, sql: any) {
+  const reqs = await sql`
+    SELECT status, is_required FROM public.document_requirements WHERE case_id = ${caseId};
+  `;
+  const total = reqs.length;
+  const required = reqs.filter((r: any) => r.is_required);
+  const allRequiredApproved = required.length > 0 && required.every((r: any) => r.status === "approved");
+  const allApproved = total > 0 && reqs.every((r: any) => r.status === "approved");
+
+  let newStatus = "waiting_for_client";
+  if (allRequiredApproved || (total > 0 && allApproved)) {
+    newStatus = "completed";
+  } else if (reqs.some((r: any) => r.status === "under_review" || r.status === "uploaded")) {
+    newStatus = "under_review";
+  }
+
+  await sql`
+    UPDATE public.cases
+    SET status = ${newStatus}, updated_at = now()
+    WHERE id = ${caseId} AND status != 'archived';
+  `;
+  return newStatus;
+}
+
+/**
+ * Client-side single document deletion (with token ownership validation)
+ */
+export async function clientDeleteDocumentAction(token: string, documentId: string) {
+  const sql = getDb();
+  if (!sql) throw new Error("Database not connected");
+
+  const tokenHash = hashToken(token);
+  let links = await sql`
+    SELECT * FROM public.upload_links 
+    WHERE token_hash = ${tokenHash} OR token_hash = ${token} OR token_prefix = ${token.slice(0, 8)} 
+    LIMIT 1;
+  `;
+
+  let caseRecord: any = null;
+  if (links.length > 0) {
+    const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
+    if (cases.length > 0) caseRecord = cases[0];
+  } else {
+    const cases = await sql`SELECT * FROM public.cases WHERE id::text = ${token} OR reference_number = ${token} LIMIT 1;`;
+    if (cases.length > 0) caseRecord = cases[0];
+  }
+
+  if (!caseRecord) {
+    return { success: false, error: "Upload link has expired or is invalid." };
+  }
+
+  const c = caseRecord;
+
+  // Retrieve document to delete, ensuring it belongs to this case
+  const docRows = await sql`
+    SELECT * FROM public.documents WHERE id::text = ${documentId} AND case_id = ${c.id} LIMIT 1;
+  `;
+  if (docRows.length === 0) {
+    return { success: false, error: "Document not found or does not belong to this case." };
+  }
+  const doc = docRows[0];
+
+  // 1. Delete physical file from object storage
+  if (doc.storage_path) {
+    try {
+      await deleteFileFromStorage(doc.storage_path);
+    } catch (storageErr) {
+      console.warn("Could not delete file from object storage:", storageErr);
+    }
+  }
+
+  // 2. Remove document record from database
+  await sql`DELETE FROM public.documents WHERE id = ${doc.id};`;
+
+  // 3. Update requirement status based on any remaining documents
+  const remainingDocs = await sql`
+    SELECT status FROM public.documents 
+    WHERE requirement_id = ${doc.requirement_id} 
+    ORDER BY version DESC LIMIT 1;
+  `;
+  const newReqStatus = remainingDocs.length > 0 ? remainingDocs[0].status : "not_uploaded";
+  await sql`
+    UPDATE public.document_requirements
+    SET status = ${newReqStatus}, updated_at = now()
+    WHERE id = ${doc.requirement_id};
+  `;
+
+  // 4. Update overall case status
+  await updateCaseStatusAfterDocChange(c.id, sql);
+
+  // 5. Invalidate caches and revalidate paths
+  invalidateDashboardCache(c.organization_id);
+  invalidateCaseCache(c.id);
+  invalidatePortalCache(token);
+  invalidatePortalCache(c.id);
+
+  revalidatePath(`/upload/${token}`);
+  revalidatePath(`/dashboard/cases/${c.id}`);
+  revalidatePath("/dashboard");
+
+  return { success: true, message: `"${doc.file_name}" was deleted successfully.` };
+}
+
+/**
+ * Advisor-side single document deletion (with org ownership check)
+ */
+export async function advisorDeleteDocumentAction(caseId: string, documentId: string) {
+  const sql = getDb();
+  if (!sql) throw new Error("Database not connected");
+
+  const orgId = await getAuthenticatedOrgId();
+
+  // Validate case belongs to organization
+  const cases = await sql`
+    SELECT * FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;
+  `;
+  if (cases.length === 0) {
+    return { success: false, error: "Case not found or unauthorized access." };
+  }
+
+  // Find document
+  const docRows = await sql`
+    SELECT * FROM public.documents WHERE id::text = ${documentId} AND case_id = ${caseId} LIMIT 1;
+  `;
+  if (docRows.length === 0) {
+    return { success: false, error: "Document not found." };
+  }
+  const doc = docRows[0];
+
+  // Delete from storage
+  if (doc.storage_path) {
+    try {
+      await deleteFileFromStorage(doc.storage_path);
+    } catch (err) {
+      console.warn("Storage deletion warning:", err);
+    }
+  }
+
+  // Delete from database
+  await sql`DELETE FROM public.documents WHERE id = ${doc.id};`;
+
+  // Update requirement status
+  const remainingDocs = await sql`
+    SELECT status FROM public.documents 
+    WHERE requirement_id = ${doc.requirement_id} 
+    ORDER BY version DESC LIMIT 1;
+  `;
+  const newReqStatus = remainingDocs.length > 0 ? remainingDocs[0].status : "not_uploaded";
+  await sql`
+    UPDATE public.document_requirements
+    SET status = ${newReqStatus}, updated_at = now()
+    WHERE id = ${doc.requirement_id};
+  `;
+
+  // Update case status
+  await updateCaseStatusAfterDocChange(caseId, sql);
+
+  // Invalidate caches and revalidate
+  invalidateDashboardCache(orgId);
+  invalidateCaseCache(caseId);
+  invalidatePortalCache(caseId);
+
+  revalidatePath(`/dashboard/cases/${caseId}`);
+  revalidatePath("/dashboard");
+
+  return { success: true, message: `"${doc.file_name}" was deleted successfully.` };
+}
+
+/**
+ * Advisor-side bulk document deletion (with org ownership check)
+ */
+export async function advisorBulkDeleteDocumentsAction(caseId: string, documentIds: string[]) {
+  if (!documentIds || documentIds.length === 0) {
+    return { success: false, error: "No documents selected for deletion." };
+  }
+
+  const sql = getDb();
+  if (!sql) throw new Error("Database not connected");
+
+  const orgId = await getAuthenticatedOrgId();
+
+  const cases = await sql`
+    SELECT * FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;
+  `;
+  if (cases.length === 0) {
+    return { success: false, error: "Case not found or unauthorized access." };
+  }
+
+  // Fetch all documents matching the IDs
+  const docs = await sql`
+    SELECT id, requirement_id, file_name, storage_path 
+    FROM public.documents 
+    WHERE id::text = ANY(${documentIds}) AND case_id = ${caseId};
+  `;
+
+  if (docs.length === 0) {
+    return { success: false, error: "No matching documents found to delete." };
+  }
+
+  // 1. Delete physical files from storage in parallel
+  await Promise.all(
+    docs.map(async (d: any) => {
+      if (d.storage_path) {
+        try {
+          await deleteFileFromStorage(d.storage_path);
+        } catch (e) {
+          console.warn("Bulk storage delete warning for", d.storage_path, e);
+        }
+      }
+    })
+  );
+
+  // 2. Delete database records
+  const validIds = docs.map((d: any) => d.id);
+  await sql`DELETE FROM public.documents WHERE id = ANY(${validIds}) AND case_id = ${caseId};`;
+
+  // 3. Update requirement status for all affected requirements
+  const affectedReqIds = Array.from(new Set(docs.map((d: any) => d.requirement_id)));
+  for (const reqId of affectedReqIds) {
+    const rem = await sql`
+      SELECT status FROM public.documents 
+      WHERE requirement_id = ${reqId} 
+      ORDER BY version DESC LIMIT 1;
+    `;
+    const newReqStatus = rem.length > 0 ? rem[0].status : "not_uploaded";
+    await sql`
+      UPDATE public.document_requirements
+      SET status = ${newReqStatus}, updated_at = now()
+      WHERE id = ${reqId};
+    `;
+  }
+
+  // 4. Update case status
+  await updateCaseStatusAfterDocChange(caseId, sql);
+
+  // 5. Invalidate caches
+  invalidateDashboardCache(orgId);
+  invalidateCaseCache(caseId);
+  invalidatePortalCache(caseId);
+
+  revalidatePath(`/dashboard/cases/${caseId}`);
+  revalidatePath("/dashboard");
+
+  return { 
+    success: true, 
+    count: docs.length, 
+    message: `Successfully deleted ${docs.length} document(s).` 
+  };
 }
 
 export async function raiseClientQueryAction(token: string, requirementId: string, message: string) {

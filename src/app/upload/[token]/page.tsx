@@ -17,13 +17,15 @@ import {
   WifiOff,
   Mail,
   Phone,
+  Trash2,
 } from "lucide-react";
-import { getPortalData } from "@/app/actions/portal";
+import { getPortalData, clientDeleteDocumentAction } from "@/app/actions/portal";
 import { ClientPortalData } from "@/types";
 import { formatBytes } from "@/lib/utils";
 import { InteractiveFileUpload } from "@/components/client-portal/InteractiveFileUpload";
 import { RequirementsPopover } from "@/components/ui/InfoPopover";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 
 export default function ClientUploadPortalPage() {
   const params = useParams();
@@ -35,6 +37,8 @@ export default function ClientUploadPortalPage() {
   const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isNetworkError, setIsNetworkError] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadPortal = async (showLoading = false) => {
     if (!token) return;
@@ -84,6 +88,25 @@ export default function ClientUploadPortalPage() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!documentToDelete || !token) return;
+    setIsDeleting(true);
+    try {
+      const res = await clientDeleteDocumentAction(token, documentToDelete.id);
+      if (res.success) {
+        setDocumentToDelete(null);
+        await loadPortal(true);
+      } else {
+        alert(res.error || "Failed to delete file.");
+      }
+    } catch (err: any) {
+      console.error("Delete error:", err);
+      alert(err.message || "Could not delete document.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -539,9 +562,22 @@ export default function ClientUploadPortalPage() {
                           </p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 shrink-0">
-                        Submitted
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 shrink-0">
+                          Submitted
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDocumentToDelete({ id: latestDoc.id, name: latestDoc.file_name });
+                          }}
+                          className="p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
+                          title="Delete this uploaded file"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -561,9 +597,24 @@ export default function ClientUploadPortalPage() {
                           </p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 shrink-0">
-                        Verified
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 shrink-0">
+                          Verified
+                        </span>
+                        {latestDoc && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDocumentToDelete({ id: latestDoc.id, name: latestDoc.file_name });
+                            }}
+                            className="p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
+                            title="Delete this document"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -654,6 +705,19 @@ export default function ClientUploadPortalPage() {
             <span>Encrypted with TLS 1.3 • Confidential Document Collection</span>
           </p>
         </div>
+
+        {/* Delete Confirmation Dialog for User (single file delete) */}
+        <DeleteConfirmationModal
+          isOpen={Boolean(documentToDelete)}
+          onClose={() => setDocumentToDelete(null)}
+          onConfirm={handleConfirmDelete}
+          title="Delete Uploaded Document?"
+          description="Are you sure you want to remove this document? This will permanently delete the file from storage and reset this checklist requirement so you can upload a new one."
+          fileName={documentToDelete?.name}
+          confirmLabel="Yes, Delete File"
+          cancelLabel="Keep File"
+          isLoading={isDeleting}
+        />
       </main>
     </div>
   );

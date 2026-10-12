@@ -21,9 +21,15 @@ import {
   AlertCircle,
   RefreshCw,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { InfoPopover } from "@/components/ui/InfoPopover";
-import { getCaseDetails, reviewDocumentAction } from "@/app/actions/portal";
+import {
+  getCaseDetails,
+  reviewDocumentAction,
+  advisorDeleteDocumentAction,
+  advisorBulkDeleteDocumentsAction,
+} from "@/app/actions/portal";
 import { CaseWithDetails, DocumentRequirement, Document } from "@/types";
 import { getCaseStatusBadge, getRequirementStatusBadge, formatDate, formatDateTime, formatBytes } from "@/lib/utils";
 import { ReviewModal } from "@/components/dashboard/ReviewModal";
@@ -33,6 +39,7 @@ import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderMo
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { downloadFileWithFeedback } from "@/lib/download-client";
+import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 
 // Module-level in-memory cache to stop repeated fetch/compilation thrashing and CPU spikes
 const caseDetailsClientCache = new Map<string, { data: CaseWithDetails; timestamp: number }>();
@@ -74,6 +81,9 @@ export default function CaseDetailPage() {
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [downloadingSelected, setDownloadingSelected] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [docToDelete, setDocToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Sync cache if available
   useEffect(() => {
@@ -325,6 +335,53 @@ export default function CaseDetailPage() {
       }
     } finally {
       setDownloadingSelected(false);
+    }
+  };
+
+  const handleConfirmSingleDelete = async () => {
+    if (!docToDelete || !caseData) return;
+    setIsDeleting(true);
+    try {
+      const res = await advisorDeleteDocumentAction(caseData.id, docToDelete.id);
+      if (res.success) {
+        toast({ title: "Document deleted", description: `${docToDelete.name} was permanently removed.` });
+        setDocToDelete(null);
+        caseDetailsClientCache.delete(caseData.id);
+        await loadCase(true);
+        if (refreshDashboard) refreshDashboard();
+      } else {
+        toast({ title: "Failed to delete", description: res.error || "Unable to delete file", type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Deletion error", description: err.message, type: "error" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    if (selectedDocIds.size === 0 || !caseData) return;
+    setIsDeleting(true);
+    try {
+      const ids = Array.from(selectedDocIds);
+      const res = await advisorBulkDeleteDocumentsAction(caseData.id, ids);
+      if (res.success) {
+        toast({
+          title: "Documents deleted",
+          description: `Successfully deleted ${res.count || ids.length} document(s).`,
+        });
+        setSelectedDocIds(new Set());
+        setIsBulkDeleteOpen(false);
+        caseDetailsClientCache.delete(caseData.id);
+        await loadCase(true);
+        if (refreshDashboard) refreshDashboard();
+      } else {
+        toast({ title: "Bulk deletion failed", description: res.error || "Unable to delete files", type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Bulk deletion error", description: err.message, type: "error" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -622,20 +679,33 @@ export default function CaseDetailPage() {
               </label>
 
               {selectedDocIds.size > 0 && (
-                <button
-                  type="button"
-                  disabled={downloadingSelected}
-                  onClick={handleDownloadSelected}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
-                  title="Download all selected documents"
-                >
-                  {downloadingSelected ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Download className="w-3 h-3" />
-                  )}
-                  <span>Download Selected ({selectedDocIds.size})</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={downloadingSelected || isDeleting}
+                    onClick={handleDownloadSelected}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                    title="Download all selected documents"
+                  >
+                    {downloadingSelected ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Download className="w-3 h-3" />
+                    )}
+                    <span>Download Selected ({selectedDocIds.size})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={downloadingSelected || isDeleting}
+                    onClick={() => setIsBulkDeleteOpen(true)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                    title="Permanently delete all selected documents"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Delete Selected ({selectedDocIds.size})</span>
+                  </button>
+                </div>
               )}
             </div>
           )}
@@ -753,8 +823,8 @@ export default function CaseDetailPage() {
                         </div>
                       </div>
 
-                      {/* Right side: STRICTLY Download button only! Stays pinned on the right for ALL documents */}
-                      <div className="flex items-center gap-2 shrink-0">
+                      {/* Right side: Download and Delete buttons */}
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           type="button"
                           disabled={downloadingDocIds.has(latestDoc.id)}
@@ -771,6 +841,19 @@ export default function CaseDetailPage() {
                             <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           )}
                           <span>{downloadingDocIds.has(latestDoc.id) ? "Downloading..." : "Download"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isDeleting}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDocToDelete({ id: latestDoc.id, name: latestDoc.file_name });
+                          }}
+                          className="p-1.5 bg-white dark:bg-neutral-900 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 border border-neutral-200/80 dark:border-neutral-700 hover:border-rose-300 dark:hover:border-rose-800 rounded-lg text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                          title="Delete this document"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
@@ -850,6 +933,32 @@ export default function CaseDetailPage() {
           onClose={() => setIsReminderOpen(false)}
         />
       )}
+
+      {/* Advisor Single Document Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={Boolean(docToDelete)}
+        onClose={() => setDocToDelete(null)}
+        onConfirm={handleConfirmSingleDelete}
+        title="Delete Document?"
+        description="Are you sure you want to delete this document? This will permanently delete the file from storage and reset the checklist requirement status to pending."
+        fileName={docToDelete?.name}
+        confirmLabel="Yes, Delete Document"
+        cancelLabel="Cancel"
+        isLoading={isDeleting}
+      />
+
+      {/* Advisor Bulk Document Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isBulkDeleteOpen}
+        onClose={() => setIsBulkDeleteOpen(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title={`Delete ${selectedDocIds.size} Selected Document(s)?`}
+        description="Are you sure you want to permanently delete all selected documents? The files will be removed from storage and their checklist requirements will be reset to pending. This action cannot be undone."
+        count={selectedDocIds.size}
+        confirmLabel={`Yes, Delete ${selectedDocIds.size} Document(s)`}
+        cancelLabel="Cancel"
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
