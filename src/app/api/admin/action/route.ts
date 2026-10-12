@@ -7,6 +7,13 @@ import {
   getAdminOverviewAction,
   getLicenseKeysAction,
   toggleUserDeactivationAction,
+  adminDeleteUserAction,
+  adminGetAllCasesAction,
+  adminDeleteCaseAction,
+  adminGetAllTemplatesAction,
+  adminSaveTemplateAction,
+  adminDeleteTemplateAction,
+  adminSendEmailWithFileAction,
   updatePaymentSettingsAction,
   getPublicPaymentSettingsAction,
 } from "@/app/actions/portal";
@@ -72,12 +79,64 @@ export async function POST(request: NextRequest) {
         });
         return NextResponse.json(res);
       }
+      case "delete_user": {
+        const res = await adminDeleteUserAction({
+          adminSecret,
+          adminEmail,
+          userId: payload.userId,
+        });
+        return NextResponse.json(res);
+      }
       case "overview": {
         const res = await getAdminOverviewAction({ adminSecret, adminEmail });
         return NextResponse.json(res);
       }
       case "keys": {
         const res = await getLicenseKeysAction({ adminSecret, adminEmail });
+        return NextResponse.json(res);
+      }
+      case "get_cases": {
+        const res = await adminGetAllCasesAction({ adminSecret, adminEmail });
+        return NextResponse.json(res);
+      }
+      case "delete_case": {
+        const res = await adminDeleteCaseAction({
+          adminSecret,
+          adminEmail,
+          caseId: payload.caseId,
+        });
+        return NextResponse.json(res);
+      }
+      case "get_templates": {
+        const res = await adminGetAllTemplatesAction({ adminSecret, adminEmail });
+        return NextResponse.json(res);
+      }
+      case "save_template": {
+        const res = await adminSaveTemplateAction({
+          adminSecret,
+          adminEmail,
+          template: payload.template,
+        });
+        return NextResponse.json(res);
+      }
+      case "delete_template": {
+        const res = await adminDeleteTemplateAction({
+          adminSecret,
+          adminEmail,
+          templateId: payload.templateId,
+        });
+        return NextResponse.json(res);
+      }
+      case "send_email": {
+        const res = await adminSendEmailWithFileAction({
+          adminSecret,
+          adminEmail,
+          to: payload.to,
+          subject: payload.subject,
+          message: payload.message,
+          fileUrl: payload.fileUrl,
+          fileName: payload.fileName,
+        });
         return NextResponse.json(res);
       }
       case "get_payment": {

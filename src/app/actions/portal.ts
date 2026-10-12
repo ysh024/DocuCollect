@@ -1172,33 +1172,35 @@ export async function clientUploadDocumentAction(
     if (c.organization_id) invalidateDashboardCache(c.organization_id);
     invalidateCaseCache(c.id);
 
-    // Automated email notification for Paid Plans (logged to Google Sheets, sent via GAS/Resend)
-    (async () => {
-      try {
-        const orgInfo = await sql`
-          SELECT p.name as plan_name, u.email as advisor_email
-          FROM public.organizations o
-          LEFT JOIN public.subscriptions s ON s.organization_id = o.id
-          LEFT JOIN public.plans p ON s.plan_id = p.id
-          LEFT JOIN public.users u ON u.organization_id = o.id
-          WHERE o.id = ${c.organization_id}
-          LIMIT 1;
-        `;
-        const planTier = (orgInfo[0]?.plan_name || "free").toLowerCase();
-        const advisorEmail = orgInfo[0]?.advisor_email;
+    // Automated email notification to Advisor (sent via Google Apps Script Webhook / Resend)
+    try {
+      const orgInfo = await sql`
+        SELECT p.name as plan_name, u.email as advisor_email
+        FROM public.organizations o
+        LEFT JOIN public.subscriptions s ON s.organization_id = o.id
+        LEFT JOIN public.plans p ON s.plan_id = p.id
+        LEFT JOIN public.users u ON u.organization_id = o.id
+        WHERE o.id = ${c.organization_id}
+        LIMIT 1;
+      `;
+      const planTier = (orgInfo[0]?.plan_name || "free").toLowerCase();
+      const advisorEmail = orgInfo[0]?.advisor_email;
 
-        if (advisorEmail) {
-          await sendNotificationEmail({
+      if (advisorEmail) {
+        // Use Promise.race with 4-second timeout to guarantee dispatch without stalling client
+        await Promise.race([
+          sendNotificationEmail({
             to: advisorEmail,
-            subject: `Document Uploaded: ${reqTitle} for Case ${c.title}`,
+            subject: `📄 [DocuCollect] ${clientTitle} uploaded "${autoRenamedFileName}" for ${c.title}`,
             html: `
-              <div style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; max-width: 520px; border: 1px solid #e5e5e5; border-radius: 12px; background: #ffffff;">
+              <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; max-width: 520px; border: 1px solid #e5e5e5; border-radius: 12px; background: #ffffff;">
                 <h3 style="color: #111; margin: 0 0 12px; font-size: 18px;">📄 New Document Uploaded</h3>
                 <p style="color: #444; font-size: 14px; line-height: 1.6; margin: 0 0 16px;">
-                  Client <strong>${clientTitle}</strong> has submitted <strong>${reqTitle}</strong> for Case <strong>${c.title}</strong>.
+                  Client <strong>${clientTitle}</strong> has uploaded a document for requirement <strong>${reqTitle}</strong> in Case <strong>${c.title}</strong>.
                 </p>
-                <div style="background: #f9fafb; padding: 12px 16px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
-                  <p style="margin: 0; font-size: 13px; color: #374151;"><strong>File Name:</strong> ${autoRenamedFileName}</p>
+                <div style="background: #f9fafb; padding: 14px 18px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px;">
+                  <p style="margin: 0; font-size: 13px; color: #111;"><strong>Document:</strong> ${autoRenamedFileName}</p>
+                  <p style="margin: 4px 0 0; font-size: 13px; color: #111;"><strong>Client:</strong> ${clientTitle}</p>
                   <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">Size: ${(fileInfo.size / (1024 * 1024)).toFixed(2)} MB · Auto-Retention: ${retentionDays} days</p>
                 </div>
                 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://docucollect.app'}/dashboard/cases/${c.id}"
@@ -1209,12 +1211,13 @@ export async function clientUploadDocumentAction(
             `,
             eventType: "doc_uploaded",
             plan: planTier,
-          });
-        }
-      } catch (notifyErr) {
-        console.warn("Client upload email dispatch warning:", notifyErr);
+          }),
+          new Promise((resolve) => setTimeout(resolve, 4000)),
+        ]);
       }
-    })();
+    } catch (notifyErr) {
+      console.warn("Client upload email dispatch warning:", notifyErr);
+    }
   revalidatePath(`/upload/${token}`);
   revalidatePath(`/dashboard/cases/${c.id}`);
   revalidatePath("/dashboard");
@@ -2483,6 +2486,393 @@ export async function toggleUserDeactivationAction({
     return { success: false, error: err.message || "Failed to update account status." };
   }
 }
+
+/**
+ * Delete a case (Advisor-side with org ownership check)
+ * Cascades removal of all S3 files, document rows, requirements, links, activity logs, and the case.
+ */
+export async function deleteCaseAction(caseId: string) {
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const orgId = await getAuthenticatedOrgId();
+
+    const cases = await sql`
+      SELECT id, title FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;
+    `;
+    if (cases.length === 0) {
+      return { success: false, error: "Case not found or unauthorized access." };
+    }
+
+    // 1. Fetch all documents for this case and delete physical files from S3
+    const docs = await sql`
+      SELECT id, storage_path FROM public.documents WHERE case_id = ${caseId};
+    `;
+    for (const doc of docs) {
+      if (doc.storage_path) {
+        try {
+          await deleteFileFromStorage(doc.storage_path);
+        } catch (e) {
+          console.warn("Storage deletion warning for doc:", doc.id, e);
+        }
+      }
+    }
+
+    // 2. Cascade delete database records
+    await sql`DELETE FROM public.documents WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.document_requirements WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.upload_links WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.activity_logs WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId};`;
+
+    invalidateDashboardCache(orgId);
+    invalidateCaseCache(caseId);
+    invalidatePortalCache(caseId);
+
+    revalidatePath("/dashboard/cases");
+    revalidatePath("/dashboard");
+
+    return { success: true, message: `Case "${cases[0].title}" was deleted successfully.` };
+  } catch (err: any) {
+    console.error("Delete case error:", err);
+    return { success: false, error: err.message || "Failed to delete case." };
+  }
+}
+
+/**
+ * Permanently delete a user account and all associated data (Admin only)
+ */
+export async function adminDeleteUserAction({
+  adminSecret,
+  adminEmail,
+  userId,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+  userId: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error || "Unauthorized. Invalid Admin Credentials." };
+  }
+
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected." };
+
+  try {
+    const userRows = await sql`
+      SELECT id, email, organization_id FROM public.users WHERE id::text = ${userId} LIMIT 1;
+    `;
+    if (userRows.length === 0) {
+      return { success: false, error: "User not found." };
+    }
+    const targetUser = userRows[0];
+    const orgId = targetUser.organization_id;
+
+    if (orgId) {
+      // Find all documents for org's cases to delete physical files from S3
+      const docs = await sql`
+        SELECT d.id, d.storage_path
+        FROM public.documents d
+        JOIN public.cases c ON d.case_id = c.id
+        WHERE c.organization_id = ${orgId};
+      `;
+      for (const d of docs) {
+        if (d.storage_path) {
+          try {
+            await deleteFileFromStorage(d.storage_path);
+          } catch (e) {
+            console.warn("Storage deletion warning for doc:", d.id, e);
+          }
+        }
+      }
+
+      // Cascade delete child records
+      await sql`DELETE FROM public.documents WHERE case_id IN (SELECT id FROM public.cases WHERE organization_id = ${orgId});`;
+      await sql`DELETE FROM public.document_requirements WHERE case_id IN (SELECT id FROM public.cases WHERE organization_id = ${orgId});`;
+      await sql`DELETE FROM public.upload_links WHERE case_id IN (SELECT id FROM public.cases WHERE organization_id = ${orgId});`;
+      await sql`DELETE FROM public.activity_logs WHERE organization_id = ${orgId};`;
+      await sql`DELETE FROM public.cases WHERE organization_id = ${orgId};`;
+      await sql`DELETE FROM public.clients WHERE organization_id = ${orgId};`;
+      await sql`DELETE FROM public.checklist_templates WHERE organization_id = ${orgId};`;
+      await sql`DELETE FROM public.subscriptions WHERE organization_id = ${orgId};`;
+      await sql`DELETE FROM public.organizations WHERE id = ${orgId};`;
+
+      invalidateDashboardCache(orgId);
+    }
+
+    await sql`DELETE FROM public.users WHERE id::text = ${userId};`;
+
+    return {
+      success: true,
+      message: `User ${targetUser.email} and all associated data have been permanently deleted.`,
+    };
+  } catch (err: any) {
+    console.error("adminDeleteUserAction error:", err);
+    return { success: false, error: err.message || "Failed to delete user." };
+  }
+}
+
+/**
+ * Fetch all cases across all organizations for admin inspection
+ */
+export async function adminGetAllCasesAction({
+  adminSecret,
+  adminEmail,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
+  }
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const cases = await sql`
+      SELECT 
+        c.id, c.title, c.reference_number, c.status, c.service_type, c.created_at,
+        cl.name as client_name, cl.email as client_email,
+        o.name as org_name,
+        (SELECT COUNT(*)::int FROM public.documents d WHERE d.case_id = c.id) as doc_count,
+        (SELECT COUNT(*)::int FROM public.document_requirements r WHERE r.case_id = c.id) as req_count
+      FROM public.cases c
+      LEFT JOIN public.clients cl ON c.client_id = cl.id
+      LEFT JOIN public.organizations o ON c.organization_id = o.id
+      ORDER BY c.created_at DESC
+      LIMIT 100;
+    `;
+    return { success: true, cases };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Delete any case by ID (Admin only)
+ */
+export async function adminDeleteCaseAction({
+  adminSecret,
+  adminEmail,
+  caseId,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+  caseId: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) {
+    return { success: false, error: auth.error };
+  }
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const docs = await sql`SELECT id, storage_path FROM public.documents WHERE case_id = ${caseId};`;
+    for (const d of docs) {
+      if (d.storage_path) {
+        try {
+          await deleteFileFromStorage(d.storage_path);
+        } catch (e) {}
+      }
+    }
+    await sql`DELETE FROM public.documents WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.document_requirements WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.upload_links WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.activity_logs WHERE case_id = ${caseId};`;
+    await sql`DELETE FROM public.cases WHERE id = ${caseId};`;
+
+    return { success: true, message: "Case deleted successfully by admin." };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fetch all checklist templates (system and custom) for admin
+ */
+export async function adminGetAllTemplatesAction({
+  adminSecret,
+  adminEmail,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) return { success: false, error: auth.error };
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    const templates = await sql`
+      SELECT t.*, o.name as org_name
+      FROM public.checklist_templates t
+      LEFT JOIN public.organizations o ON t.organization_id = o.id
+      ORDER BY t.is_system DESC, t.name ASC;
+    `;
+    return { success: true, templates };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Create or update a template (system or custom) by Admin
+ */
+export async function adminSaveTemplateAction({
+  adminSecret,
+  adminEmail,
+  template,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+  template: {
+    id?: string;
+    name: string;
+    service_type: string;
+    description?: string;
+    requirements: any[];
+    is_system: boolean;
+  };
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) return { success: false, error: auth.error };
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    if (template.id) {
+      await sql`
+        UPDATE public.checklist_templates
+        SET name = ${template.name.trim()},
+            service_type = ${template.service_type?.trim() || "General"},
+            description = ${template.description?.trim() || null},
+            requirements = ${JSON.stringify(template.requirements)}::jsonb,
+            is_system = ${Boolean(template.is_system)},
+            updated_at = now()
+        WHERE id = ${template.id};
+      `;
+    } else {
+      await sql`
+        INSERT INTO public.checklist_templates (
+          name, service_type, description, requirements, is_system
+        ) VALUES (
+          ${template.name.trim()},
+          ${template.service_type?.trim() || "General"},
+          ${template.description?.trim() || null},
+          ${JSON.stringify(template.requirements)}::jsonb,
+          ${Boolean(template.is_system)}
+        );
+      `;
+    }
+    return { success: true, message: "Template saved successfully." };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Delete any template by Admin (including system templates)
+ */
+export async function adminDeleteTemplateAction({
+  adminSecret,
+  adminEmail,
+  templateId,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+  templateId: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) return { success: false, error: auth.error };
+  const sql = getDb();
+  if (!sql) return { success: false, error: "Database not connected" };
+
+  try {
+    await sql`DELETE FROM public.checklist_templates WHERE id = ${templateId};`;
+    return { success: true, message: "Template deleted successfully." };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Send email (with optional attached file link) to user(s) from Admin Panel
+ */
+export async function adminSendEmailWithFileAction({
+  adminSecret,
+  adminEmail,
+  to,
+  subject,
+  message,
+  fileUrl,
+  fileName,
+}: {
+  adminSecret: string;
+  adminEmail?: string;
+  to: string;
+  subject: string;
+  message: string;
+  fileUrl?: string;
+  fileName?: string;
+}) {
+  const auth = await verifyAdminAuthorization(adminSecret, adminEmail);
+  if (!auth.authorized) return { success: false, error: auth.error };
+
+  const recipients = to
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (recipients.length === 0) {
+    return { success: false, error: "Please provide at least one recipient email." };
+  }
+
+  const results = [];
+  for (const recipient of recipients) {
+    const htmlBody = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; max-width: 560px; border: 1px solid #e5e5e5; border-radius: 12px; background: #ffffff;">
+        <div style="margin-bottom: 20px;">
+          <h2 style="color: #111; margin: 0 0 8px; font-size: 20px;">${subject}</h2>
+          <p style="color: #666; font-size: 12px; margin: 0;">Message from DocuCollect Administration</p>
+        </div>
+        <div style="color: #333; font-size: 14px; line-height: 1.7; white-space: pre-wrap; margin-bottom: 24px;">
+          ${message}
+        </div>
+        ${fileUrl ? `
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 18px; margin-bottom: 24px;">
+            <p style="margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #1e293b;">Attached File: ${fileName || "Document"}</p>
+            <a href="${fileUrl}" style="display: inline-block; padding: 8px 16px; background: #0f172a; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 12px; font-weight: 600;">
+              Download Attached File →
+            </a>
+          </div>
+        ` : ""}
+        <div style="border-top: 1px solid #f1f5f9; padding-top: 16px; font-size: 11px; color: #94a3b8;">
+          DocuCollect Secure Cloud • Need support? Email support@docucollect.in or contact on WhatsApp.
+        </div>
+      </div>
+    `;
+
+    try {
+      const res = await sendNotificationEmail({
+        to: recipient,
+        subject,
+        html: htmlBody,
+        eventType: "welcome",
+        plan: "pro",
+      });
+      results.push({ email: recipient, success: res.success });
+    } catch (e: any) {
+      results.push({ email: recipient, success: false, error: e.message });
+    }
+  }
+
+  return { success: true, sentCount: results.filter((r) => r.success).length, results };
+}
+
 
 
 

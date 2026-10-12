@@ -29,6 +29,7 @@ import {
   reviewDocumentAction,
   advisorDeleteDocumentAction,
   advisorBulkDeleteDocumentsAction,
+  deleteCaseAction,
 } from "@/app/actions/portal";
 import { CaseWithDetails, DocumentRequirement, Document } from "@/types";
 import { getCaseStatusBadge, getRequirementStatusBadge, formatDate, formatDateTime, formatBytes } from "@/lib/utils";
@@ -84,6 +85,8 @@ export default function CaseDetailPage() {
   const [docToDelete, setDocToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteCaseModalOpen, setIsDeleteCaseModalOpen] = useState(false);
+  const [isDeletingCase, setIsDeletingCase] = useState(false);
 
   // Sync cache if available
   useEffect(() => {
@@ -340,12 +343,25 @@ export default function CaseDetailPage() {
 
   const handleConfirmSingleDelete = async () => {
     if (!docToDelete || !caseData) return;
+    const targetDocId = docToDelete.id;
     setIsDeleting(true);
     try {
-      const res = await advisorDeleteDocumentAction(caseData.id, docToDelete.id);
+      const res = await advisorDeleteDocumentAction(caseData.id, targetDocId);
       if (res.success) {
         toast({ title: "Document deleted", description: `${docToDelete.name} was permanently removed.` });
         setDocToDelete(null);
+        // Instant optimistic internal update: remove file in 0ms without waiting for refetch
+        setCaseData((prev) => {
+          if (!prev) return prev;
+          const updatedReqs = prev.requirements.map((r) => {
+            const hasDoc = r.documents?.some((d) => d.id === targetDocId);
+            if (!hasDoc) return r;
+            const remaining = (r.documents || []).filter((d) => d.id !== targetDocId);
+            const newStatus = remaining.length > 0 ? remaining[0].status : "not_uploaded";
+            return { ...r, status: newStatus as any, documents: remaining };
+          });
+          return { ...prev, requirements: updatedReqs };
+        });
         caseDetailsClientCache.delete(caseData.id);
         await loadCase(true);
         if (refreshDashboard) refreshDashboard();
@@ -370,8 +386,19 @@ export default function CaseDetailPage() {
           title: "Documents deleted",
           description: `Successfully deleted ${res.count || ids.length} document(s).`,
         });
+        const idsSet = new Set(ids);
         setSelectedDocIds(new Set());
         setIsBulkDeleteOpen(false);
+        // Instant optimistic internal update for bulk delete
+        setCaseData((prev) => {
+          if (!prev) return prev;
+          const updatedReqs = prev.requirements.map((r) => {
+            const remaining = (r.documents || []).filter((d) => !idsSet.has(d.id));
+            const newStatus = remaining.length > 0 ? remaining[0].status : "not_uploaded";
+            return { ...r, status: newStatus as any, documents: remaining };
+          });
+          return { ...prev, requirements: updatedReqs };
+        });
         caseDetailsClientCache.delete(caseData.id);
         await loadCase(true);
         if (refreshDashboard) refreshDashboard();
@@ -382,6 +409,26 @@ export default function CaseDetailPage() {
       toast({ title: "Bulk deletion error", description: err.message, type: "error" });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCase = async () => {
+    if (!caseData) return;
+    setIsDeletingCase(true);
+    try {
+      const res = await deleteCaseAction(caseData.id);
+      if (res.success) {
+        toast({ title: "Case deleted", description: res.message });
+        caseDetailsClientCache.delete(caseData.id);
+        if (refreshDashboard) refreshDashboard();
+        window.location.href = "/dashboard/cases";
+      } else {
+        toast({ title: "Delete failed", description: res.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setIsDeletingCase(false);
     }
   };
 
@@ -567,6 +614,16 @@ export default function CaseDetailPage() {
           >
             <MessageSquareShare className="w-3.5 h-3.5 text-white" />
             <span>Share on WhatsApp</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsDeleteCaseModalOpen(true)}
+            className="h-9 px-3 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 active:scale-[0.98] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+            title="Delete this entire case"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Case</span>
           </button>
         </div>
       </div>
@@ -958,6 +1015,18 @@ export default function CaseDetailPage() {
         confirmLabel={`Yes, Delete ${selectedDocIds.size} Document(s)`}
         cancelLabel="Cancel"
         isLoading={isDeleting}
+      />
+
+      {/* Advisor Delete Case Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteCaseModalOpen}
+        onClose={() => setIsDeleteCaseModalOpen(false)}
+        onConfirm={handleDeleteCase}
+        title="Delete This Case?"
+        description={`Are you sure you want to permanently delete case "${caseData.title}"? All uploaded documents and requirements will be removed from storage and database. This action cannot be undone.`}
+        confirmLabel="Yes, Delete Entire Case"
+        cancelLabel="Cancel"
+        isLoading={isDeletingCase}
       />
     </div>
   );

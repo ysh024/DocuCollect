@@ -14,6 +14,7 @@ import {
   Layers,
   Bell,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { CaseWithDetails, Client } from "@/types";
 import { getCaseStatusBadge, formatDate } from "@/lib/utils";
@@ -22,9 +23,13 @@ import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
 import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { Pagination } from "@/components/ui/Pagination";
+import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
+import { useToast } from "@/components/ui/Toast";
+import { deleteCaseAction } from "@/app/actions/portal";
 
 export default function CasesListPage() {
   const { data, loading, refresh } = useDashboardData();
+  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -35,6 +40,8 @@ export default function CasesListPage() {
   const [selectedCaseForReminder, setSelectedCaseForReminder] = useState<CaseWithDetails | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [openingCaseId, setOpeningCaseId] = useState<string | null>(null);
+  const [caseToDelete, setCaseToDelete] = useState<CaseWithDetails | null>(null);
+  const [isDeletingCase, setIsDeletingCase] = useState(false);
 
   const filtered = (data?.cases || []).filter((c) => {
     const matchesSearch =
@@ -57,6 +64,25 @@ export default function CasesListPage() {
     navigator.clipboard.writeText(url);
     setCopiedId(c.id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleConfirmDeleteCase = async () => {
+    if (!caseToDelete) return;
+    setIsDeletingCase(true);
+    try {
+      const res = await deleteCaseAction(caseToDelete.id);
+      if (res.success) {
+        toast({ title: "Case Deleted", description: res.message });
+        setCaseToDelete(null);
+        await refresh();
+      } else {
+        toast({ title: "Delete Failed", description: res.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setIsDeletingCase(false);
+    }
   };
 
   return (
@@ -217,6 +243,14 @@ export default function CasesListPage() {
                     >
                       {copiedId === c.id ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setCaseToDelete(c)}
+                      title="Delete Case"
+                      className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
 
                   <Link
@@ -285,6 +319,18 @@ export default function CasesListPage() {
           caseData={selectedCaseForReminder}
           isOpen={true}
           onClose={() => setSelectedCaseForReminder(null)}
+        />
+      )}
+
+      {caseToDelete && (
+        <DeleteConfirmationModal
+          isOpen={true}
+          title="Delete Case"
+          description={`Are you sure you want to permanently delete case "${caseToDelete.title}"? All uploaded documents and checklist requirements for this case will be deleted permanently.`}
+          confirmLabel="Delete Case"
+          isLoading={isDeletingCase}
+          onClose={() => setCaseToDelete(null)}
+          onConfirm={handleConfirmDeleteCase}
         />
       )}
     </div>

@@ -305,7 +305,7 @@ export async function getCurrentUser() {
   try {
     const users = await sql`
       SELECT 
-        u.id, u.email, u.full_name, u.role, u.organization_id, u.phone, u.email_verified, u.last_login_at,
+        u.id, u.email, u.full_name, u.role, u.organization_id, u.phone, u.email_verified, u.last_login_at, u.is_deactivated,
         o.name as organization_name, o.branding_color, o.logo_url, o.settings, o.updated_at as org_updated_at,
         s.status as subscription_status, s.trial_ends_at,
         p.name as plan_name, p.display_name as plan_display_name, p.file_retention_days,
@@ -328,6 +328,7 @@ export async function getCurrentUser() {
       role: u.role || "owner",
       phone: u.phone || "",
       emailVerified: u.email_verified || false,
+      isDeactivated: Boolean(u.is_deactivated),
       organizationId: u.organization_id,
       organizationName: u.organization_name || "Your Organization",
       logoUrl: u.logo_url

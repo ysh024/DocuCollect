@@ -31,9 +31,18 @@ import {
   FileText,
   Server,
   Clock,
+  Trash2,
+  Download,
+  Send,
+  Plus,
+  Edit2,
+  X,
+  Briefcase,
+  Paperclip,
 } from "lucide-react";
 import type { PublicPaymentSettings } from "@/app/actions/portal";
 import { useToast } from "@/components/ui/Toast";
+import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 
 export default function AdminPortalPage() {
   const { toast } = useToast();
@@ -46,7 +55,7 @@ export default function AdminPortalPage() {
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<
-    "generate" | "ledger" | "direct" | "users" | "infrastructure" | "payment"
+    "infrastructure" | "generate" | "ledger" | "direct" | "users" | "cases" | "templates" | "broadcast" | "payment"
   >("generate");
 
   // Infrastructure & Analytics State (Admin-Only)
@@ -94,6 +103,41 @@ export default function AdminPortalPage() {
   // Ledger Search & Filter
   const [ledgerSearch, setLedgerSearch] = useState("");
   const [ledgerFilter, setLedgerFilter] = useState<"all" | "active" | "redeemed" | "revoked">("all");
+
+  // User Management State
+  const [userToDelete, setUserToDelete] = useState<{ id: string; email: string; name: string } | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
+
+  // Cases Oversight State
+  const [adminCases, setAdminCases] = useState<any[]>([]);
+  const [loadingCases, setLoadingCases] = useState(false);
+  const [caseSearch, setCaseSearch] = useState("");
+  const [caseToDelete, setCaseToDelete] = useState<any | null>(null);
+  const [deletingCase, setDeletingCase] = useState(false);
+
+  // Templates Management State
+  const [adminTemplates, setAdminTemplates] = useState<any[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [templateToDelete, setTemplateToDelete] = useState<any | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<{
+    id?: string;
+    name: string;
+    service_type: string;
+    description: string;
+    is_system: boolean;
+    requirements: string[];
+  } | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+
+  // Broadcast & Email State
+  const [emailTo, setEmailTo] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailFileUrl, setEmailFileUrl] = useState("");
+  const [emailFileName, setEmailFileName] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Check stored admin session
   useEffect(() => {
@@ -335,6 +379,206 @@ export default function AdminPortalPage() {
       setDeactivatingUserId(null);
     }
   };
+
+  // User Permanent Deletion Handler
+  const handleConfirmDeleteUser = async () => {
+    if (!userToDelete) return;
+    setDeletingUser(true);
+    try {
+      const res = await callAdminAction("delete_user", { userId: userToDelete.id });
+      if (res?.success) {
+        toast({ title: "User Purged", description: `Account ${userToDelete.email} and all data deleted.` });
+        setRecentUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+        setUserToDelete(null);
+        await reloadData();
+      } else {
+        toast({ title: "Deletion Failed", description: res?.error || "Could not delete user", type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
+  // Export Registered Users as CSV
+  const handleExportUsersCSV = () => {
+    if (!recentUsers || recentUsers.length === 0) {
+      toast({ title: "No Users", description: "No user records to export." });
+      return;
+    }
+    const headers = ["User ID", "Full Name", "Email", "Organization", "Plan", "Status", "Valid Until", "Created At"];
+    const escapeCsv = (val: any) => `"${String(val ?? "").replace(/"/g, '""')}"`;
+    const rows = recentUsers.map((u) => [
+      escapeCsv(u.id),
+      escapeCsv(u.full_name),
+      escapeCsv(u.email),
+      escapeCsv(u.org_name || ""),
+      escapeCsv(u.plan_name || "Free Trial"),
+      escapeCsv(u.is_deactivated ? "Deactivated" : u.sub_status || "Active"),
+      escapeCsv(u.current_period_end ? new Date(u.current_period_end).toISOString() : ""),
+      escapeCsv(u.created_at ? new Date(u.created_at).toISOString() : ""),
+    ]);
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `docucollect_users_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast({ title: "Export Complete", description: "Users list exported to CSV successfully." });
+  };
+
+  // Load and Delete Cases
+  const loadAdminCases = async () => {
+    setLoadingCases(true);
+    try {
+      const res = await callAdminAction("get_cases");
+      if (res?.success) {
+        setAdminCases(res.cases || []);
+      } else {
+        toast({ title: "Failed to load cases", description: res?.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setLoadingCases(false);
+    }
+  };
+
+  const handleConfirmDeleteCase = async () => {
+    if (!caseToDelete) return;
+    setDeletingCase(true);
+    try {
+      const res = await callAdminAction("delete_case", { caseId: caseToDelete.id });
+      if (res?.success) {
+        toast({ title: "Case Deleted", description: `Case for ${caseToDelete.client_name || "client"} deleted.` });
+        setAdminCases((prev) => prev.filter((c) => c.id !== caseToDelete.id));
+        setCaseToDelete(null);
+      } else {
+        toast({ title: "Deletion Failed", description: res?.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setDeletingCase(false);
+    }
+  };
+
+  // Load, Save, Delete Templates
+  const loadAdminTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const res = await callAdminAction("get_templates");
+      if (res?.success) {
+        setAdminTemplates(res.templates || []);
+      } else {
+        toast({ title: "Failed to load templates", description: res?.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const handleSaveTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTemplate || !editingTemplate.name.trim()) return;
+    setSavingTemplate(true);
+    try {
+      const formattedReqs = editingTemplate.requirements
+        .filter((r) => r.trim().length > 0)
+        .map((r, i) => ({ title: r.trim(), is_required: true, order_index: i }));
+
+      const res = await callAdminAction("save_template", {
+        template: {
+          id: editingTemplate.id,
+          name: editingTemplate.name.trim(),
+          service_type: editingTemplate.service_type || "General",
+          description: editingTemplate.description?.trim() || null,
+          is_system: editingTemplate.is_system,
+          requirements: formattedReqs,
+        },
+      });
+      if (res?.success) {
+        toast({ title: "Template Saved", description: res.message || "Template saved successfully." });
+        setEditingTemplate(null);
+        await loadAdminTemplates();
+      } else {
+        toast({ title: "Save Failed", description: res?.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleConfirmDeleteTemplate = async () => {
+    if (!templateToDelete) return;
+    setDeletingTemplate(true);
+    try {
+      const res = await callAdminAction("delete_template", { templateId: templateToDelete.id });
+      if (res?.success) {
+        toast({ title: "Template Deleted", description: "Template deleted successfully." });
+        setAdminTemplates((prev) => prev.filter((t) => t.id !== templateToDelete.id));
+        setTemplateToDelete(null);
+      } else {
+        toast({ title: "Deletion Failed", description: res?.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setDeletingTemplate(false);
+    }
+  };
+
+  // Broadcast & Send Email
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailTo.trim() || !emailSubject.trim() || !emailMessage.trim()) {
+      toast({ title: "Missing Fields", description: "Please provide recipient, subject, and message.", type: "error" });
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const res = await callAdminAction("send_email", {
+        to: emailTo.trim(),
+        subject: emailSubject.trim(),
+        message: emailMessage.trim(),
+        fileUrl: emailFileUrl.trim() || undefined,
+        fileName: emailFileName.trim() || undefined,
+      });
+      if (res?.success) {
+        toast({ title: "Email Delivered", description: `Sent to ${emailTo} successfully.` });
+        setEmailSubject("");
+        setEmailMessage("");
+        setEmailFileUrl("");
+        setEmailFileName("");
+      } else {
+        toast({ title: "Delivery Failed", description: res?.error, type: "error" });
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, type: "error" });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  // Auto-fetch data when tab switches
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (activeTab === "cases" && adminCases.length === 0) {
+      loadAdminCases();
+    }
+    if (activeTab === "templates" && adminTemplates.length === 0) {
+      loadAdminTemplates();
+    }
+  }, [activeTab, isAuthenticated]);
 
   // Filtered keys
   const filteredKeys = keysList.filter((k) => {
@@ -612,7 +856,46 @@ export default function AdminPortalPage() {
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Registered Users</span>
+            <span>Registered Users ({recentUsers.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("cases")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === "cases"
+                ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+            }`}
+          >
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>All Cases {adminCases.length > 0 ? `(${adminCases.length})` : ""}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("templates")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === "templates"
+                ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Templates {adminTemplates.length > 0 ? `(${adminTemplates.length})` : ""}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("broadcast")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === "broadcast"
+                ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
+                : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+            }`}
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Broadcast & Email</span>
           </button>
 
           <button
@@ -1244,12 +1527,22 @@ export default function AdminPortalPage() {
         {/* WORKSPACE 4: Registered Users */}
         {activeTab === "users" && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-4">
-            <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-emerald-400" />
-                Recent User Accounts
-              </h2>
-              <p className="text-xs text-neutral-400">View recent registered users and their current subscription tier.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-emerald-400" />
+                  Recent User Accounts
+                </h2>
+                <p className="text-xs text-neutral-400">View registered users and their current subscription tier.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportUsersCSV}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-semibold rounded-xl border border-neutral-700 transition cursor-pointer self-start sm:self-auto shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Export Users (CSV)</span>
+              </button>
             </div>
 
             <div className="border border-neutral-800 rounded-2xl overflow-hidden overflow-x-auto">
@@ -1301,7 +1594,7 @@ export default function AdminPortalPage() {
                             : "—"}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2.5">
+                          <div className="flex items-center justify-end gap-2">
                             {u.is_deactivated ? (
                               <button
                                 type="button"
@@ -1317,9 +1610,9 @@ export default function AdminPortalPage() {
                                 type="button"
                                 disabled={deactivatingUserId === u.id}
                                 onClick={() => handleToggleDeactivation(u.id, true, u.email)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/80 border border-rose-800 hover:bg-rose-900 text-rose-300 transition-colors cursor-pointer disabled:opacity-50"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-950/80 border border-amber-800 hover:bg-amber-900 text-amber-300 transition-colors cursor-pointer disabled:opacity-50"
                               >
-                                <Ban className="w-3 h-3 text-rose-400" />
+                                <Ban className="w-3 h-3 text-amber-400" />
                                 <span>{deactivatingUserId === u.id ? "Deactivating..." : "Deactivate"}</span>
                               </button>
                             )}
@@ -1332,6 +1625,15 @@ export default function AdminPortalPage() {
                               className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
                             >
                               Upgrade
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserToDelete({ id: u.id, email: u.email, name: u.full_name })}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold bg-rose-950/80 border border-rose-800/80 hover:bg-rose-900 text-rose-300 transition-colors cursor-pointer"
+                              title="Permanently Delete User Account & All Data"
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-400" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>
@@ -1526,8 +1828,566 @@ export default function AdminPortalPage() {
             </form>
           </div>
         )}
+
+        {/* WORKSPACE 6: Organization Cases (Admin View & Delete) */}
+        {activeTab === "cases" && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-emerald-400" />
+                  All Organization Cases ({adminCases.length})
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Global overview of client cases. Permanently delete cases including documents and storage files.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={caseSearch}
+                    onChange={(e) => setCaseSearch(e.target.value)}
+                    placeholder="Search client, ref, or org..."
+                    className="bg-neutral-800 border border-neutral-700 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 w-48 sm:w-64"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={loadAdminCases}
+                  disabled={loadingCases}
+                  className="p-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl border border-neutral-700 transition cursor-pointer"
+                  title="Refresh Cases"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingCases ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="border border-neutral-800 rounded-2xl overflow-hidden overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-neutral-950 border-b border-neutral-800 text-neutral-400 uppercase text-[10px] font-semibold">
+                  <tr>
+                    <th className="py-3 px-4">Client</th>
+                    <th className="py-3 px-3">Organization</th>
+                    <th className="py-3 px-3">Reference / Type</th>
+                    <th className="py-3 px-3">Docs / Requirements</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-4">Created Date</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800/80">
+                  {adminCases.filter((c) => {
+                    if (!caseSearch.trim()) return true;
+                    const q = caseSearch.toLowerCase();
+                    return (
+                      (c.client_name && c.client_name.toLowerCase().includes(q)) ||
+                      (c.client_email && c.client_email.toLowerCase().includes(q)) ||
+                      (c.org_name && c.org_name.toLowerCase().includes(q)) ||
+                      (c.reference_number && c.reference_number.toLowerCase().includes(q)) ||
+                      (c.service_type && c.service_type.toLowerCase().includes(q))
+                    );
+                  }).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-neutral-500">
+                        {loadingCases ? "Loading cases..." : "No organization cases found matching query."}
+                      </td>
+                    </tr>
+                  ) : (
+                    adminCases
+                      .filter((c) => {
+                        if (!caseSearch.trim()) return true;
+                        const q = caseSearch.toLowerCase();
+                        return (
+                          (c.client_name && c.client_name.toLowerCase().includes(q)) ||
+                          (c.client_email && c.client_email.toLowerCase().includes(q)) ||
+                          (c.org_name && c.org_name.toLowerCase().includes(q)) ||
+                          (c.reference_number && c.reference_number.toLowerCase().includes(q)) ||
+                          (c.service_type && c.service_type.toLowerCase().includes(q))
+                        );
+                      })
+                      .map((c) => (
+                        <tr key={c.id} className="hover:bg-neutral-800/40 transition">
+                          <td className="py-3 px-4">
+                            <p className="font-bold text-white text-xs">{c.client_name || c.title}</p>
+                            <p className="text-[11px] text-neutral-400 font-mono">{c.client_email || "No email"}</p>
+                          </td>
+                          <td className="py-3 px-3 text-neutral-300">{c.org_name || "—"}</td>
+                          <td className="py-3 px-3">
+                            <p className="font-mono text-neutral-300 text-[11px]">{c.reference_number || "—"}</p>
+                            <p className="text-[10px] text-neutral-500">{c.service_type || "General"}</p>
+                          </td>
+                          <td className="py-3 px-3 text-neutral-300">
+                            <span className="font-bold text-emerald-400">{c.doc_count || 0}</span> docs /{" "}
+                            <span className="text-neutral-400">{c.req_count || 0} reqs</span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="text-[10px] px-2 py-0.5 rounded font-semibold uppercase bg-neutral-800 text-neutral-300 border border-neutral-700">
+                              {c.status || "active"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-neutral-400 text-[11px]">
+                            {c.created_at ? new Date(c.created_at).toLocaleDateString() : "—"}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setCaseToDelete(c)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/80 border border-rose-800/80 hover:bg-rose-900 text-rose-300 transition-colors cursor-pointer"
+                              title="Delete Case Permanently"
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-400" />
+                              <span>Delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* WORKSPACE 7: Checklist Templates Management */}
+        {activeTab === "templates" && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-emerald-400" />
+                  Checklist Templates ({adminTemplates.length})
+                </h2>
+                <p className="text-xs text-neutral-400">
+                  Update, create, or delete default system templates and custom organization templates.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditingTemplate({
+                      name: "",
+                      service_type: "General",
+                      description: "",
+                      is_system: true,
+                      requirements: [""],
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-xl text-xs transition cursor-pointer shadow-md shadow-emerald-500/20"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Template</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={loadAdminTemplates}
+                  disabled={loadingTemplates}
+                  className="p-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl border border-neutral-700 transition cursor-pointer"
+                  title="Refresh Templates"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingTemplates ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+              {adminTemplates.length === 0 ? (
+                <div className="col-span-full py-10 text-center text-neutral-500 text-xs">
+                  {loadingTemplates ? "Loading templates..." : "No templates found in database."}
+                </div>
+              ) : (
+                adminTemplates.map((t) => {
+                  const reqs = Array.isArray(t.requirements)
+                    ? t.requirements
+                    : typeof t.requirements === "string"
+                    ? JSON.parse(t.requirements || "[]")
+                    : [];
+                  return (
+                    <div
+                      key={t.id}
+                      className="bg-neutral-950/80 border border-neutral-800 rounded-2xl p-4 flex flex-col justify-between space-y-3 hover:border-neutral-700 transition"
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-bold text-white text-xs leading-snug">{t.name}</h3>
+                          {t.is_system ? (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-emerald-950 border border-emerald-800 text-emerald-400 shrink-0">
+                              Default System
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-blue-950 border border-blue-800 text-blue-400 shrink-0">
+                              {t.org_name || "Custom Org"}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[11px] text-neutral-400 line-clamp-2">
+                          {t.description || "No description provided."}
+                        </p>
+
+                        <div className="pt-1">
+                          <span className="text-[10px] text-neutral-500 uppercase font-semibold">
+                            {reqs.length} Document Checklist Items:
+                          </span>
+                          <ul className="mt-1 space-y-0.5 max-h-24 overflow-y-auto">
+                            {reqs.slice(0, 4).map((r: any, idx: number) => (
+                              <li key={idx} className="text-[11px] text-neutral-300 flex items-center gap-1.5 truncate">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="truncate">{typeof r === "string" ? r : r.title}</span>
+                              </li>
+                            ))}
+                            {reqs.length > 4 && (
+                              <li className="text-[10px] text-neutral-500 font-medium italic">
+                                + {reqs.length - 4} more items...
+                              </li>
+                            )}
+                          </ul>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-neutral-800/80 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTemplate({
+                              id: t.id,
+                              name: t.name,
+                              service_type: t.service_type || "General",
+                              description: t.description || "",
+                              is_system: Boolean(t.is_system),
+                              requirements: reqs.map((r: any) => (typeof r === "string" ? r : r.title || "")),
+                            });
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 transition-colors cursor-pointer border border-neutral-700"
+                        >
+                          <Edit2 className="w-3 h-3 text-neutral-400" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTemplateToDelete(t)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-950/80 border border-rose-800/80 hover:bg-rose-900 text-rose-300 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3 text-rose-400" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* WORKSPACE 8: Broadcast & Send Files by Email */}
+        {activeTab === "broadcast" && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-6">
+            <div>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Send className="w-4 h-4 text-emerald-400" />
+                Broadcast Email & Send Files to Users
+              </h2>
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Send direct email notifications and attached file download links to any registered advisor or client.
+              </p>
+            </div>
+
+            <form onSubmit={handleSendEmail} className="space-y-4 max-w-2xl">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                  Recipient Email Address *
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    required
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    placeholder="advisor@example.com or client@example.com"
+                    className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                  />
+                  {recentUsers.length > 0 && (
+                    <select
+                      onChange={(e) => {
+                        if (e.target.value) setEmailTo(e.target.value);
+                      }}
+                      className="bg-neutral-800 border border-neutral-700 text-xs text-neutral-200 rounded-xl px-3 py-2 cursor-pointer focus:outline-none"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>
+                        Pick User...
+                      </option>
+                      {recentUsers.map((u) => (
+                        <option key={u.id} value={u.email}>
+                          {u.full_name} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                  Email Subject *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder="e.g. Account Information / Checklist Update / Verification File"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                  Message Content *
+                </label>
+                <textarea
+                  required
+                  rows={5}
+                  value={emailMessage}
+                  onChange={(e) => setEmailMessage(e.target.value)}
+                  placeholder="Type your message here..."
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500 resize-y"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-neutral-950/70 border border-neutral-800 rounded-2xl">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5 flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>File Download Link (Optional)</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={emailFileUrl}
+                    onChange={(e) => setEmailFileUrl(e.target.value)}
+                    placeholder="https://... direct download or cloud storage URL"
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    File Display Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={emailFileName}
+                    onChange={(e) => setEmailFileName(e.target.value)}
+                    placeholder="e.g. Checklist_Form_2026.pdf"
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={sendingEmail}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 font-bold rounded-xl text-xs transition disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-500/20"
+                >
+                  <Send className={`w-3.5 h-3.5 ${sendingEmail ? "animate-pulse" : ""}`} />
+                  <span>{sendingEmail ? "Dispatching Email..." : "Send Email"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
         </div>
       </main>
+
+      {/* MODAL: Delete User Confirmation */}
+      <DeleteConfirmationModal
+        isOpen={userToDelete !== null}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={handleConfirmDeleteUser}
+        isLoading={deletingUser}
+        title="Permanently Delete User Account"
+        description={`Are you sure you want to delete user ${userToDelete?.email}? This will erase their organization, all cases, all client documents, all uploaded files in Cloudflare S3/R2 storage, checklist templates, and authentication credentials. This action CANNOT be undone.`}
+        confirmLabel="Purge User & Data"
+      />
+
+      {/* MODAL: Delete Case Confirmation */}
+      <DeleteConfirmationModal
+        isOpen={caseToDelete !== null}
+        onClose={() => setCaseToDelete(null)}
+        onConfirm={handleConfirmDeleteCase}
+        isLoading={deletingCase}
+        title="Permanently Delete Case"
+        description={`Are you sure you want to delete case "${caseToDelete?.client_name || caseToDelete?.title || "Case"}"? All associated document requirements, client files in storage, upload links, and logs will be permanently deleted.`}
+        confirmLabel="Delete Case"
+      />
+
+      {/* MODAL: Delete Template Confirmation */}
+      <DeleteConfirmationModal
+        isOpen={templateToDelete !== null}
+        onClose={() => setTemplateToDelete(null)}
+        onConfirm={handleConfirmDeleteTemplate}
+        isLoading={deletingTemplate}
+        title="Delete Checklist Template"
+        description={`Are you sure you want to delete template "${templateToDelete?.name}"? Advisors will no longer be able to use it when creating cases.`}
+        confirmLabel="Delete Template"
+      />
+
+      {/* MODAL: Create / Edit Template */}
+      {editingTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-400" />
+                <span>{editingTemplate.id ? "Edit Template" : "Create Template"}</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEditingTemplate(null)}
+                className="p-1 text-neutral-400 hover:text-white rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTemplate} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Template Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingTemplate.name}
+                  onChange={(e) => setEditingTemplate({ ...editingTemplate, name: e.target.value })}
+                  placeholder="e.g. Standard GST Audit Checklist"
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                    Service Category
+                  </label>
+                  <input
+                    type="text"
+                    value={editingTemplate.service_type}
+                    onChange={(e) => setEditingTemplate({ ...editingTemplate, service_type: e.target.value })}
+                    placeholder="e.g. Taxation, Legal, Visa"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={editingTemplate.is_system}
+                      onChange={(e) => setEditingTemplate({ ...editingTemplate, is_system: e.target.checked })}
+                      className="rounded border-neutral-700 bg-neutral-800 text-emerald-500 w-4 h-4"
+                    />
+                    <span>Global Default System</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-neutral-300 mb-1">
+                  Description
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingTemplate.description}
+                  onChange={(e) => setEditingTemplate({ ...editingTemplate, description: e.target.value })}
+                  placeholder="Brief description of when to use this checklist..."
+                  className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-neutral-300">
+                    Document Requirements ({editingTemplate.requirements.length})
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingTemplate({
+                        ...editingTemplate,
+                        requirements: [...editingTemplate.requirements, ""],
+                      })
+                    }
+                    className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Add Item</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {editingTemplate.requirements.map((req, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-[10px] text-neutral-500 w-5 text-right">{index + 1}.</span>
+                      <input
+                        type="text"
+                        required
+                        value={req}
+                        onChange={(e) => {
+                          const updated = [...editingTemplate.requirements];
+                          updated[index] = e.target.value;
+                          setEditingTemplate({ ...editingTemplate, requirements: updated });
+                        }}
+                        placeholder="e.g. PAN Card / Form 16 / Bank Statement"
+                        className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+                      />
+                      {editingTemplate.requirements.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = editingTemplate.requirements.filter((_, i) => i !== index);
+                            setEditingTemplate({ ...editingTemplate, requirements: updated });
+                          }}
+                          className="p-1.5 text-neutral-500 hover:text-rose-400 rounded-lg transition"
+                          title="Remove item"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-neutral-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingTemplate(null)}
+                  disabled={savingTemplate}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-xs font-semibold rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingTemplate}
+                  className="inline-flex items-center gap-2 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 text-xs font-bold rounded-xl transition shadow-md shadow-emerald-500/20"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{savingTemplate ? "Saving..." : "Save Template"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

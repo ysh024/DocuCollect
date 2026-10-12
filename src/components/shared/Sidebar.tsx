@@ -13,6 +13,9 @@ import {
   CreditCard,
   ShieldCheck,
   AlertCircle,
+  MessageSquare,
+  Mail,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
@@ -175,6 +178,58 @@ export function Sidebar() {
             <span>Client Vault</span>
             <ArrowUpRight className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-900 dark:group-hover:text-white" />
           </Link>
+        </div>
+
+        {/* Trial Days Alert in Sidebar */}
+        {isOnTrial && trialDaysLeft !== null && (
+          <div className="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300/80 dark:border-amber-800/60 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-amber-800 dark:text-amber-300 font-bold text-xs">
+              <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              <span>{trialDaysLeft} Days Left in Trial</span>
+            </div>
+            <p className="text-[11px] text-amber-700/90 dark:text-amber-400/90 leading-tight">
+              Upgrade to keep links active and unlock premium limits.
+            </p>
+            <Link
+              href="/dashboard/billing"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 dark:text-amber-200 hover:underline pt-0.5"
+            >
+              <span>Upgrade Plan</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+        )}
+
+        {/* Support Contact Info */}
+        <div className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200/70 dark:border-neutral-700/60 space-y-2">
+          <p className="text-[11px] font-bold text-neutral-800 dark:text-neutral-200">
+            Need Help / Support?
+          </p>
+          <p className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-tight">
+            Reach our support team directly for setup or billing assistance:
+          </p>
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <a
+              href={`https://wa.me/${(process.env.NEXT_PUBLIC_CONTACT_PHONE || "+919718871979").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                `Hello! I need support with my DocuCollect account (${user?.email || ""}).`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] font-bold hover:bg-emerald-100 transition"
+              title="Message Admin on WhatsApp"
+            >
+              <MessageSquare className="w-3 h-3" />
+              <span>WhatsApp</span>
+            </a>
+            <a
+              href={`mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || "support@docucollect.in"}?subject=DocuCollect Support Request`}
+              className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-600 text-[10px] font-bold hover:bg-neutral-200 transition"
+              title="Email Support"
+            >
+              <Mail className="w-3 h-3" />
+              <span>Email</span>
+            </a>
+          </div>
         </div>
       </div>
 

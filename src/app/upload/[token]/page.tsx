@@ -93,12 +93,34 @@ export default function ClientUploadPortalPage() {
 
   const handleConfirmDelete = async () => {
     if (!documentToDelete || !token) return;
+    const docId = documentToDelete.id;
     setIsDeleting(true);
     try {
-      const res = await clientDeleteDocumentAction(token, documentToDelete.id);
+      const res = await clientDeleteDocumentAction(token, docId);
       if (res.success) {
         setDocumentToDelete(null);
-        await loadPortal(true);
+        // Instant optimistic internal state update: removes file and updates requirement status with 0ms lag
+        setPortalData((prev) => {
+          if (!prev) return prev;
+          const updatedReqs = prev.requirements.map((req) => {
+            const isMatch = req.latest_document?.id === docId || (req.history || []).some((d) => d.id === docId);
+            if (!isMatch) return req;
+            const remainingHistory = (req.history || []).filter((d) => d.id !== docId);
+            const newLatest = req.latest_document?.id === docId
+              ? (remainingHistory.length > 0 ? remainingHistory[0] : null)
+              : req.latest_document;
+            const newStatus = newLatest ? newLatest.status : "not_uploaded";
+            return {
+              ...req,
+              status: newStatus as any,
+              latest_document: newLatest,
+              history: remainingHistory,
+            };
+          });
+          return { ...prev, requirements: updatedReqs };
+        });
+        // Silent background sync
+        loadPortal(false);
       } else {
         alert(res.error || "Failed to delete file.");
       }

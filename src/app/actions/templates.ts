@@ -230,7 +230,7 @@ export async function updateChecklistTemplateAction(
   }
 
   try {
-    // Ensure only custom templates belonging to current organization can be updated
+    // Allow updating custom template or default system template
     const res = await sql`
       UPDATE public.checklist_templates
       SET name = ${data.name.trim()},
@@ -239,10 +239,10 @@ export async function updateChecklistTemplateAction(
           requirements = ${JSON.stringify(validReqs)}::jsonb,
           updated_at = now()
       WHERE id = ${templateId}
-        AND organization_id = ${session.organizationId}
-        AND is_system = false;
+        AND (organization_id = ${session.organizationId} OR is_system = true);
     `;
 
+    invalidateTemplatesCache();
     revalidatePath("/dashboard/templates");
     revalidatePath("/dashboard/cases");
 
@@ -254,7 +254,7 @@ export async function updateChecklistTemplateAction(
 }
 
 /**
- * Delete a custom template
+ * Delete a template (custom or default system template)
  */
 export async function deleteChecklistTemplateAction(
   templateId: string
@@ -271,10 +271,10 @@ export async function deleteChecklistTemplateAction(
     await sql`
       DELETE FROM public.checklist_templates
       WHERE id = ${templateId}
-        AND organization_id = ${session.organizationId}
-        AND is_system = false;
+        AND (organization_id = ${session.organizationId} OR is_system = true);
     `;
 
+    invalidateTemplatesCache();
     revalidatePath("/dashboard/templates");
     revalidatePath("/dashboard/cases");
 
