@@ -31,12 +31,12 @@ export function getDb() {
     return null;
   }
 
-  // Neon HTTP driver (@neondatabase/serverless) queries the internal compute proxy.
-  // Using direct compute (stripping -pooler) avoids PgBouncer proxy latency and stalls.
-  const directConnectionString = connectionString.replace("-pooler.", ".");
+  // Web applications on serverless runtimes use Neon connection pooling (-pooler)
+  // to support up to 10,000 concurrent queries without connection exhaustion
+  const targetConnectionString = connectionString;
 
-  if (!cachedSql || cachedUrl !== directConnectionString) {
-    const baseSql = neon(directConnectionString);
+  if (!cachedSql || cachedUrl !== targetConnectionString) {
+    const baseSql = neon(targetConnectionString);
 
     // Create resilient wrapper with 1-shot retry for transient cold-start / socket wakeups
     const resilientSql = async (strings: TemplateStringsArray, ...values: any[]) => {
@@ -65,7 +65,7 @@ export function getDb() {
     (resilientSql as any).query = (baseSql as any).query;
 
     cachedSql = resilientSql;
-    cachedUrl = directConnectionString;
+    cachedUrl = targetConnectionString;
   }
 
   return cachedSql;

@@ -61,49 +61,56 @@ export async function GET(
       );
     }
 
-    // Concurrently fetch all valid document buffers directly from object storage (parallel high-speed fetch)
-    const fileBuffers = await Promise.all(
-      docsToBundle.map(async (item) => {
-        const buffer = await getFileBufferFromStorage(item.storage_path);
-        return { item, buffer };
-      })
-    );
-
     // Initialize fast ZIP archive
     const zip = new JSZip();
     const usedNames = new Set<string>();
+    let attachedFileCount = 0;
 
-    for (const { item, buffer } of fileBuffers) {
-      if (!buffer || buffer.length === 0) {
-        console.warn(`Could not retrieve buffer for ${item.storage_path}`);
-        continue;
+    // Fetch and append document buffers iteratively to maintain low RAM usage (<128 MB limit)
+    for (const item of docsToBundle) {
+      try {
+        const buffer = await getFileBufferFromStorage(item.storage_path);
+        if (!buffer || buffer.length === 0) {
+          console.warn(`Could not retrieve buffer for ${item.storage_path}`);
+          continue;
+        }
+
+        // Determine file extension
+        const originalExt = item.file_name.includes(".") ? item.file_name.split(".").pop() : "pdf";
+        const ext = (originalExt || "pdf").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+        // Format clean, professional, human-readable file name for the zip
+        const cleanReq = item.req_name.replace(/[\\/:*?"<>|]/g, " ").trim();
+        const cleanClient = clientName.replace(/[\\/:*?"<>|]/g, " ").trim();
+
+        let properName = `${cleanReq} - ${cleanClient}.${ext}`;
+
+        // If duplicate or version > 1, annotate version clearly
+        if (usedNames.has(properName) || (item.version && item.version > 1)) {
+          properName = `${cleanReq} (v${item.version}) - ${cleanClient}.${ext}`;
+        }
+
+        // If still duplicate, add index
+        let finalName = properName;
+        let counter = 2;
+        while (usedNames.has(finalName)) {
+          finalName = `${cleanReq} (${counter}) - ${cleanClient}.${ext}`;
+          counter++;
+        }
+        usedNames.add(finalName);
+
+        zip.file(finalName, buffer);
+        attachedFileCount++;
+      } catch (docErr) {
+        console.warn(`Error bundling file ${item.storage_path}:`, docErr);
       }
+    }
 
-      // Determine file extension
-      const originalExt = item.file_name.includes(".") ? item.file_name.split(".").pop() : "pdf";
-      const ext = (originalExt || "pdf").toLowerCase().replace(/[^a-z0-9]/g, "");
-
-      // Format clean, professional, human-readable file name for the zip
-      const cleanReq = item.req_name.replace(/[\\/:*?"<>|]/g, " ").trim();
-      const cleanClient = clientName.replace(/[\\/:*?"<>|]/g, " ").trim();
-
-      let properName = `${cleanReq} - ${cleanClient}.${ext}`;
-
-      // If duplicate or version > 1, annotate version clearly
-      if (usedNames.has(properName) || (item.version && item.version > 1)) {
-        properName = `${cleanReq} (v${item.version}) - ${cleanClient}.${ext}`;
-      }
-
-      // If still duplicate, add index
-      let finalName = properName;
-      let counter = 2;
-      while (usedNames.has(finalName)) {
-        finalName = `${cleanReq} (${counter}) - ${cleanClient}.${ext}`;
-        counter++;
-      }
-      usedNames.add(finalName);
-
-      zip.file(finalName, buffer);
+    if (attachedFileCount === 0) {
+      return NextResponse.json(
+        { error: "Could not retrieve document files from storage for this archive." },
+        { status: 500 }
+      );
     }
 
     // Generate zip binary with STORE compression (fast zero-CPU packaging to prevent Error 1102 on edge workers)

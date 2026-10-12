@@ -68,6 +68,27 @@ export async function invalidateNotificationsCache(orgId?: string) {
   }
 }
 
+interface CachedPortalEntry {
+  data: ClientPortalData;
+  timestamp: number;
+}
+const portalDataMemoryCache = new Map<string, CachedPortalEntry>();
+const PORTAL_DATA_CACHE_TTL = 15000; // 15 seconds fast in-memory cache
+
+export async function invalidatePortalCache(tokenOrCaseId?: string) {
+  if (tokenOrCaseId) {
+    portalDataMemoryCache.delete(tokenOrCaseId);
+    for (const [key, val] of portalDataMemoryCache.entries()) {
+      if (val.data?.case?.id === tokenOrCaseId) {
+        portalDataMemoryCache.delete(key);
+      }
+    }
+  } else {
+    portalDataMemoryCache.clear();
+  }
+}
+
+
 export async function getDashboardData(options?: { forceFresh?: boolean }) {
   const sql = getDb();
   if (!sql) throw new Error("Neon Database is not connected. Please verify DATABASE_URL in .env.local.");
@@ -383,7 +404,14 @@ export async function getCaseDetails(caseId: string, options?: { forceFresh?: bo
   return caseResult;
 }
 
-export async function getPortalData(token: string): Promise<ClientPortalData | null> {
+export async function getPortalData(token: string, options?: { forceFresh?: boolean }): Promise<ClientPortalData | null> {
+  if (!options?.forceFresh) {
+    const cached = portalDataMemoryCache.get(token);
+    if (cached && Date.now() - cached.timestamp < PORTAL_DATA_CACHE_TTL) {
+      return cached.data;
+    }
+  }
+
   const sql = getDb();
   if (!sql) return null;
 
@@ -475,7 +503,7 @@ export async function getPortalData(token: string): Promise<ClientPortalData | n
       ? Math.min(100, Math.round((approved / effectiveDenominator) * 100))
       : (total === 0 ? 100 : 0);
 
-    return {
+    const result: ClientPortalData = {
       case: {
         id: c.id,
         title: c.title,
@@ -504,6 +532,9 @@ export async function getPortalData(token: string): Promise<ClientPortalData | n
       requirements: reqs,
       progress: { total, required, approved, under_review, rejected, pending, percentage },
     };
+
+    portalDataMemoryCache.set(token, { data: result, timestamp: Date.now() });
+    return result;
   } catch (err) {
     console.warn("getPortalData error:", err);
     return null;
@@ -968,6 +999,7 @@ export async function reviewDocumentAction(
 
   invalidateDashboardCache(orgId);
   invalidateCaseCache(caseId);
+  invalidatePortalCache(caseId);
   revalidatePath(`/dashboard/cases/${caseId}`);
   revalidatePath("/dashboard");
   return { success: true };
@@ -1186,7 +1218,7 @@ export async function clientUploadDocumentAction(
   revalidatePath(`/upload/${token}`);
   revalidatePath(`/dashboard/cases/${c.id}`);
   revalidatePath("/dashboard");
-  return {
+  const uploadResponse = {
     success: true,
     document: {
       id: newDocs[0].id,
@@ -1201,6 +1233,13 @@ export async function clientUploadDocumentAction(
       uploaded_at: newDocs[0].uploaded_at,
     },
   };
+
+  invalidateDashboardCache(c.organization_id);
+  invalidateCaseCache(c.id);
+  invalidatePortalCache(token);
+  invalidatePortalCache(c.id);
+
+  return uploadResponse;
 }
 
 export async function raiseClientQueryAction(token: string, requirementId: string, message: string) {

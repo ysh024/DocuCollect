@@ -123,14 +123,18 @@ export default function ClientUploadPortalPage() {
     return () => window.removeEventListener("focus", handleFocus);
   }, [token]);
 
-  // Periodic polling: auto-syncs every 7 seconds so advisor approvals show up live
+  // Periodic polling: auto-syncs every 25 seconds only if the tab is currently visible in foreground
   useEffect(() => {
     if (!token) return;
     const interval = setInterval(() => {
+      // Avoid firing background network requests for hidden / inactive tabs
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
       if (typeof navigator === "undefined" || navigator.onLine) {
         loadPortal(false);
       }
-    }, 7000);
+    }, 25000);
     return () => clearInterval(interval);
   }, [token]);
 
