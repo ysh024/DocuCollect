@@ -164,6 +164,14 @@ export async function getFileBufferFromStorage(storagePath: string): Promise<Buf
       console.warn(`S3 fetch returned status ${res.status} for ${storagePath}`);
       return null;
     }
+
+    // Protect Cloudflare Workers 128 MB RAM limit against out-of-memory crashes
+    const contentLength = res.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > 12 * 1024 * 1024) {
+      console.warn(`File "${storagePath}" exceeds 12MB (${contentLength} bytes) in Worker memory, delegating to direct presigned storage URL.`);
+      return null;
+    }
+
     const arrayBuffer = await res.arrayBuffer();
     const rawBuffer = Buffer.from(arrayBuffer);
     return decryptFileBuffer(rawBuffer);

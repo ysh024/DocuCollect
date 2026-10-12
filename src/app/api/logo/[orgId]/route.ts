@@ -54,7 +54,7 @@ export async function GET(
           headers: {
             "Content-Type": mimeType,
             "Content-Length": buffer.length.toString(),
-            "Cache-Control": versionParam ? "public, max-age=31536000, immutable" : "public, max-age=60, stale-while-revalidate=300",
+            "Cache-Control": versionParam ? "public, max-age=31536000, immutable" : "public, max-age=600, stale-while-revalidate=86400",
           },
         });
       }
@@ -75,9 +75,9 @@ export async function GET(
             headers: {
               "Content-Type": mimeType,
               "Content-Length": buffer.length.toString(),
-              "Cache-Control": versionParam
-                ? "public, max-age=31536000, immutable"
-                : "public, max-age=60, stale-while-revalidate=300",
+            "Cache-Control": versionParam
+              ? "public, max-age=31536000, immutable"
+              : "public, max-age=600, stale-while-revalidate=86400",
             },
           });
         }

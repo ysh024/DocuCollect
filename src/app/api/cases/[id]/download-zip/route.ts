@@ -106,11 +106,10 @@ export async function GET(
       zip.file(finalName, buffer);
     }
 
-    // Generate zip binary with DEFLATE compression
+    // Generate zip binary with STORE compression (fast zero-CPU packaging to prevent Error 1102 on edge workers)
     const zipBuffer = await zip.generateAsync({
       type: "nodebuffer",
-      compression: "DEFLATE",
-      compressionOptions: { level: 6 },
+      compression: "STORE",
     });
 
     // Clean, structured zip filename formatted with Client Name and Case ID / Reference Number
