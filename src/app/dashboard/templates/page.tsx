@@ -18,6 +18,7 @@ import {
   Briefcase,
   Filter,
   CheckCircle,
+  Share2,
 } from "lucide-react";
 import { ChecklistTemplate } from "@/types";
 import {
@@ -107,6 +108,29 @@ export default function ChecklistTemplatesPage() {
       }
     } catch (err: any) {
       toast({ title: "Error", description: err.message, type: "error" });
+    }
+  };
+
+  const handleCopyChecklistText = (template: ChecklistTemplate) => {
+    const lines = [
+      `📋 Required Checklist: ${template.name}`,
+      template.description ? `Note: ${template.description}\n` : "",
+      ...template.requirements.map(
+        (r, i) =>
+          `${i + 1}. ${r.name}${r.is_required ? " [Mandatory]" : " [Optional]"}${
+            r.description ? ` - ${r.description}` : ""
+          }`
+      ),
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(lines);
+      toast({
+        title: "Checklist copied to clipboard",
+        description: `Ready to paste on WhatsApp or Email for "${template.name}".`,
+      });
     }
   };
 
@@ -266,6 +290,42 @@ export default function ChecklistTemplatesPage() {
             </button>
           </div>
         </div>
+
+        {/* Category Quick Pills */}
+        {categories.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none pt-1 border-t border-neutral-100 dark:border-neutral-800/80">
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("all")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer border ${
+                categoryFilter === "all"
+                  ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 dark:border-white shadow-2xs"
+                  : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+              }`}
+            >
+              All Categories ({templates.length})
+            </button>
+            {categories.map((cat) => {
+              const count = templates.filter((t) => t.service_type === cat).length;
+              const isSelected = categoryFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition cursor-pointer border flex items-center gap-1 ${
+                    isSelected
+                      ? "bg-emerald-500 text-neutral-950 border-emerald-500 shadow-2xs font-bold"
+                      : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                  }`}
+                >
+                  <span>{cat}</span>
+                  <span className="text-[10px] opacity-75">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Templates Grid */}
@@ -306,6 +366,21 @@ export default function ChecklistTemplatesPage() {
             const requiredCount = tpl.requirements.filter((r) => r.is_required).length;
             const optionalCount = tpl.requirements.length - requiredCount;
 
+            const categoryBadgeColor =
+              tpl.service_type === "Taxation & Returns"
+                ? "bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800/80"
+                : tpl.service_type === "GST Compliance"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80"
+                : tpl.service_type === "Banking & Loans"
+                ? "bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800/80"
+                : tpl.service_type === "Corporate & Legal"
+                ? "bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800/80"
+                : tpl.service_type === "Visa & Immigration"
+                ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/80"
+                : tpl.service_type === "Audits & Compliance"
+                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-800/80"
+                : "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 border-neutral-200 dark:border-neutral-700";
+
             return (
               <div
                 key={tpl.id}
@@ -314,12 +389,11 @@ export default function ChecklistTemplatesPage() {
                 {/* Card Top */}
                 <div className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-neutral-600 dark:text-neutral-400">
-                      <Layers className="w-3 h-3 text-neutral-400 dark:text-neutral-500" />
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${categoryBadgeColor}`}>
                       <span>{tpl.service_type || "General"}</span>
                     </span>
 
-                    {/* Icon Badges with Tooltips instead of bloated text */}
+                    {/* Icon Badges with Tooltips */}
                     {!tpl.is_system ? (
                       <span
                         title="Firm Custom Template"
@@ -410,28 +484,38 @@ export default function ChecklistTemplatesPage() {
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
+                      onClick={() => handleCopyChecklistText(tpl)}
+                      className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 rounded-lg transition-colors cursor-pointer"
+                      title="Copy checklist as text for WhatsApp / Email"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicateTemplate(tpl)}
+                      className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 rounded-lg transition-colors cursor-pointer"
+                      title="Clone template to firm library"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleEdit(tpl)}
                       className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 rounded-lg transition-colors cursor-pointer"
                       title="Edit template"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDuplicateTemplate(tpl)}
-                      className="p-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-200/60 dark:hover:bg-neutral-700 rounded-lg transition-colors cursor-pointer"
-                      title="Clone template"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteTemplate(tpl)}
-                      className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-                      title="Delete template"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {!tpl.is_system && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteTemplate(tpl)}
+                        className="p-1.5 text-neutral-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                        title="Delete template"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
 
                   <button

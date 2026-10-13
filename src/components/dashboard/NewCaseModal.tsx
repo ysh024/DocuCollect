@@ -45,23 +45,33 @@ const SMART_DOCUMENT_SUGGESTIONS = [
   "PAN Card",
   "Aadhaar Card",
   "Form 16 (Part A & B)",
-  "Form 26AS / AIS / TIS",
-  "Bank Statement (12 Months)",
-  "Bank Statement (6 Months)",
+  "Form 26AS & AIS / TIS Summary",
+  "Bank Statements (Full FY - 12 Months)",
+  "Bank Statement (Last 6 Months)",
   "Salary Slips (Last 3 Months)",
   "ITR-V Acknowledgment",
-  "Capital Gains Statement",
+  "Capital Gains Statement from Broker",
   "Housing Loan Interest Certificate",
   "GST Registration Certificate",
-  "Electricity Bill of Premises",
-  "Rent Agreement / Ownership Proof",
-  "Cancelled Cheque",
-  "Passport / Voter ID",
+  "GSTR-3B Monthly Return Copies",
+  "GSTR-1 vs 3B Sales Reconciliation",
+  "Electricity Bill of Premises (< 2 Months)",
+  "Rent Agreement & Owner NOC",
+  "Cancelled Cheque / Bank Statement with IFSC",
+  "Passport (All Pages with Stamps)",
   "Passport Size Photograph",
-  "Property Title Deed",
-  "Audited Balance Sheet & P&L",
-  "Partnership Deed / Incorporation Certificate",
-  "Board Resolution / Authorization Letter",
+  "Property Chain Title Deeds / Sale Deed",
+  "Audited Balance Sheet & Profit & Loss",
+  "CMA Data & Project Report",
+  "Digital Signature Certificate (DSC) Form",
+  "LLP Agreement (Form 3 Filing)",
+  "MSME / Udyam Certificate",
+  "Trademark Logo / Wordmark High-Res Image",
+  "University Offer Letter & I-20 / CAS",
+  "CA Net Worth & Wealth Valuation Report",
+  "Trial Balance & Grouping Schedules",
+  "Fixed Asset Register with Depreciation",
+  "Relieving Letter & Experience Certificates",
 ];
 
 const QUICK_PRESETS: {
@@ -72,46 +82,73 @@ const QUICK_PRESETS: {
 }[] = [
   {
     id: "itr",
-    name: "ITR Filing",
-    serviceType: "ITR Filing",
+    name: "ITR-1 Salaried",
+    serviceType: "Taxation & Returns",
     items: [
-      { name: "PAN Card", description: "", is_required: true },
-      { name: "Aadhaar Card", description: "", is_required: true },
-      { name: "Form 16 (Part A & B)", description: "", is_required: true },
-      { name: "Bank Statement (12 Months)", description: "", is_required: true },
+      { name: "Form 16 (Part A & B)", description: "Salary TDS certificate", is_required: true },
+      { name: "PAN Card", description: "Identity proof", is_required: true },
+      { name: "Aadhaar Card", description: "Linked with PAN", is_required: true },
+      { name: "Bank Statements (Full FY - 12 Months)", description: "All savings accounts", is_required: true },
+      { name: "Form 26AS & AIS / TIS Summary", description: "Tax credit statement", is_required: true },
     ],
   },
   {
     id: "gst",
     name: "GST Registration",
-    serviceType: "GST Registration",
+    serviceType: "GST Compliance",
     items: [
-      { name: "PAN Card of Business / Proprietor", description: "", is_required: true },
-      { name: "Aadhaar Card of Promoters", description: "", is_required: true },
-      { name: "Electricity Bill of Premises", description: "", is_required: true },
-      { name: "Rent Agreement / Ownership Proof", description: "", is_required: true },
-      { name: "Cancelled Cheque", description: "", is_required: true },
+      { name: "PAN Card of Business / Proprietor", description: "Entity PAN", is_required: true },
+      { name: "Aadhaar Card of Promoters", description: "Signatory Aadhaar", is_required: true },
+      { name: "Electricity Bill of Premises (< 2 Months)", description: "Registered address utility bill", is_required: true },
+      { name: "Rent Agreement & Owner NOC", description: "Premises consent proof", is_required: true },
+      { name: "Cancelled Cheque / Bank Statement with IFSC", description: "Bank proof", is_required: true },
     ],
   },
   {
     id: "loan",
-    name: "Loan Dossier",
-    serviceType: "Loan Application",
+    name: "Home Loan Dossier",
+    serviceType: "Banking & Loans",
     items: [
-      { name: "KYC (PAN & Aadhaar)", description: "", is_required: true },
-      { name: "Last 3 Months Salary Slips", description: "", is_required: true },
-      { name: "Last 6 Months Bank Statement", description: "", is_required: true },
-      { name: "Form 16 & 2 Years ITR-V", description: "", is_required: true },
+      { name: "Applicant & Co-Applicant KYC (PAN & Aadhaar)", description: "Identity & address", is_required: true },
+      { name: "Last 3 Months Computerized Salary Slips", description: "Payslips with seal", is_required: true },
+      { name: "Last 6 Months Salary Bank Statement", description: "Salary account statement", is_required: true },
+      { name: "Latest Form 16 & 3 Years ITR-V", description: "Tax acknowledgments", is_required: true },
+      { name: "Property Chain of Title Deeds & Agreement to Sell", description: "Title documentation", is_required: true },
     ],
   },
   {
-    id: "kyc",
-    name: "KYC Verification",
-    serviceType: "KYC Check",
+    id: "corp",
+    name: "Company Incorporation",
+    serviceType: "Corporate & Legal",
     items: [
-      { name: "PAN Card", description: "", is_required: true },
-      { name: "Aadhaar Card / Passport", description: "", is_required: true },
-      { name: "Passport Photo", description: "", is_required: true },
+      { name: "PAN & Identity Proof of All Directors", description: "Directors identity proof", is_required: true },
+      { name: "Address Proof of Directors (< 2 Months)", description: "Bank statement / utility bill", is_required: true },
+      { name: "Registered Office Electricity Bill (< 2 Months)", description: "Office premises utility bill", is_required: true },
+      { name: "Owner NOC & Rent Agreement", description: "Landlord consent", is_required: true },
+      { name: "Digital Signature Certificate (DSC) Application Form", description: "Class 3 DSC form", is_required: true },
+    ],
+  },
+  {
+    id: "visa",
+    name: "Student Visa",
+    serviceType: "Visa & Immigration",
+    items: [
+      { name: "Valid Passport (All Pages with Stamps)", description: "Min 12 months validity", is_required: true },
+      { name: "University Offer Letter & I-20 / CAS", description: "Admission proof", is_required: true },
+      { name: "Academic Marksheets & Degree Certificates", description: "Academic records", is_required: true },
+      { name: "CA Net Worth & Wealth Valuation Report", description: "Financial solvency report", is_required: true },
+      { name: "Last 6 Months Bank Statement with Branch Stamp", description: "Proof of liquid funds", is_required: true },
+    ],
+  },
+  {
+    id: "audit",
+    name: "Tax Audit (3CD)",
+    serviceType: "Audits & Compliance",
+    items: [
+      { name: "Final Trial Balance & Grouping Schedules", description: "Closing ledgers", is_required: true },
+      { name: "Bank Confirmation Letters & Year-End Bank Statements", description: "Bank balances", is_required: true },
+      { name: "Fixed Asset Register with Depreciation Schedule", description: "Asset additions & disposals", is_required: true },
+      { name: "Statutory Dues Payment Proofs (PF, ESIC, TDS, GST)", description: "Challans paid on time", is_required: true },
     ],
   },
 ];
@@ -528,7 +565,7 @@ export function NewCaseModal({
                   </div>
                 </div>
 
-                {/* Dropdown for custom templates */}
+                {/* Dropdown for custom & system templates grouped by category */}
                 {templates.length > 0 && (
                   <select
                     value={activePresetId?.startsWith("db_") ? activePresetId : ""}
@@ -537,13 +574,29 @@ export function NewCaseModal({
                       const found = templates.find((t) => t.id === tId);
                       if (found) handleApplyDbTemplate(found);
                     }}
-                    className="text-xs bg-transparent border-0 text-emerald-600 dark:text-emerald-400 font-semibold focus:outline-none cursor-pointer"
+                    className="text-xs bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 font-medium px-2.5 py-1 rounded-xl focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
                   >
-                    <option value="">Choose a Template ({templates.length})...</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={`db_${t.id}`}>
-                        {t.name} ({t.requirements?.length || 0} docs)
-                      </option>
+                    <option value="" className="text-neutral-500">
+                      Choose a Template ({templates.length})...
+                    </option>
+                    {Array.from(new Set(templates.map((t) => t.service_type || "General"))).map((cat) => (
+                      <optgroup
+                        key={cat}
+                        label={cat}
+                        className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 font-semibold"
+                      >
+                        {templates
+                          .filter((t) => (t.service_type || "General") === cat)
+                          .map((t) => (
+                            <option
+                              key={t.id}
+                              value={`db_${t.id}`}
+                              className="font-normal text-neutral-700 dark:text-neutral-300"
+                            >
+                              {t.name} ({t.requirements?.length || 0} docs)
+                            </option>
+                          ))}
+                      </optgroup>
                     ))}
                   </select>
                 )}
