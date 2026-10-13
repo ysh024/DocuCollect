@@ -18,8 +18,12 @@ function getEncryptionKey(): Buffer {
     // If arbitrary string, derive 32-byte key via SHA-256
     return crypto.createHash("sha256").update(envKey).digest();
   }
-  const fallback = process.env.DATABASE_URL || "docucollect_zero_knowledge_storage_secret_key_2026";
-  return crypto.createHash("sha256").update(fallback).digest();
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FATAL: STORAGE_ENCRYPTION_KEY or AUTH_SECRET must be configured in production environment.");
+  }
+  console.warn("WARNING: Using development fallback key for file encryption. Set STORAGE_ENCRYPTION_KEY in production.");
+  const devFallback = process.env.DATABASE_URL || "docucollect_dev_only_key_not_for_production";
+  return crypto.createHash("sha256").update(devFallback).digest();
 }
 
 /**
@@ -99,14 +103,6 @@ export function decryptFileBuffer(fileBuffer: Buffer | Uint8Array): Buffer {
         return Buffer.concat([dbDecipher.update(ciphertext), dbDecipher.final()]);
       } catch {}
     }
-
-    // Alternative 3: Static root fallback key
-    try {
-      const rootKey = crypto.createHash("sha256").update("docucollect_zero_knowledge_storage_secret_key_2026").digest();
-      const rootDecipher = crypto.createDecipheriv("aes-256-gcm", rootKey, iv);
-      rootDecipher.setAuthTag(authTag);
-      return Buffer.concat([rootDecipher.update(ciphertext), rootDecipher.final()]);
-    } catch {}
 
     throw decErr;
   }

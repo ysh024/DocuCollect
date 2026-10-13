@@ -47,7 +47,11 @@ const CASE_DETAILS_CACHE_TTL = 45000; // 45 seconds fast in-memory cache
 
 export async function invalidateCaseCache(caseId?: string) {
   if (caseId) {
-    caseDetailsMemoryCache.delete(caseId);
+    for (const key of Array.from(caseDetailsMemoryCache.keys())) {
+      if (key === caseId || key.endsWith(`:${caseId}`)) {
+        caseDetailsMemoryCache.delete(key);
+      }
+    }
   } else {
     caseDetailsMemoryCache.clear();
   }
@@ -293,10 +297,11 @@ export async function getCaseDetails(caseId: string, options?: { forceFresh?: bo
   const sql = getDb();
   if (!sql) throw new Error("Neon Database is not connected.");
 
-  await getAuthenticatedOrgId(); // Ensure authenticated
+  const authOrgId = await getAuthenticatedOrgId(); // Ensure authenticated and obtain tenant orgId
 
+  const cacheKey = `${authOrgId}:${caseId}`;
   if (!options?.forceFresh) {
-    const cached = caseDetailsMemoryCache.get(caseId);
+    const cached = caseDetailsMemoryCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CASE_DETAILS_CACHE_TTL) {
       return cached.data;
     }
@@ -304,34 +309,41 @@ export async function getCaseDetails(caseId: string, options?: { forceFresh?: bo
 
   const [combinedCase] = await sql`
     SELECT
-      (SELECT row_to_json(c) FROM (SELECT * FROM public.cases WHERE id::text = ${caseId} LIMIT 1) c) as case_info,
+      (SELECT row_to_json(c) FROM (
+        SELECT * FROM public.cases 
+        WHERE id::text = ${caseId} AND organization_id = ${authOrgId} 
+        LIMIT 1
+      ) c) as case_info,
       (SELECT row_to_json(cli) FROM (
         SELECT cl.* FROM public.clients cl
         JOIN public.cases cs ON cs.client_id = cl.id
-        WHERE cs.id::text = ${caseId} LIMIT 1
+        WHERE cs.id::text = ${caseId} AND cs.organization_id = ${authOrgId} LIMIT 1
       ) cli) as client,
       (SELECT row_to_json(org) FROM (
         SELECT o.* FROM public.organizations o
         JOIN public.cases cs ON cs.organization_id = o.id
-        WHERE cs.id::text = ${caseId} LIMIT 1
+        WHERE cs.id::text = ${caseId} AND cs.organization_id = ${authOrgId} LIMIT 1
       ) org) as organization,
       (SELECT COALESCE(json_agg(req), '[]'::json) FROM (
-        SELECT * FROM public.document_requirements
-        WHERE case_id::text = ${caseId}
-        ORDER BY sort_order ASC
+        SELECT r.* FROM public.document_requirements r
+        JOIN public.cases cs ON cs.id = r.case_id
+        WHERE r.case_id::text = ${caseId} AND cs.organization_id = ${authOrgId}
+        ORDER BY r.sort_order ASC
       ) req) as requirements,
       (SELECT COALESCE(json_agg(doc), '[]'::json) FROM (
-        SELECT id, requirement_id, case_id, client_id, version, file_name, storage_path,
-               file_size, mime_type, status, rejection_reason, uploaded_by_type,
-               uploaded_at, reviewed_at, reviewed_by, auto_delete_at
-        FROM public.documents
-        WHERE case_id::text = ${caseId}
-        ORDER BY version ASC
+        SELECT d.id, d.requirement_id, d.case_id, d.client_id, d.version, d.file_name, d.storage_path,
+               d.file_size, d.mime_type, d.status, d.rejection_reason, d.uploaded_by_type,
+               d.uploaded_at, d.reviewed_at, d.reviewed_by, d.auto_delete_at
+        FROM public.documents d
+        JOIN public.cases cs ON cs.id = d.case_id
+        WHERE d.case_id::text = ${caseId} AND cs.organization_id = ${authOrgId}
+        ORDER BY d.version ASC
       ) doc) as documents,
       (SELECT row_to_json(lnk) FROM (
-        SELECT * FROM public.upload_links
-        WHERE case_id::text = ${caseId}
-        ORDER BY created_at DESC
+        SELECT ul.* FROM public.upload_links ul
+        JOIN public.cases cs ON cs.id = ul.case_id
+        WHERE ul.case_id::text = ${caseId} AND cs.organization_id = ${authOrgId}
+        ORDER BY ul.created_at DESC
         LIMIT 1
       ) lnk) as upload_link;
   `;
@@ -400,7 +412,7 @@ export async function getCaseDetails(caseId: string, options?: { forceFresh?: bo
     upload_link: link,
   };
 
-  caseDetailsMemoryCache.set(caseId, { data: caseResult, timestamp: Date.now() });
+  caseDetailsMemoryCache.set(cacheKey, { data: caseResult, timestamp: Date.now() });
   return caseResult;
 }
 
@@ -416,23 +428,24 @@ export async function getPortalData(token: string, options?: { forceFresh?: bool
   if (!sql) return null;
 
   try {
-    const tokenHash = hashToken(token);
-    let links = await sql`SELECT * FROM public.upload_links WHERE token_hash = ${tokenHash} LIMIT 1;`;
-    if (links.length === 0) {
-      links = await sql`SELECT * FROM public.upload_links WHERE token_hash = ${token} LIMIT 1;`;
-    }
-    if (links.length === 0) {
-      links = await sql`SELECT * FROM public.upload_links WHERE token_prefix = ${token.slice(0, 8)} LIMIT 1;`;
+    const cleanToken = (token || "").trim();
+    if (!cleanToken || cleanToken.length < 16) {
+      return null;
     }
 
-    let caseRecord: any = null;
-    if (links.length > 0) {
-      const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
-      if (cases.length > 0) caseRecord = cases[0];
-    } else {
-      const cases = await sql`SELECT * FROM public.cases WHERE id::text = ${token} OR reference_number = ${token} LIMIT 1;`;
-      if (cases.length > 0) caseRecord = cases[0];
-    }
+    const tokenHash = hashToken(cleanToken);
+    const links = await sql`
+      SELECT case_id FROM public.upload_links 
+      WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+        AND (expires_at IS NULL OR expires_at > now())
+      LIMIT 1;
+    `;
+
+    if (links.length === 0) return null;
+
+    const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
+    if (cases.length === 0) return null;
+    const caseRecord = cases[0];
 
     if (!caseRecord) return null;
 
@@ -915,6 +928,14 @@ export async function generateUploadLinkAction(caseId: string) {
   const orgId = await getAuthenticatedOrgId();
   await assertActiveSubscription(orgId, sql);
 
+  // Validate case belongs to calling organization
+  const caseRows = await sql`
+    SELECT id FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;
+  `;
+  if (caseRows.length === 0) {
+    throw new Error("Case not found or unauthorized access.");
+  }
+
   const tokenData = generateUploadToken();
   await sql`DELETE FROM public.upload_links WHERE case_id = ${caseId};`;
   await sql`
@@ -943,6 +964,14 @@ export async function reviewDocumentAction(
 
   const orgId = await getAuthenticatedOrgId();
 
+  // Validate case belongs to calling organization
+  const caseRows = await sql`
+    SELECT id FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;
+  `;
+  if (caseRows.length === 0) {
+    throw new Error("Case not found or unauthorized access.");
+  }
+
   const newStatus = action === "approve" ? "approved" : "rejected";
   const reason = action === "reject" ? (rejectionReason || "Document rejected by advisor.") : null;
 
@@ -966,12 +995,12 @@ export async function reviewDocumentAction(
             WHEN ${action === "reject"} THEN (now() + (${retentionDays} * interval '1 day')) 
             ELSE auto_delete_at 
           END
-      WHERE id = ${documentId};
+      WHERE id = ${documentId} AND case_id = ${caseId};
     `,
     sql`
       UPDATE public.document_requirements
       SET status = ${newStatus}, updated_at = now()
-      WHERE id = ${requirementId};
+      WHERE id = ${requirementId} AND case_id = ${caseId};
     `,
   ]);
 
@@ -1013,20 +1042,24 @@ export async function clientUploadDocumentAction(
   const sql = getDb();
   if (!sql) throw new Error("Database not connected");
 
-  const tokenHash = hashToken(token);
+  const cleanToken = (token || "").trim();
+  if (!cleanToken || cleanToken.length < 16) {
+    return { success: false, error: "Invalid upload link token." };
+  }
+
+  const tokenHash = hashToken(cleanToken);
   const links = await sql`
-    SELECT * FROM public.upload_links 
-    WHERE token_hash = ${tokenHash} OR token_hash = ${token} OR token_prefix = ${token.slice(0, 8)} 
+    SELECT case_id FROM public.upload_links 
+    WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+      AND (expires_at IS NULL OR expires_at > now())
     LIMIT 1;
   `;
 
-  let caseId = links[0]?.case_id;
-  if (!caseId) {
-    const fallbackCases = await sql`SELECT id FROM public.cases WHERE id::text = ${token} LIMIT 1;`;
-    caseId = fallbackCases[0]?.id;
+  if (links.length === 0) {
+    return { success: false, error: "Upload session not found, invalid, or link has expired." };
   }
 
-  if (!caseId) return { success: false, error: "Upload session not found or link expired" };
+  const caseId = links[0].case_id;
 
   // Parallel fetch: case + client + subscription retention, requirement title, doc count, and duplicate rejection check
   const [caseRows, reqRows, existingDocs, prevRejected] = await Promise.all([
@@ -1038,16 +1071,17 @@ export async function clientUploadDocumentAction(
       LEFT JOIN public.plans p ON s.plan_id = p.id
       WHERE c.id = ${caseId} LIMIT 1;
     `,
-    sql`SELECT name FROM public.document_requirements WHERE id = ${requirementId} LIMIT 1;`,
-    sql`SELECT count(*) as count FROM public.documents WHERE requirement_id = ${requirementId};`,
+    sql`SELECT name FROM public.document_requirements WHERE id = ${requirementId} AND case_id = ${caseId} LIMIT 1;`,
+    sql`SELECT count(*) as count FROM public.documents WHERE requirement_id = ${requirementId} AND case_id = ${caseId};`,
     sql`
       SELECT file_size, file_name, rejection_reason FROM public.documents
-      WHERE requirement_id = ${requirementId} AND status = 'rejected'
+      WHERE requirement_id = ${requirementId} AND case_id = ${caseId} AND status = 'rejected'
       ORDER BY version DESC LIMIT 1;
     `,
   ]);
 
   if (caseRows.length === 0) return { success: false, error: "Case not found" };
+  if (reqRows.length === 0) return { success: false, error: "Document requirement not found for this case." };
   const c = caseRows[0] as any;
   const retentionDays = Number(c.file_retention_days) || 7;
   const version = parseInt(existingDocs[0]?.count || "0") + 1;
@@ -1279,25 +1313,28 @@ export async function clientDeleteDocumentAction(token: string, documentId: stri
   const sql = getDb();
   if (!sql) throw new Error("Database not connected");
 
-  const tokenHash = hashToken(token);
-  let links = await sql`
-    SELECT * FROM public.upload_links 
-    WHERE token_hash = ${tokenHash} OR token_hash = ${token} OR token_prefix = ${token.slice(0, 8)} 
+  const cleanToken = (token || "").trim();
+  if (!cleanToken || cleanToken.length < 16) {
+    return { success: false, error: "Invalid upload link token." };
+  }
+
+  const tokenHash = hashToken(cleanToken);
+  const links = await sql`
+    SELECT case_id FROM public.upload_links 
+    WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+      AND (expires_at IS NULL OR expires_at > now())
     LIMIT 1;
   `;
 
-  let caseRecord: any = null;
-  if (links.length > 0) {
-    const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
-    if (cases.length > 0) caseRecord = cases[0];
-  } else {
-    const cases = await sql`SELECT * FROM public.cases WHERE id::text = ${token} OR reference_number = ${token} LIMIT 1;`;
-    if (cases.length > 0) caseRecord = cases[0];
-  }
-
-  if (!caseRecord) {
+  if (links.length === 0) {
     return { success: false, error: "Upload link has expired or is invalid." };
   }
+
+  const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
+  if (cases.length === 0) {
+    return { success: false, error: "Case not found." };
+  }
+  const caseRecord = cases[0];
 
   const c = caseRecord;
 
@@ -1502,18 +1539,22 @@ export async function raiseClientQueryAction(token: string, requirementId: strin
   const sql = getDb();
   if (!sql) throw new Error("Database not connected");
 
-  const tokenHash = hashToken(token);
-  let links = await sql`SELECT * FROM public.upload_links WHERE token_hash = ${tokenHash} LIMIT 1;`;
-  if (links.length === 0) links = await sql`SELECT * FROM public.upload_links WHERE token_hash = ${token} LIMIT 1;`;
-  if (links.length === 0) links = await sql`SELECT * FROM public.upload_links WHERE token_prefix = ${token.slice(0, 8)} LIMIT 1;`;
-
-  let caseId = links[0]?.case_id;
-  if (!caseId) {
-    const cases = await sql`SELECT id FROM public.cases WHERE id::text = ${token} LIMIT 1;`;
-    caseId = cases[0]?.id;
+  const cleanToken = (token || "").trim();
+  if (!cleanToken || cleanToken.length < 16) {
+    return { success: false, error: "Invalid upload link token." };
   }
 
-  if (!caseId) return { success: false, error: "Invalid link" };
+  const tokenHash = hashToken(cleanToken);
+  const links = await sql`
+    SELECT case_id FROM public.upload_links 
+    WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+      AND (expires_at IS NULL OR expires_at > now())
+    LIMIT 1;
+  `;
+
+  if (links.length === 0) return { success: false, error: "Invalid or expired link" };
+
+  const caseId = links[0].case_id;
 
   const cases = await sql`
     SELECT c.*, cl.name as client_name FROM public.cases c
@@ -1523,8 +1564,9 @@ export async function raiseClientQueryAction(token: string, requirementId: strin
   if (cases.length === 0) return { success: false, error: "Case not found" };
   const c = cases[0] as any;
 
-  const reqs = await sql`SELECT name FROM public.document_requirements WHERE id = ${requirementId} LIMIT 1;`;
-  const reqName = reqs[0]?.name || "Document";
+  const reqs = await sql`SELECT name FROM public.document_requirements WHERE id = ${requirementId} AND case_id = ${caseId} LIMIT 1;`;
+  if (reqs.length === 0) return { success: false, error: "Requirement not found for this case" };
+  const reqName = reqs[0].name || "Document";
 
   await sql`
     INSERT INTO public.activity_logs (organization_id, case_id, action, actor_type, metadata)
@@ -1901,14 +1943,33 @@ export async function verifyAdminAuthorization(
   adminSecret?: string,
   adminEmail?: string
 ): Promise<{ authorized: boolean; error?: string; email?: string }> {
-  const EXPECTED_SECRET = (process.env.ADMIN_SECRET || "admin123").trim();
+  const expectedSecret = process.env.ADMIN_SECRET?.trim();
+  if (!expectedSecret) {
+    return {
+      authorized: false,
+      error: "Admin functionality is unavailable: ADMIN_SECRET is not configured on the server.",
+    };
+  }
 
-  if (!adminSecret || adminSecret.trim() !== EXPECTED_SECRET) {
+  if (!adminSecret) {
+    return { authorized: false, error: "Invalid Admin Secret Key." };
+  }
+
+  const inputHash = crypto.createHash("sha256").update(adminSecret.trim()).digest();
+  const expectedHash = crypto.createHash("sha256").update(expectedSecret).digest();
+
+  if (!crypto.timingSafeEqual(inputHash, expectedHash)) {
     return { authorized: false, error: "Invalid Admin Secret Key." };
   }
 
   // Allowed admin emails from environment (supports comma-separated list)
-  const rawAdminEmails = process.env.ADMIN_EMAIL || "yashveer2024@gmail.com,amankumarak5933485@gmail.com";
+  const rawAdminEmails = process.env.ADMIN_EMAIL?.trim();
+  if (!rawAdminEmails) {
+    return {
+      authorized: false,
+      error: "Admin functionality is unavailable: ADMIN_EMAIL is not configured on the server.",
+    };
+  }
   const allowedAdminEmails = rawAdminEmails
     .split(",")
     .map((e) => e.trim().toLowerCase())

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { deleteFileFromStorage } from "@/lib/storage";
 
+import crypto from "crypto";
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -12,18 +14,19 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   const querySecret = req.nextUrl.searchParams.get("secret");
-  const expectedSecret =
-    process.env.CRON_SECRET ||
-    process.env.ADMIN_SECRET ||
-    (process.env.NODE_ENV === "development" ? "admin123" : "");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const providedSecret = querySecret || bearerToken;
 
-  const isAuthorized =
-    Boolean(expectedSecret) &&
-    ((authHeader && authHeader === `Bearer ${expectedSecret}`) ||
-      (querySecret && querySecret === expectedSecret) ||
-      process.env.NODE_ENV === "development");
+  const expectedSecret = process.env.CRON_SECRET || process.env.ADMIN_SECRET;
 
-  if (!isAuthorized) {
+  if (!expectedSecret || !providedSecret) {
+    return NextResponse.json({ error: "Unauthorized cron execution" }, { status: 401 });
+  }
+
+  const providedHash = crypto.createHash("sha256").update(providedSecret.trim()).digest();
+  const expectedHash = crypto.createHash("sha256").update(expectedSecret.trim()).digest();
+
+  if (!crypto.timingSafeEqual(providedHash, expectedHash)) {
     return NextResponse.json({ error: "Unauthorized cron execution" }, { status: 401 });
   }
 

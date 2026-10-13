@@ -4,8 +4,12 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { getDb } from "@/lib/db";
 
+const configuredSecret = process.env.AUTH_SECRET;
+if (!configuredSecret && process.env.NODE_ENV === "production") {
+  throw new Error("FATAL: AUTH_SECRET must be configured in production environment.");
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "docucollect-neon-secure-auth-secret-key-2026-min-32-chars"
+  configuredSecret || "docucollect_dev_only_auth_secret_minimum_32_characters_for_local_env"
 );
 
 const SESSION_COOKIE_NAME = "docucollect_session";
@@ -16,6 +20,7 @@ export interface SessionPayload {
   organizationId: string;
   email: string;
   role: "owner" | "admin" | "staff";
+  tokenVersion?: number;
 }
 
 // =====================================================================
@@ -23,10 +28,10 @@ export interface SessionPayload {
 // =====================================================================
 
 /**
- * Generate a 6-digit OTP and return both the plaintext code and its hash
+ * Generate a 6-digit cryptographically secure OTP and return both the plaintext code and its hash
  */
 export function generateOtp(): { code: string; codeHash: string } {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = crypto.randomInt(100000, 1000000).toString();
   const codeHash = crypto.createHash("sha256").update(code).digest("hex");
   return { code, codeHash };
 }
@@ -263,11 +268,33 @@ export async function requireSession(): Promise<SessionPayload> {
 }
 
 /**
- * Logout / clear session cookie
+ * Logout / clear session cookie and revoke server-side session
  */
 export async function logoutUser() {
   const cookieStore = await cookies();
+  const betterAuthToken =
+    cookieStore.get("better-auth.session_token")?.value ||
+    cookieStore.get("better-auth_session_token")?.value;
+
+  if (betterAuthToken) {
+    try {
+      const sql = getDb();
+      if (sql) {
+        await sql`
+          DELETE FROM public."session"
+          WHERE token = ${betterAuthToken};
+        `;
+      }
+    } catch {}
+  }
+
+  // Explicitly expire cookies across browsers
+  cookieStore.set(SESSION_COOKIE_NAME, "", { maxAge: 0, path: "/", expires: new Date(0) });
+  cookieStore.set("better-auth.session_token", "", { maxAge: 0, path: "/", expires: new Date(0) });
+  cookieStore.set("better-auth_session_token", "", { maxAge: 0, path: "/", expires: new Date(0) });
   cookieStore.delete(SESSION_COOKIE_NAME);
+  cookieStore.delete("better-auth.session_token");
+  cookieStore.delete("better-auth_session_token");
   invalidateUserCache();
 }
 

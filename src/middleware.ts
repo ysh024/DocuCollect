@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
+const configuredSecret = process.env.AUTH_SECRET;
+if (!configuredSecret && process.env.NODE_ENV === "production") {
+  throw new Error("FATAL: AUTH_SECRET must be configured in production environment.");
+}
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.AUTH_SECRET || "docucollect-neon-secure-auth-secret-key-2026-min-32-chars"
+  configuredSecret || "docucollect_dev_only_auth_secret_minimum_32_characters_for_local_env"
 );
 
 const SESSION_COOKIE = "docucollect_session";
@@ -38,7 +42,7 @@ export async function middleware(request: NextRequest) {
     } catch {
       isValidSession = false;
     }
-  } else if (betterAuthToken) {
+  } else if (betterAuthToken && betterAuthToken.length >= 32) {
     isValidSession = true;
   }
 
@@ -54,7 +58,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  // Standard security headers
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  return response;
 }
 
 export const config = {

@@ -94,6 +94,7 @@ import { revalidatePath } from "next/cache";
 import { uploadFileToStorage, isS3Configured } from "@/lib/storage";
 import { invalidateLogoCache } from "@/lib/logo-cache";
 import { invalidateDashboardCache } from "@/app/actions/portal";
+import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit";
 
 // =====================================================================
 // EMAIL OTP DELIVERY
@@ -176,6 +177,14 @@ export async function loginWithPasswordAction(formData: {
     return { success: false, error: "Please provide both email and password." };
   }
 
+  const rateCheck = checkRateLimit(`login:${normalizedEmail}`, 5, 15 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many login attempts. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
+    };
+  }
+
   try {
     const users = await sql`
       SELECT id, organization_id, full_name, email, role, email_verified, password_hash, is_deactivated
@@ -239,6 +248,7 @@ export async function loginWithPasswordAction(formData: {
       role: user.role,
     });
 
+    resetRateLimit(`login:${normalizedEmail}`);
     await setSessionCookie(sessionToken);
     revalidatePath("/dashboard");
     return { success: true };
@@ -266,6 +276,14 @@ export async function initiateSignupAction(data: {
 
   if (!normalizedEmail || !normalizedEmail.includes("@")) {
     return { success: false, error: "Please enter a valid email address." };
+  }
+
+  const rateCheck = checkRateLimit(`signup:${normalizedEmail}`, 5, 15 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many signup attempts. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
+    };
   }
 
   if (!data.password || data.password.length < 8) {
@@ -355,6 +373,14 @@ export async function completeSignupWithPasswordAction(data: {
   }
 
   // Strict OTP verification: verify local DB first
+  const rateCheck = checkRateLimit(`verify_signup_otp:${normalizedEmail}`, 5, 10 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many verification attempts. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
+    };
+  }
+
   let isValidOtp = await verifyOtp(normalizedEmail, data.code.trim());
 
   // If not in local DB, check Neon Managed Better Auth
@@ -445,6 +471,7 @@ export async function completeSignupWithPasswordAction(data: {
       role: user.role,
     });
 
+    resetRateLimit(`verify_signup_otp:${normalizedEmail}`);
     await setSessionCookie(sessionToken);
     revalidatePath("/dashboard");
     return { success: true };
@@ -459,6 +486,14 @@ export async function completeSignupWithPasswordAction(data: {
  */
 export async function resendVerificationCodeAction(email: string, purpose: "login" | "signup" = "signup") {
   const normalizedEmail = email.toLowerCase().trim();
+  const rateCheck = checkRateLimit(`resend_otp:${normalizedEmail}`, 3, 10 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many code requests. Please wait ${rateCheck.retryAfterSeconds} seconds before requesting a new code.`,
+    };
+  }
+
   const { code, codeHash } = generateOtp();
   await storeOtp(normalizedEmail, codeHash, purpose);
   const emailRes = await sendOtpEmail(normalizedEmail, code, purpose);
@@ -476,6 +511,14 @@ export async function verifyLoginOtpAction(email: string, code: string) {
   if (!sql) return { success: false, error: "Database not connected." };
 
   const normalizedEmail = email.toLowerCase().trim();
+  const rateCheck = checkRateLimit(`verify_login_otp:${normalizedEmail}`, 5, 10 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many verification attempts. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
+    };
+  }
+
   let isValid = await verifyOtp(normalizedEmail, code.trim());
 
   const neonAuthUrl = process.env.NEXT_PUBLIC_NEON_AUTH_URL || process.env.NEON_AUTH_BASE_URL;
@@ -531,6 +574,7 @@ export async function verifyLoginOtpAction(email: string, code: string) {
     role: user.role,
   });
 
+  resetRateLimit(`verify_login_otp:${normalizedEmail}`);
   await setSessionCookie(sessionToken);
   revalidatePath("/dashboard");
   return { success: true };
@@ -938,6 +982,14 @@ export async function requestPasswordResetOtpAction(email: string): Promise<{ su
     return { success: false, error: "Please enter a valid email address." };
   }
 
+  const rateCheck = checkRateLimit(`reset_req:${normalizedEmail}`, 3, 15 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many password reset requests. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
+    };
+  }
+
   try {
     const existing = await sql`
       SELECT id, email, full_name, is_deactivated 
@@ -1001,6 +1053,14 @@ export async function resetPasswordWithOtpAction(data: {
     return { success: false, error: "New password must be at least 8 characters long." };
   }
 
+  const rateCheck = checkRateLimit(`reset_verify:${normalizedEmail}`, 5, 15 * 60);
+  if (!rateCheck.allowed) {
+    return {
+      success: false,
+      error: `Too many verification attempts. Please wait ${rateCheck.retryAfterSeconds} seconds before trying again.`,
+    };
+  }
+
   try {
     let isValidOtp = await verifyOtp(normalizedEmail, cleanCode);
 
@@ -1053,6 +1113,7 @@ export async function resetPasswordWithOtpAction(data: {
       role: user.role,
     });
 
+    resetRateLimit(`reset_verify:${normalizedEmail}`);
     await setSessionCookie(sessionToken);
     revalidatePath("/dashboard");
 

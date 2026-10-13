@@ -409,12 +409,13 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- RLS Policies: Organization users can only view and manage records of their own organization
+-- RLS Policies: Organization users can only view and manage records of their own organization.
+-- When app.current_org_id is not set, access is denied by default (no permissive NULL bypass).
 DO $$ BEGIN
     DROP POLICY IF EXISTS tenant_activity_logs_policy ON public.activity_logs;
     CREATE POLICY tenant_activity_logs_policy ON public.activity_logs
         FOR ALL USING (
-            current_org_id() IS NULL OR organization_id = current_org_id()
+            organization_id = current_org_id()
         );
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -422,7 +423,7 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS tenant_cases_policy ON public.cases;
     CREATE POLICY tenant_cases_policy ON public.cases
         FOR ALL USING (
-            current_org_id() IS NULL OR organization_id = current_org_id()
+            organization_id = current_org_id()
         );
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -430,7 +431,7 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS tenant_clients_policy ON public.clients;
     CREATE POLICY tenant_clients_policy ON public.clients
         FOR ALL USING (
-            current_org_id() IS NULL OR organization_id = current_org_id()
+            organization_id = current_org_id()
         );
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 
@@ -438,7 +439,15 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS tenant_subscriptions_policy ON public.subscriptions;
     CREATE POLICY tenant_subscriptions_policy ON public.subscriptions
         FOR ALL USING (
-            current_org_id() IS NULL OR organization_id = current_org_id()
+            organization_id = current_org_id()
+        );
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS tenant_documents_policy ON public.documents;
+    CREATE POLICY tenant_documents_policy ON public.documents
+        FOR ALL USING (
+            organization_id = current_org_id()
         );
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 

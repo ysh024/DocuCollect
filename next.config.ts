@@ -14,7 +14,15 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "**.neon.tech",
+      },
+      {
+        protocol: "https",
+        hostname: "**.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
       },
     ],
   },
