@@ -25,7 +25,7 @@ import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { Pagination } from "@/components/ui/Pagination";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 import { useToast } from "@/components/ui/Toast";
-import { deleteCaseAction } from "@/app/actions/portal";
+import { deleteCaseAction, generateUploadLinkAction } from "@/app/actions/portal";
 
 export default function CasesListPage() {
   const { data, loading, refresh } = useDashboardData();
@@ -58,11 +58,29 @@ export default function CasesListPage() {
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const paginatedCases = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleCopyLink = (c: CaseWithDetails) => {
-    const token = c.upload_link?.token_hash || `token-${c.id.slice(0, 8)}`;
+  const handleCopyLink = async (c: CaseWithDetails) => {
+    const token = c.upload_link?.token || c.upload_link?.token_hash;
+    if (!token) {
+      toast({ title: "Generating link...", description: "Creating secure upload link." });
+      try {
+        const res = await generateUploadLinkAction(c.id);
+        if (res.token) {
+          const url = `${window.location.origin}/upload/${res.token}`;
+          navigator.clipboard.writeText(url);
+          setCopiedId(c.id);
+          toast({ title: "Link copied", description: "Direct client upload link is ready to share." });
+          setTimeout(() => setCopiedId(null), 2000);
+          await refresh();
+        }
+      } catch (err: any) {
+        toast({ title: "Link generation failed", description: err.message, type: "error" });
+      }
+      return;
+    }
     const url = `${window.location.origin}/upload/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(c.id);
+    toast({ title: "Link copied", description: "Direct client upload link is ready to share." });
     setTimeout(() => setCopiedId(null), 2000);
   };
 

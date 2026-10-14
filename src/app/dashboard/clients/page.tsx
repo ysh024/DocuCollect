@@ -496,10 +496,12 @@ export default function ClientsPage() {
                       c.requirements?.filter((r) => r.status === "under_review" || r.status === "uploaded").length ||
                       0;
                     const percentage = totalReqs > 0 ? Math.round((approvedCount / totalReqs) * 100) : 0;
-                    const token = c.upload_link?.token_hash || `token-${c.id.slice(0, 8)}`;
-                    const uploadUrl = typeof window !== "undefined" ? `${window.location.origin}/upload/${token}` : "";
+                    const token = c.upload_link?.token || c.upload_link?.token_hash;
+                    const uploadUrl = typeof window !== "undefined" && token ? `${window.location.origin}/upload/${token}` : "";
                     const waText = encodeURIComponent(
-                      `Hello ${selectedClient.name}, please upload your documents for ${c.title} (${c.reference_number}) using this secure portal link:\n${uploadUrl}\n\nThank you!`
+                      uploadUrl
+                        ? `Hello ${selectedClient.name}, please upload your documents for ${c.title} (${c.reference_number}) using this secure portal link:\n${uploadUrl}\n\nThank you!`
+                        : `Hello ${selectedClient.name}, please upload your documents for ${c.title} (${c.reference_number}).\n\nThank you!`
                     );
 
                     return (

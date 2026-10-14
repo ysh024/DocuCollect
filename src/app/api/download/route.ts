@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     const tokenHash = hashToken(rawToken);
     const linkRows = await sql`
       SELECT case_id FROM public.upload_links
-      WHERE token_hash = ${tokenHash}
+      WHERE (token = ${rawToken} OR token_hash = ${tokenHash})
         AND (expires_at IS NULL OR expires_at > now())
       LIMIT 1;
     `;

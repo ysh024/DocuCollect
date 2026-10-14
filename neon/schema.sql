@@ -335,6 +335,8 @@ CREATE TABLE IF NOT EXISTS public.documents (
 CREATE TABLE IF NOT EXISTS public.upload_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     case_id UUID NOT NULL REFERENCES public.cases(id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
+    token TEXT,
     token_hash TEXT NOT NULL UNIQUE,
     token_prefix TEXT NOT NULL,
     expires_at TIMESTAMPTZ,
@@ -447,7 +449,44 @@ DO $$ BEGIN
     DROP POLICY IF EXISTS tenant_documents_policy ON public.documents;
     CREATE POLICY tenant_documents_policy ON public.documents
         FOR ALL USING (
-            organization_id = current_org_id()
+            EXISTS (
+                SELECT 1 FROM public.cases c
+                WHERE c.id = documents.case_id
+                  AND c.organization_id = current_org_id()
+            )
+        );
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS tenant_document_requirements_policy ON public.document_requirements;
+    CREATE POLICY tenant_document_requirements_policy ON public.document_requirements
+        FOR ALL USING (
+            EXISTS (
+                SELECT 1 FROM public.cases c
+                WHERE c.id = document_requirements.case_id
+                  AND c.organization_id = current_org_id()
+            )
+        );
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS tenant_upload_links_policy ON public.upload_links;
+    CREATE POLICY tenant_upload_links_policy ON public.upload_links
+        FOR ALL USING (
+            (organization_id IS NOT NULL AND organization_id = current_org_id())
+            OR EXISTS (
+                SELECT 1 FROM public.cases c
+                WHERE c.id = upload_links.case_id
+                  AND c.organization_id = current_org_id()
+            )
+        );
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+DO $$ BEGIN
+    DROP POLICY IF EXISTS tenant_organizations_policy ON public.organizations;
+    CREATE POLICY tenant_organizations_policy ON public.organizations
+        FOR ALL USING (
+            id = current_org_id()
         );
 EXCEPTION WHEN OTHERS THEN NULL; END $$;
 

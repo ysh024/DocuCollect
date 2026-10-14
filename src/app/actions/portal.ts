@@ -361,9 +361,9 @@ export async function getCaseDetails(caseId: string, options?: { forceFresh?: bo
     const tokenData = generateUploadToken();
     const newLinks = await sql`
       INSERT INTO public.upload_links (
-        case_id, token_hash, token_prefix, expires_at
+        case_id, organization_id, token, token_hash, token_prefix, expires_at
       ) VALUES (
-        ${caseId}, ${tokenData.tokenHash}, ${tokenData.tokenPrefix}, ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()}
+        ${caseId}, ${authOrgId}, ${tokenData.token}, ${tokenData.tokenHash}, ${tokenData.tokenPrefix}, ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()}
       )
       RETURNING *;
     `;
@@ -436,7 +436,7 @@ export async function getPortalData(token: string, options?: { forceFresh?: bool
     const tokenHash = hashToken(cleanToken);
     const links = await sql`
       SELECT case_id FROM public.upload_links 
-      WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+      WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
         AND (expires_at IS NULL OR expires_at > now())
       LIMIT 1;
     `;
@@ -909,9 +909,9 @@ export async function createCaseAction(payload: {
   const tokenData = generateUploadToken();
   await sql`
     INSERT INTO public.upload_links (
-      case_id, token_hash, token_prefix, expires_at
+      case_id, organization_id, token, token_hash, token_prefix, expires_at
     ) VALUES (
-      ${newCase.id}, ${tokenData.tokenHash}, ${tokenData.tokenPrefix}, ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()}
+      ${newCase.id}, ${orgId}, ${tokenData.token}, ${tokenData.tokenHash}, ${tokenData.tokenPrefix}, ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()}
     );
   `;
 
@@ -940,9 +940,9 @@ export async function generateUploadLinkAction(caseId: string) {
   await sql`DELETE FROM public.upload_links WHERE case_id = ${caseId};`;
   await sql`
     INSERT INTO public.upload_links (
-      case_id, token_hash, token_prefix, expires_at
+      case_id, organization_id, token, token_hash, token_prefix, expires_at
     ) VALUES (
-      ${caseId}, ${tokenData.tokenHash}, ${tokenData.tokenPrefix}, ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()}
+      ${caseId}, ${orgId}, ${tokenData.token}, ${tokenData.tokenHash}, ${tokenData.tokenPrefix}, ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()}
     );
   `;
 
@@ -1050,7 +1050,7 @@ export async function clientUploadDocumentAction(
   const tokenHash = hashToken(cleanToken);
   const links = await sql`
     SELECT case_id FROM public.upload_links 
-    WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+    WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
       AND (expires_at IS NULL OR expires_at > now())
     LIMIT 1;
   `;
@@ -1321,7 +1321,7 @@ export async function clientDeleteDocumentAction(token: string, documentId: stri
   const tokenHash = hashToken(cleanToken);
   const links = await sql`
     SELECT case_id FROM public.upload_links 
-    WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+    WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
       AND (expires_at IS NULL OR expires_at > now())
     LIMIT 1;
   `;
@@ -1547,7 +1547,7 @@ export async function raiseClientQueryAction(token: string, requirementId: strin
   const tokenHash = hashToken(cleanToken);
   const links = await sql`
     SELECT case_id FROM public.upload_links 
-    WHERE (token_hash = ${tokenHash} OR token_hash = ${cleanToken})
+    WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
       AND (expires_at IS NULL OR expires_at > now())
     LIMIT 1;
   `;

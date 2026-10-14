@@ -26,6 +26,7 @@ import {
 import { InfoPopover } from "@/components/ui/InfoPopover";
 import {
   getCaseDetails,
+  generateUploadLinkAction,
   reviewDocumentAction,
   advisorDeleteDocumentAction,
   advisorBulkDeleteDocumentsAction,
@@ -42,7 +43,7 @@ import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { downloadFileWithFeedback } from "@/lib/download-client";
 import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
 
-// Module-level in-memory cache to stop repeated fetch/compilation thrashing and CPU spikes
+// Tenant-partitioned module-level in-memory cache to stop repeated fetch thrashing
 const caseDetailsClientCache = new Map<string, { data: CaseWithDetails; timestamp: number }>();
 const CASE_CACHE_TTL = 30000; // 30-second TTL
 
@@ -54,14 +55,22 @@ export default function CaseDetailPage() {
   const caseId = Array.isArray(rawId) ? rawId[0] : (rawId as string);
 
   const { toast } = useToast();
-  const { data: dashboardData, refresh: refreshDashboard } = useDashboardData();
+  const { data: dashboardData, user, refresh: refreshDashboard } = useDashboardData();
 
-  // Instant Cache resolution: If case was already loaded on cases/clients list, show it on frame 1 (0ms)
-  const cachedCase = dashboardData?.cases?.find((c) => c.id === caseId);
+  const userOrgId = user?.organization_id;
+  const cacheKey = `${userOrgId || "anon"}:${caseId}`;
 
-  const [caseData, setCaseData] = useState<CaseWithDetails | null>(
-    () => caseDetailsClientCache.get(caseId)?.data || cachedCase || null
+  // Instant Cache resolution: Only resolve from cache if tenant matches active user organization
+  const cachedCase = dashboardData?.cases?.find(
+    (c) => c.id === caseId && (!userOrgId || c.organization_id === userOrgId)
   );
+
+  const [caseData, setCaseData] = useState<CaseWithDetails | null>(() => {
+    if (!userOrgId) return null;
+    const entry = caseDetailsClientCache.get(cacheKey);
+    if (entry && entry.data.organization_id === userOrgId) return entry.data;
+    return cachedCase || null;
+  });
   const [loading, setLoading] = useState<boolean>(!caseData);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -88,21 +97,23 @@ export default function CaseDetailPage() {
   const [isDeleteCaseModalOpen, setIsDeleteCaseModalOpen] = useState(false);
   const [isDeletingCase, setIsDeletingCase] = useState(false);
 
-  // Sync cache if available
+  // Sync cache if available and authorized
   useEffect(() => {
-    if (cachedCase && (!caseData || caseData.id !== cachedCase.id)) {
-      setCaseData(cachedCase);
-      setLoading(false);
+    if (cachedCase && userOrgId && cachedCase.organization_id === userOrgId) {
+      if (!caseData || caseData.id !== cachedCase.id) {
+        setCaseData(cachedCase);
+        setLoading(false);
+      }
     }
-  }, [cachedCase]);
+  }, [cachedCase, userOrgId]);
 
   const loadCase = async (force = false) => {
     if (!caseId) return;
 
-    // Check module-level memory cache to eliminate redundant CPU/network overhead
-    if (!force) {
-      const cached = caseDetailsClientCache.get(caseId);
-      if (cached && Date.now() - cached.timestamp < CASE_CACHE_TTL) {
+    // Check tenant-partitioned memory cache
+    if (!force && userOrgId) {
+      const cached = caseDetailsClientCache.get(cacheKey);
+      if (cached && cached.data.organization_id === userOrgId && Date.now() - cached.timestamp < CASE_CACHE_TTL) {
         setCaseData(cached.data);
         setErrorMessage(null);
         setLoading(false);
@@ -116,7 +127,14 @@ export default function CaseDetailPage() {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.caseData) {
-          caseDetailsClientCache.set(caseId, { data: json.caseData, timestamp: Date.now() });
+          // Verify that returned case data belongs to the authenticated user's organization
+          if (userOrgId && json.caseData.organization_id !== userOrgId) {
+            setCaseData(null);
+            setErrorMessage("Access denied: You do not have permission to view this case.");
+            setLoading(false);
+            return;
+          }
+          caseDetailsClientCache.set(cacheKey, { data: json.caseData, timestamp: Date.now() });
           setCaseData(json.caseData);
           setErrorMessage(null);
           setLoading(false);
@@ -127,17 +145,23 @@ export default function CaseDetailPage() {
       // 2. Secondary fallback: Server Action
       const serverRes = await getCaseDetails(caseId);
       if (serverRes) {
-        caseDetailsClientCache.set(caseId, { data: serverRes, timestamp: Date.now() });
-        setCaseData(serverRes);
-        setErrorMessage(null);
-      } else if (!cachedCase && !caseData) {
+        if (userOrgId && serverRes.organization_id !== userOrgId) {
+          setCaseData(null);
+          setErrorMessage("Access denied: You do not have permission to view this case.");
+        } else {
+          caseDetailsClientCache.set(cacheKey, { data: serverRes, timestamp: Date.now() });
+          setCaseData(serverRes);
+          setErrorMessage(null);
+        }
+      } else {
+        // Explicitly clear caseData on unauthorized / not found
+        setCaseData(null);
         setErrorMessage("Case not found or access restricted.");
       }
     } catch (err: any) {
       console.warn("Failed to fetch fresh case details:", err);
-      if (!caseData && !cachedCase) {
-        setErrorMessage(err.message || "Could not load case details.");
-      }
+      setCaseData(null);
+      setErrorMessage(err.message || "Could not load case details.");
     } finally {
       setLoading(false);
     }
@@ -267,15 +291,31 @@ export default function CaseDetailPage() {
 
   if (!caseData) return null;
 
-  const token = caseData.upload_link?.token_hash || `token-${caseData.id.slice(0, 8)}`;
+  const token = caseData.upload_link?.token || caseData.upload_link?.token_hash;
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-  const uploadUrl = `${baseUrl}/upload/${token}`;
+  const uploadUrl = token ? `${baseUrl}/upload/${token}` : "";
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(uploadUrl);
-    setCopied(true);
-    toast({ title: "Link copied", description: "Direct client upload link is ready to share." });
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyLink = async () => {
+    let effectiveUrl = uploadUrl;
+    if (!token) {
+      toast({ title: "Generating link...", description: "Creating secure upload link." });
+      try {
+        const res = await generateUploadLinkAction(caseData.id);
+        if (res.token) {
+          effectiveUrl = `${baseUrl}/upload/${res.token}`;
+          await loadCase(true);
+        }
+      } catch (err: any) {
+        toast({ title: "Link generation failed", description: err.message, type: "error" });
+        return;
+      }
+    }
+    if (effectiveUrl) {
+      navigator.clipboard.writeText(effectiveUrl);
+      setCopied(true);
+      toast({ title: "Link copied", description: "Direct client upload link is ready to share." });
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const downloadFileToSystem = async (storagePath: string, fileName: string, docId: string) => {

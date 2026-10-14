@@ -35,6 +35,7 @@ import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModa
 import { useToast } from "@/components/ui/Toast";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 import { downloadFileWithFeedback } from "@/lib/download-client";
+import { generateUploadLinkAction } from "@/app/actions/portal";
 
 export default function DashboardOverviewPage() {
   const { toast } = useToast();
@@ -133,8 +134,25 @@ export default function DashboardOverviewPage() {
     return true;
   });
 
-  const handleCopyLink = (caseItem: CaseWithDetails) => {
-    const token = caseItem.upload_link?.token_hash || `token-${caseItem.id.slice(0, 8)}`;
+  const handleCopyLink = async (caseItem: CaseWithDetails) => {
+    const token = caseItem.upload_link?.token || caseItem.upload_link?.token_hash;
+    if (!token) {
+      toast({ title: "Generating link...", description: "Creating secure upload link." });
+      try {
+        const res = await generateUploadLinkAction(caseItem.id);
+        if (res.token) {
+          const url = `${window.location.origin}/upload/${res.token}`;
+          navigator.clipboard.writeText(url);
+          setCopiedId(caseItem.id);
+          toast({ title: "Link copied", description: `Upload link for ${caseItem.client.name} copied.` });
+          setTimeout(() => setCopiedId(null), 2000);
+          await refresh();
+        }
+      } catch (err: any) {
+        toast({ title: "Link generation failed", description: err.message, type: "error" });
+      }
+      return;
+    }
     const url = `${window.location.origin}/upload/${token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(caseItem.id);

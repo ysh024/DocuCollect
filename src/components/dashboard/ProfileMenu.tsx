@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { RedeemVoucherModal } from "./RedeemVoucherModal";
 import { useTheme, Theme } from "@/contexts/ThemeContext";
-import { useDashboardData } from "@/contexts/DashboardDataContext";
+import { useDashboardData, clearClientDashboardCache } from "@/contexts/DashboardDataContext";
 import { handleLogoutAction } from "@/app/actions/auth";
 import { useToast } from "@/components/ui/Toast";
 
@@ -59,9 +59,17 @@ export function ProfileMenu() {
     setLoggingOut(true);
     toast({ title: "Signing out...", description: "Clearing session." });
     try {
+      clearClientDashboardCache();
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+      }
       await handleLogoutAction();
       window.location.href = "/login";
     } catch {
+      clearClientDashboardCache();
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+      }
       window.location.href = "/login";
     }
   };

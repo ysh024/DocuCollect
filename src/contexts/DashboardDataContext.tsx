@@ -96,30 +96,62 @@ const DEFAULT_METRICS: DashboardMetrics = {
   casesAwaitingReview: 0,
 };
 
-// Global in-memory and session cache shared across client-side page transitions
-const SESSION_CACHE_KEY = "docucollect_dashboard_cache_v2";
-
-function getStoredCache(): DashboardData | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return null;
-}
-
-function setStoredCache(data: DashboardData) {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(data));
-  } catch {}
-}
-
+// Strictly tenant-isolated in-memory and session cache
+const SESSION_CACHE_PREFIX = "docucollect_dashboard_cache_org_";
+let activeCachedOrgId: string | null = null;
 let globalDashboardCache: DashboardData | null = null;
 let globalUserCache: any | null = null;
 let globalNotificationsCache: any[] = [];
 let lastFetchTimestamp = 0;
-const CACHE_FRESHNESS_MS = 45000; // 45 seconds
+const CACHE_FRESHNESS_MS = 30000; // 30 seconds
+
+export function clearClientDashboardCache() {
+  globalDashboardCache = null;
+  globalUserCache = null;
+  globalNotificationsCache = [];
+  lastFetchTimestamp = 0;
+  activeCachedOrgId = null;
+  if (typeof window !== "undefined") {
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const k = sessionStorage.key(i);
+        if (k && k.startsWith("docucollect_dashboard_cache")) {
+          keysToRemove.push(k);
+        }
+      }
+      for (const k of keysToRemove) {
+        sessionStorage.removeItem(k);
+      }
+    } catch {}
+  }
+}
+
+function getStoredCache(orgId?: string | null): DashboardData | null {
+  if (typeof window === "undefined" || !orgId) return null;
+  try {
+    const raw = sessionStorage.getItem(`${SESSION_CACHE_PREFIX}${orgId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Strict sanity check: ensure stored cases belong to the specified organization
+      if (Array.isArray(parsed?.cases) && parsed.cases.length > 0) {
+        if (parsed.cases.some((c: any) => c.organization_id && c.organization_id !== orgId)) {
+          sessionStorage.removeItem(`${SESSION_CACHE_PREFIX}${orgId}`);
+          return null;
+        }
+      }
+      return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+function setStoredCache(data: DashboardData, orgId?: string | null) {
+  if (typeof window === "undefined" || !orgId) return;
+  try {
+    sessionStorage.setItem(`${SESSION_CACHE_PREFIX}${orgId}`, JSON.stringify(data));
+  } catch {}
+}
 
 const DashboardDataContext = createContext<DashboardContextValue | null>(null);
 
@@ -166,44 +198,67 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     }
   }, [router]);
 
-  const [data, setData] = useState<DashboardData | null>(() => {
-    return globalDashboardCache;
-  });
-  const [user, setUser] = useState<any | null>(globalUserCache);
-  const [notifications, setNotifications] = useState<any[]>(globalNotificationsCache);
-  const [loading, setLoading] = useState<boolean>(() => {
-    return !globalDashboardCache;
-  });
+  // Initial state: never initialize with unverified cross-tenant global memory
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [user, setUser] = useState<any | null>(null);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
   const fetchingRef = useRef(false);
 
   const refresh = useCallback(async (silent = false, forceFresh = false) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
-    if (!silent && !globalDashboardCache && !getStoredCache()) {
+    if (!silent && !globalDashboardCache) {
       setLoading(true);
     }
 
     try {
-      // Parallel fetch for user, dashboard data, and notifications
-      const [dashRes, userRes, notifsRes] = await Promise.all([
+      // 1. Fetch current user first to guarantee authenticated tenant boundary
+      const currentUser = await getCurrentUserAction();
+      const currentOrgId = currentUser?.organization_id;
+
+      if (!currentOrgId) {
+        clearClientDashboardCache();
+        setData(null);
+        setUser(null);
+        setNotifications([]);
+        throw new Error("UNAUTHENTICATED");
+      }
+
+      // If active tenant changed, flush old tenant's cached data immediately
+      if (activeCachedOrgId && activeCachedOrgId !== currentOrgId) {
+        clearClientDashboardCache();
+        setData(null);
+      }
+      activeCachedOrgId = currentOrgId;
+      globalUserCache = currentUser;
+      setUser(currentUser);
+
+      // 2. Fetch fresh dashboard data and notifications strictly for this organization
+      const [dashRes, notifsRes] = await Promise.all([
         getDashboardData({ forceFresh }),
-        !globalUserCache || forceFresh ? getCurrentUserAction() : Promise.resolve(globalUserCache),
         globalNotificationsCache.length === 0 || forceFresh
           ? getAdvisorNotificationsAction()
           : Promise.resolve(globalNotificationsCache),
       ]);
 
       if (dashRes) {
+        // Enforce that returned cases belong to this organization
+        if (Array.isArray(dashRes.cases)) {
+          const crossTenantRecord = dashRes.cases.find(
+            (c: any) => c.organization_id && c.organization_id !== currentOrgId
+          );
+          if (crossTenantRecord) {
+            console.error("Security alert: Cross-tenant data returned by server!", crossTenantRecord);
+            throw new Error("SECURITY_VIOLATION_CROSS_TENANT_DATA");
+          }
+        }
+
         globalDashboardCache = dashRes;
-        setStoredCache(dashRes);
+        setStoredCache(dashRes, currentOrgId);
         setData(dashRes);
         lastFetchTimestamp = Date.now();
-      }
-
-      if (userRes) {
-        globalUserCache = userRes;
-        setUser(userRes);
       }
 
       if (notifsRes) {
@@ -214,9 +269,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       console.warn("Background dashboard data sync error:", err);
       const msg = String(err?.message || "");
       if (msg.includes("UNAUTHENTICATED") && typeof window !== "undefined") {
-        try {
-          sessionStorage.removeItem(SESSION_CACHE_KEY);
-        } catch {}
+        clearClientDashboardCache();
         window.location.href =
           "/login?redirect=" +
           encodeURIComponent(window.location.pathname + (window.location.search || ""));
@@ -228,22 +281,9 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    // Hydrate from sessionStorage once client mounted without breaking SSR hydration
-    if (!globalDashboardCache) {
-      const stored = getStoredCache();
-      if (stored) {
-        globalDashboardCache = stored;
-        setData(stored);
-        setLoading(false);
-      }
-    }
-
-    const hasCache = Boolean(globalDashboardCache || getStoredCache());
-    const isStale = Date.now() - lastFetchTimestamp > CACHE_FRESHNESS_MS;
-    if (!hasCache || isStale) {
-      refresh(hasCache, false);
-    }
+    refresh(false, false);
   }, [refresh]);
+
 
   // Optimistic update helpers for instantaneous (<1ms) UI response on clicks
   const updateCaseOptimistically = useCallback(
@@ -253,7 +293,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         const updatedCases = prev.cases.map((c) => (c.id === caseId ? updater(c) : c));
         const updated = { ...prev, cases: updatedCases };
         globalDashboardCache = updated;
-        setStoredCache(updated);
+        setStoredCache(updated, activeCachedOrgId);
         return updated;
       });
     },
@@ -273,7 +313,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         });
         const updated = { ...prev, cases: updatedCases };
         globalDashboardCache = updated;
-        setStoredCache(updated);
+        setStoredCache(updated, activeCachedOrgId);
         return updated;
       });
     },

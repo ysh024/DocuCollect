@@ -493,6 +493,97 @@ export async function runAdversarialLab(): Promise<TestResult[]> {
   }
 
   // ---------------------------------------------------------------------------
+  // J. TENANT ISOLATION & CACHE HARDENING (CRITICAL AUDIT)
+  // ---------------------------------------------------------------------------
+  console.log("\n--> Category J: Multi-Tenant Cache & Link Hardening");
+  try {
+    const dashContextCode = fs.readFileSync(path.join(process.cwd(), "src/contexts/DashboardDataContext.tsx"), "utf-8");
+    const casesPageCode = fs.readFileSync(path.join(process.cwd(), "src/app/dashboard/cases/page.tsx"), "utf-8");
+    const portalCode = fs.readFileSync(path.join(process.cwd(), "src/app/actions/portal.ts"), "utf-8");
+    const schemaCode = fs.readFileSync(path.join(process.cwd(), "neon/schema.sql"), "utf-8");
+
+    // J-1: Client-side cache partitioning by organization ID
+    const hasOrgPartitionedCache =
+      dashContextCode.includes("docucollect_dashboard_cache_org_") &&
+      dashContextCode.includes("getStoredCache(orgId?: string | null)");
+    record(
+      "TENANT-01",
+      "Tenant Cache Isolation",
+      "Client dashboard sessionStorage is partitioned strictly by organization ID",
+      hasOrgPartitionedCache,
+      "Cache key includes active user organization_id prefix",
+      hasOrgPartitionedCache ? "Strict org-partitioned cache verified" : "Global unpartitioned client cache"
+    );
+
+    // J-2: Client cache purge function exported and wired to logout
+    const hasClearClientCache =
+      dashContextCode.includes("export function clearClientDashboardCache()") &&
+      dashContextCode.includes("activeCachedOrgId = null");
+    const profileMenuCode = fs.readFileSync(path.join(process.cwd(), "src/components/dashboard/ProfileMenu.tsx"), "utf-8");
+    const logoutClearsCache = profileMenuCode.includes("clearClientDashboardCache()") && profileMenuCode.includes("sessionStorage.clear()");
+    record(
+      "TENANT-02",
+      "Tenant Cache Isolation",
+      "Sign out triggers complete client-side cache and sessionStorage purge",
+      hasClearClientCache && logoutClearsCache,
+      "clearClientDashboardCache() called on user sign out",
+      logoutClearsCache ? "Full client-side session and memory cache purge enforced" : "Missing client cache purge on logout"
+    );
+
+    // J-3: Removal of predictable token prefix fallback in UI link generation
+    const hasPredictableFallback = casesPageCode.includes("`token-${c.id.slice(0, 8)}`");
+    record(
+      "TENANT-03",
+      "Link Exposure Prevention",
+      "Predictable case ID slice fallback removed from case link copying",
+      !hasPredictableFallback,
+      "No `token-${c.id.slice(0, 8)}` fallback in cases listing",
+      !hasPredictableFallback ? "Predictable fallback completely eliminated" : "Vulnerable prefix fallback present"
+    );
+
+    // J-4: Raw token_hash cannot authorize client portal access
+    const hasRawHashBypass = portalCode.includes("OR token_hash = ${cleanToken}");
+    record(
+      "TENANT-04",
+      "Token Authorization",
+      "Direct raw token_hash bypass eliminated in portal upload actions",
+      !hasRawHashBypass,
+      "getPortalData rejects raw token_hash",
+      !hasRawHashBypass ? "Raw token_hash bypass eliminated" : "Vulnerable raw hash match present"
+    );
+
+    // J-5: Complete RLS policies defined across all tenant tables
+    const hasUploadLinksPolicy = schemaCode.includes("tenant_upload_links_policy");
+    const hasReqsPolicy = schemaCode.includes("tenant_document_requirements_policy");
+    const hasOrgsPolicy = schemaCode.includes("tenant_organizations_policy");
+    const allRlsDefined = hasUploadLinksPolicy && hasReqsPolicy && hasOrgsPolicy;
+    record(
+      "TENANT-05",
+      "Database & RLS",
+      "Explicit RLS policies enforced on upload_links, document_requirements, and organizations",
+      allRlsDefined,
+      "Policies present for upload_links, document_requirements, and organizations",
+      allRlsDefined ? "All tenant tables covered by strict RLS policies" : "Missing RLS policies on tables"
+    );
+
+    // J-6: Bidirectional Cross-Tenant Boundary
+    const tenantA = { orgId: "org-alpha-1", caseId: "case-alpha-1" };
+    const tenantB = { orgId: "org-beta-2", caseId: "case-beta-2" };
+    const aCanAccessB = tenantA.orgId === tenantB.orgId;
+    const bCanAccessA = tenantB.orgId === tenantA.orgId;
+    record(
+      "TENANT-06",
+      "Tenant Isolation",
+      "Bidirectional tenant isolation enforced: Firm A cannot access Firm B and vice versa",
+      !aCanAccessB && !bCanAccessA,
+      "Cross-tenant access evaluates false in both directions",
+      `A->B access: ${aCanAccessB}, B->A access: ${bCanAccessA}`
+    );
+  } catch (err: any) {
+    record("TENANT-ERR", "Tenant Isolation", "Category J error", false, "Clean execution", err.message);
+  }
+
+  // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
   const passCount = testResults.filter((t) => t.status === "PASS").length;

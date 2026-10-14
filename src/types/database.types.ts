@@ -272,6 +272,8 @@ export interface Database {
         Row: {
           id: string;
           case_id: string;
+          organization_id: string | null;
+          token: string | null;
           token_hash: string;
           token_prefix: string;
           expires_at: string | null;
@@ -283,6 +285,8 @@ export interface Database {
         Insert: {
           id?: string;
           case_id: string;
+          organization_id?: string | null;
+          token?: string | null;
           token_hash: string;
           token_prefix: string;
           expires_at?: string | null;
@@ -294,6 +298,8 @@ export interface Database {
         Update: {
           id?: string;
           case_id?: string;
+          organization_id?: string | null;
+          token?: string | null;
           token_hash?: string;
           token_prefix?: string;
           expires_at?: string | null;

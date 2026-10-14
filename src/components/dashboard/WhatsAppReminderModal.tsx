@@ -83,9 +83,9 @@ export function WhatsAppReminderModal({
 
   if (!isOpen || !mounted) return null;
 
-  const token = caseData.upload_link?.token_hash || `token-${caseData.id.slice(0, 8)}`;
+  const token = caseData.upload_link?.token || caseData.upload_link?.token_hash || "";
   const baseUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-  const uploadUrl = `${baseUrl}/upload/${token}`;
+  const uploadUrl = token ? `${baseUrl}/upload/${token}` : "";
   const orgName = (caseData as any).organization_name || "Advisory Services";
 
   const pendingReqs = caseData.requirements.filter((r) => r.status === "not_uploaded");
