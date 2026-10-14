@@ -216,14 +216,24 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     try {
       // 1. Fetch current user first to guarantee authenticated tenant boundary
       const currentUser = await getCurrentUserAction();
-      const currentOrgId = currentUser?.organization_id;
+      const currentOrgId = currentUser?.organization_id || (currentUser as any)?.organizationId;
 
       if (!currentOrgId) {
         clearClientDashboardCache();
         setData(null);
         setUser(null);
         setNotifications([]);
-        throw new Error("UNAUTHENTICATED");
+        setLoading(false);
+        fetchingRef.current = false;
+        
+        if (typeof window !== "undefined") {
+          // Explicitly clear stale session cookies to avoid middleware redirect ping-pong loop
+          document.cookie = "docucollect_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          document.cookie = "better-auth.session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          document.cookie = "better-auth_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          window.location.replace("/login?logout=1&reason=session_expired");
+        }
+        return;
       }
 
       // If active tenant changed, flush old tenant's cached data immediately
@@ -270,9 +280,10 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       const msg = String(err?.message || "");
       if (msg.includes("UNAUTHENTICATED") && typeof window !== "undefined") {
         clearClientDashboardCache();
-        window.location.href =
-          "/login?redirect=" +
-          encodeURIComponent(window.location.pathname + (window.location.search || ""));
+        document.cookie = "docucollect_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "better-auth.session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "better-auth_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        window.location.replace("/login?logout=1&reason=session_expired");
       }
     } finally {
       fetchingRef.current = false;

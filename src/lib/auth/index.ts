@@ -179,8 +179,8 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
           const userRows = await sql`
             SELECT email_verified, is_deactivated FROM public.users WHERE id::text = ${verified.userId} LIMIT 1;
           `;
-          if (userRows.length > 0 && (!userRows[0].email_verified || userRows[0].is_deactivated)) {
-            return null; // Unverified or deactivated users cannot enter dashboard
+          if (userRows.length === 0 || !userRows[0].email_verified || userRows[0].is_deactivated) {
+            return null; // Unverified, deactivated, or deleted users cannot enter dashboard
           }
           verifiedUserCache.set(verified.userId, Date.now());
         }
@@ -373,6 +373,7 @@ export async function getCurrentUser() {
       emailVerified: u.email_verified || false,
       isDeactivated: Boolean(u.is_deactivated),
       organizationId: u.organization_id,
+      organization_id: u.organization_id,
       organizationName: u.organization_name || "Your Organization",
       logoUrl: u.logo_url
         ? (u.logo_url.startsWith("logos/")

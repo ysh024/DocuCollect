@@ -67,14 +67,26 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated users away from auth pages
-  if (isAuthRoute && isValidSession) {
-    // Allow users to switch accounts or view login if requested explicitly via ?switch=1 or ?logout=1
-    if (request.nextUrl.searchParams.has("switch") || request.nextUrl.searchParams.has("logout")) {
-      return NextResponse.next();
+  if (isAuthRoute) {
+    // If user explicitly visited with logout, switch, or session reason, clear cookies and allow login page
+    if (
+      request.nextUrl.searchParams.has("switch") ||
+      request.nextUrl.searchParams.has("logout") ||
+      request.nextUrl.searchParams.has("reason") ||
+      request.nextUrl.searchParams.has("auth_error")
+    ) {
+      const response = NextResponse.next();
+      response.cookies.delete(SESSION_COOKIE);
+      response.cookies.delete("better-auth.session_token");
+      response.cookies.delete("better-auth_session_token");
+      return response;
     }
-    const redirectParam = request.nextUrl.searchParams.get("redirect");
-    const targetPath = redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login") ? redirectParam : "/dashboard";
-    return NextResponse.redirect(new URL(targetPath, request.url));
+
+    if (isValidSession) {
+      const redirectParam = request.nextUrl.searchParams.get("redirect");
+      const targetPath = redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login") ? redirectParam : "/dashboard";
+      return NextResponse.redirect(new URL(targetPath, request.url));
+    }
   }
 
   const response = NextResponse.next();
