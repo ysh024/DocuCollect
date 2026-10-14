@@ -594,10 +594,8 @@ export async function createClientAction(formData: {
   address?: string;
   notes?: string;
 }) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
 
   // Enforce subscription active status
   await assertActiveSubscription(orgId, sql);
@@ -657,10 +655,8 @@ export interface ClientCsvRow {
 }
 
 export async function importClientsFromCsvAction(rows: ClientCsvRow[]) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
 
   // Enforce subscription active status
   await assertActiveSubscription(orgId, sql);
@@ -784,10 +780,8 @@ export async function updateClientAction(
     notes?: string | null;
   }
 ) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
   await assertActiveSubscription(orgId, sql);
 
   if (!clientId) throw new Error("Client ID is required");
@@ -830,10 +824,8 @@ export async function createCaseAction(payload: {
   notes?: string;
   requirements: { name: string; description: string; is_required: boolean }[];
 }) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
   await assertActiveSubscription(orgId, sql);
 
   // Enforce cases-per-client quota to prevent unnecessary database bloat
@@ -1382,10 +1374,8 @@ export async function clientDeleteDocumentAction(token: string, documentId: stri
  * Advisor-side single document deletion (with org ownership check)
  */
 export async function advisorDeleteDocumentAction(caseId: string, documentId: string) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
 
   // Validate case belongs to organization
   const cases = await sql`
@@ -1451,10 +1441,8 @@ export async function advisorBulkDeleteDocumentsAction(caseId: string, documentI
     return { success: false, error: "No documents selected for deletion." };
   }
 
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
 
   const cases = await sql`
     SELECT * FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;
@@ -2531,11 +2519,9 @@ export async function toggleUserDeactivationAction({
  * Cascades removal of all S3 files, document rows, requirements, links, activity logs, and the case.
  */
 export async function deleteCaseAction(caseId: string) {
-  const sql = getDb();
-  if (!sql) return { success: false, error: "Database not connected" };
-
   try {
     const orgId = await getAuthenticatedOrgId();
+    const sql = getTenantDb(orgId);
 
     const cases = await sql`
       SELECT id, title FROM public.cases WHERE id = ${caseId} AND organization_id = ${orgId} LIMIT 1;

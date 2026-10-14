@@ -1,38 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getTenantDb } from "@/lib/db";
 import { isS3Configured, getFileBufferFromStorage } from "@/lib/storage";
 
 import { getCachedLogo, setCachedLogo } from "@/lib/logo-cache";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ orgId: string }> }
 ) {
   const { orgId } = await params;
-  if (!orgId) {
-    return new NextResponse("Missing organization ID", { status: 400 });
+  if (!orgId || !UUID_REGEX.test(orgId.trim())) {
+    return new NextResponse("Invalid organization ID", { status: 400 });
   }
 
+  const cleanOrgId = orgId.trim();
   const versionParam = req.nextUrl.searchParams.get("v");
 
   // Check fast in-memory cache unless version parameter is passed
-  const cached = !versionParam ? getCachedLogo(orgId) : null;
+  const cached = !versionParam ? getCachedLogo(cleanOrgId) : null;
   let logoUrl: string | null = null;
 
   if (cached && Date.now() < cached.expires) {
     logoUrl = cached.logoUrl;
   } else {
-    const sql = getDb();
-    if (!sql) {
-      return new NextResponse("Database unavailable", { status: 503 });
-    }
-
     try {
-      const orgs = await sql`
-        SELECT id, name, logo_url FROM public.organizations WHERE id::text = ${orgId} LIMIT 1;
+      const tenantSql = getTenantDb(cleanOrgId);
+      const orgs = await tenantSql`
+        SELECT id, name, logo_url FROM public.organizations WHERE id = ${cleanOrgId}::uuid LIMIT 1;
       `;
       logoUrl = orgs.length > 0 && orgs[0].logo_url ? (orgs[0].logo_url as string) : null;
-      setCachedLogo(orgId, { logoUrl, expires: Date.now() + 10 * 60 * 1000 });
+      setCachedLogo(cleanOrgId, { logoUrl, expires: Date.now() + 10 * 60 * 1000 });
     } catch (err: any) {
       console.warn("Database error loading logo:", err);
       return new NextResponse("Failed to load logo", { status: 500 });

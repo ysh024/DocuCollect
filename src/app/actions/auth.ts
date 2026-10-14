@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
-import { getDb } from "@/lib/db";
+import { getDb, getTenantDb } from "@/lib/db";
 
 let cachedAuthSql: any = null;
 let cachedAuthDbUrl: string | null = null;
@@ -615,7 +615,7 @@ export async function updateFirmSettingsAction(data: {
     return { success: false, error: "UNAUTHENTICATED" };
   }
 
-  const sql = getDb();
+  const sql = getTenantDb(session.organizationId);
   if (!sql) return { success: false, error: "Database not connected" };
 
   try {
@@ -623,7 +623,7 @@ export async function updateFirmSettingsAction(data: {
       await sql`
         UPDATE public.organizations
         SET name = ${data.firmName.trim()}, updated_at = now()
-        WHERE id::text = ${session.organizationId}::text;
+        WHERE id = ${session.organizationId}::uuid;
       `;
     }
 
@@ -631,7 +631,7 @@ export async function updateFirmSettingsAction(data: {
       await sql`
         UPDATE public.organizations
         SET settings = ${JSON.stringify(data.settings)}::jsonb, updated_at = now()
-        WHERE id::text = ${session.organizationId}::text;
+        WHERE id = ${session.organizationId}::uuid;
       `;
     }
 
@@ -654,7 +654,7 @@ export async function updateFirmSettingsAction(data: {
         await sql`
           UPDATE public.organizations
           SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{contact_phone}', to_jsonb(${cleanPhone}::text)), updated_at = now()
-          WHERE id::text = ${session.organizationId}::text;
+          WHERE id = ${session.organizationId}::uuid;
         `;
       }
     }
@@ -663,7 +663,7 @@ export async function updateFirmSettingsAction(data: {
       await sql`
         UPDATE public.organizations
         SET settings = jsonb_set(COALESCE(settings, '{}'::jsonb), '{contact_email}', to_jsonb(${data.email.trim()}::text)), updated_at = now()
-        WHERE id::text = ${session.organizationId}::text;
+        WHERE id = ${session.organizationId}::uuid;
       `;
     }
 
@@ -693,7 +693,7 @@ export async function uploadFirmLogoAction({
     return { success: false, error: "UNAUTHENTICATED" };
   }
 
-  const sql = getDb();
+  const sql = getTenantDb(session.organizationId);
   if (!sql) return { success: false, error: "Database not connected" };
 
   try {
@@ -723,7 +723,7 @@ export async function uploadFirmLogoAction({
     await sql`
       UPDATE public.organizations
       SET logo_url = ${logoRecord}, updated_at = now()
-      WHERE id = ${session.organizationId};
+      WHERE id = ${session.organizationId}::uuid;
     `;
 
     invalidateLogoCache(session.organizationId);
@@ -751,14 +751,14 @@ export async function removeFirmLogoAction() {
     return { success: false, error: "UNAUTHENTICATED" };
   }
 
-  const sql = getDb();
+  const sql = getTenantDb(session.organizationId);
   if (!sql) return { success: false, error: "Database not connected" };
 
   try {
     await sql`
       UPDATE public.organizations
       SET logo_url = NULL, updated_at = now()
-      WHERE id = ${session.organizationId};
+      WHERE id = ${session.organizationId}::uuid;
     `;
 
     invalidateLogoCache(session.organizationId);

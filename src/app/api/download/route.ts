@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // 1. Look up document record and owning case/organization
+  // 1. Look up document record and owning case/organization with tenant context
   let docRecord: {
     id: string;
     storage_path: string;
@@ -40,24 +40,58 @@ export async function GET(req: NextRequest) {
   } | null = null;
 
   try {
-    if (docId) {
-      const rows = await sql`
-        SELECT d.id, d.storage_path, d.file_name, d.mime_type, d.case_id, c.organization_id
-        FROM public.documents d
-        JOIN public.cases c ON c.id = d.case_id
-        WHERE d.id::text = ${docId}
-        LIMIT 1;
-      `;
-      if (rows.length > 0) docRecord = rows[0] as any;
-    } else if (filePath) {
-      const rows = await sql`
-        SELECT d.id, d.storage_path, d.file_name, d.mime_type, d.case_id, c.organization_id
-        FROM public.documents d
-        JOIN public.cases c ON c.id = d.case_id
-        WHERE d.storage_path = ${filePath}
-        LIMIT 1;
-      `;
-      if (rows.length > 0) docRecord = rows[0] as any;
+    if (session?.organizationId) {
+      // Path A: Authenticated user with active organization session
+      const tenantSql = getTenantDb(session.organizationId);
+      if (docId) {
+        const rows = await tenantSql`
+          SELECT d.id, d.storage_path, d.file_name, d.mime_type, d.case_id, c.organization_id
+          FROM public.documents d
+          JOIN public.cases c ON c.id = d.case_id
+          WHERE d.id::text = ${docId} AND c.organization_id = ${session.organizationId}
+          LIMIT 1;
+        `;
+        if (rows.length > 0) docRecord = rows[0] as any;
+      } else if (filePath) {
+        const rows = await tenantSql`
+          SELECT d.id, d.storage_path, d.file_name, d.mime_type, d.case_id, c.organization_id
+          FROM public.documents d
+          JOIN public.cases c ON c.id = d.case_id
+          WHERE d.storage_path = ${filePath} AND c.organization_id = ${session.organizationId}
+          LIMIT 1;
+        `;
+        if (rows.length > 0) docRecord = rows[0] as any;
+      }
+    } else if (rawToken) {
+      // Path B: Client accessing via a validated upload link token
+      const linkInfo = await resolvePublicUploadLink(rawToken);
+      if (!linkInfo) {
+        return NextResponse.json(
+          { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
+          { status: 403 }
+        );
+      }
+
+      const tenantSql = getTenantDb(linkInfo.organization_id);
+      if (docId) {
+        const rows = await tenantSql`
+          SELECT d.id, d.storage_path, d.file_name, d.mime_type, d.case_id, c.organization_id
+          FROM public.documents d
+          JOIN public.cases c ON c.id = d.case_id
+          WHERE d.id::text = ${docId} AND d.case_id = ${linkInfo.case_id} AND c.organization_id = ${linkInfo.organization_id}
+          LIMIT 1;
+        `;
+        if (rows.length > 0) docRecord = rows[0] as any;
+      } else if (filePath) {
+        const rows = await tenantSql`
+          SELECT d.id, d.storage_path, d.file_name, d.mime_type, d.case_id, c.organization_id
+          FROM public.documents d
+          JOIN public.cases c ON c.id = d.case_id
+          WHERE d.storage_path = ${filePath} AND d.case_id = ${linkInfo.case_id} AND c.organization_id = ${linkInfo.organization_id}
+          LIMIT 1;
+        `;
+        if (rows.length > 0) docRecord = rows[0] as any;
+      }
     }
   } catch (dbErr) {
     console.error("Error resolving document record in /api/download:", dbErr);
@@ -66,48 +100,6 @@ export async function GET(req: NextRequest) {
 
   if (!docRecord) {
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
-  }
-
-  // 2. Authorization Verification
-  // Path A: Authenticated advisor/staff member
-  if (session?.organizationId) {
-    if (session.organizationId !== docRecord.organization_id) {
-      return NextResponse.json(
-        { error: "Forbidden: You do not have access to documents from another organization." },
-        { status: 403 }
-      );
-    }
-  } else if (rawToken) {
-    // Path B: Client accessing via a validated upload link token; tenant context is established only after resolving the record.
-    const tokenCaseBoundary = "linkRows[0].case_id !== docRecord.case_id";
-    const linkInfo = await resolvePublicUploadLink(rawToken);
-    const tokenCaseMatches = linkInfo && linkInfo.case_id === docRecord.case_id;
-    if (!tokenCaseMatches) {
-      return NextResponse.json(
-        { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
-        { status: 403 }
-      );
-    }
-    if (tokenCaseBoundary === "linkRows[0].case_id !== docRecord.case_id") {
-      // Explicit boundary enforcement keeps upload tokens scoped to the owning case only.
-    }
-    if (!linkInfo || linkInfo.case_id !== docRecord.case_id) {
-      return NextResponse.json(
-        { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
-        { status: 403 }
-      );
-    }
-
-    const tenantSql = getTenantDb(linkInfo.organization_id);
-    const tenantCaseRows = await tenantSql`
-      SELECT id FROM public.cases WHERE id = ${docRecord.case_id} AND organization_id = ${linkInfo.organization_id} LIMIT 1;
-    `;
-    if (tenantCaseRows.length === 0) {
-      return NextResponse.json(
-        { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
-        { status: 403 }
-      );
-    }
   }
 
   // 3. Decrypt and Stream Document

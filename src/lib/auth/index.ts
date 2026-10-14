@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { getDb } from "@/lib/db";
+import { getDb, getTenantDb } from "@/lib/db";
 
 /**
  * Resolves JWT secret for signing and verification.
@@ -342,10 +342,19 @@ export async function getCurrentUser() {
     return cached.user;
   }
 
-  const sql = getDb();
-  if (!sql) return null;
-
   try {
+    let sql: any;
+    if (session.organizationId) {
+      try {
+        sql = getTenantDb(session.organizationId);
+      } catch {
+        sql = getDb();
+      }
+    } else {
+      sql = getDb();
+    }
+    if (!sql) return null;
+
     const users = await sql`
       SELECT 
         u.id, u.email, u.full_name, u.role, u.organization_id, u.phone, u.email_verified, u.last_login_at, u.is_deactivated,
