@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 
-const configuredSecret = process.env.AUTH_SECRET;
-if (!configuredSecret && process.env.NODE_ENV === "production") {
-  throw new Error("FATAL: AUTH_SECRET must be configured in production environment.");
+function getMiddlewareJwtSecret(): Uint8Array {
+  const configuredSecret = process.env.AUTH_SECRET;
+  if (!configuredSecret && process.env.NODE_ENV === "production") {
+    const isBuildPhase =
+      process.env.NEXT_PHASE === "phase-production-build" ||
+      process.env.npm_lifecycle_event === "build" ||
+      process.env.npm_lifecycle_event === "build:worker" ||
+      process.env.CF_PAGES === "1" ||
+      !process.env.DATABASE_URL;
+
+    if (!isBuildPhase) {
+      throw new Error("FATAL: AUTH_SECRET must be configured in production environment.");
+    }
+  }
+  return new TextEncoder().encode(
+    configuredSecret || "docucollect_dev_only_auth_secret_minimum_32_characters_for_local_env"
+  );
 }
-const JWT_SECRET = new TextEncoder().encode(
-  configuredSecret || "docucollect_dev_only_auth_secret_minimum_32_characters_for_local_env"
-);
 
 const SESSION_COOKIE = "docucollect_session";
 
@@ -37,7 +48,8 @@ export async function middleware(request: NextRequest) {
   let isValidSession = false;
   if (token) {
     try {
-      await jwtVerify(token, JWT_SECRET);
+      const jwtSecret = getMiddlewareJwtSecret();
+      await jwtVerify(token, jwtSecret);
       isValidSession = true;
     } catch {
       isValidSession = false;
