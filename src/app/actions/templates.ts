@@ -230,8 +230,25 @@ export async function updateChecklistTemplateAction(
   }
 
   try {
-    // Allow updating custom template or default system template
-    const res = await sql`
+    // Verify template exists and belongs to this organization (system templates are protected)
+    const existing = await sql`
+      SELECT id, is_system, organization_id FROM public.checklist_templates
+      WHERE id = ${templateId} LIMIT 1;
+    `;
+    if (existing.length === 0) {
+      return { success: false, error: "Template not found." };
+    }
+    if (existing[0].is_system) {
+      return {
+        success: false,
+        error: "System templates cannot be modified by organization users. You can duplicate this template to customize it.",
+      };
+    }
+    if (existing[0].organization_id !== session.organizationId) {
+      return { success: false, error: "Unauthorized: You do not have permission to modify this template." };
+    }
+
+    await sql`
       UPDATE public.checklist_templates
       SET name = ${data.name.trim()},
           service_type = ${data.serviceType?.trim() || "General"},
@@ -239,7 +256,8 @@ export async function updateChecklistTemplateAction(
           requirements = ${JSON.stringify(validReqs)}::jsonb,
           updated_at = now()
       WHERE id = ${templateId}
-        AND (organization_id = ${session.organizationId} OR is_system = true);
+        AND organization_id = ${session.organizationId}
+        AND is_system = false;
     `;
 
     invalidateTemplatesCache();
@@ -254,7 +272,8 @@ export async function updateChecklistTemplateAction(
 }
 
 /**
- * Delete a template (custom or default system template)
+ * Delete a custom template belonging to the organization
+ * System templates cannot be deleted by regular tenant users
  */
 export async function deleteChecklistTemplateAction(
   templateId: string
@@ -268,10 +287,28 @@ export async function deleteChecklistTemplateAction(
   if (!sql) return { success: false, error: "Database not connected." };
 
   try {
+    const existing = await sql`
+      SELECT id, is_system, organization_id FROM public.checklist_templates
+      WHERE id = ${templateId} LIMIT 1;
+    `;
+    if (existing.length === 0) {
+      return { success: false, error: "Template not found." };
+    }
+    if (existing[0].is_system) {
+      return {
+        success: false,
+        error: "System templates cannot be deleted by organization users.",
+      };
+    }
+    if (existing[0].organization_id !== session.organizationId) {
+      return { success: false, error: "Unauthorized: You do not have permission to delete this template." };
+    }
+
     await sql`
       DELETE FROM public.checklist_templates
       WHERE id = ${templateId}
-        AND (organization_id = ${session.organizationId} OR is_system = true);
+        AND organization_id = ${session.organizationId}
+        AND is_system = false;
     `;
 
     invalidateTemplatesCache();

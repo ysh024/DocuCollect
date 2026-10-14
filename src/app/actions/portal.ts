@@ -860,6 +860,20 @@ export async function createCaseAction(payload: {
   else if (planName === "starter") maxCasesPerClient = 10;
   else maxCasesPerClient = 5;
 
+  if (!payload.client_id?.trim()) {
+    throw new Error("Client ID is required.");
+  }
+
+  // Verify that the requested client exists and belongs strictly to the authenticated organization
+  const clientRows = await sql`
+    SELECT id FROM public.clients
+    WHERE id = ${payload.client_id} AND organization_id = ${orgId}
+    LIMIT 1;
+  `;
+  if (clientRows.length === 0) {
+    throw new Error("Client not found or does not belong to your organization.");
+  }
+
   const countRes = await sql`
     SELECT count(*)::int as count
     FROM public.cases
