@@ -18,20 +18,20 @@ try {
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.slice(1, -1);
         }
-        if (!process.env[key]) {
-          process.env[key] = val;
-        }
+        process.env[key] = val;
       }
     }
   }
 } catch {}
 
 const dbUrl = process.env.DATABASE_URL;
-if (!dbUrl) {
+const adminDbUrl = process.env.MIGRATION_DATABASE_URL || dbUrl;
+if (!dbUrl || !adminDbUrl) {
   console.error("❌ DATABASE_URL missing from environment");
   process.exit(1);
 }
 const sql = neon(dbUrl);
+const adminSql = neon(adminDbUrl);
 
 let passedCount = 0;
 let failedCount = 0;
@@ -63,7 +63,7 @@ async function runPhase3Verification() {
   try {
     // 1. Setup isolated synthetic fixtures
     console.log("--> Setting up isolated test fixtures for Firm A and Firm B...");
-    await sql`
+    await adminSql`
       INSERT INTO public.organizations (id, name, slug)
       VALUES 
         (${orgAId}, 'Firm A Test', ${'firm-a-' + nonce}),
@@ -71,10 +71,10 @@ async function runPhase3Verification() {
     `;
 
     // Ensure active subscription for quota checks
-    const plans = await sql`SELECT id FROM public.plans WHERE name = 'pro' LIMIT 1;`;
+    const plans = await adminSql`SELECT id FROM public.plans WHERE name = 'pro' LIMIT 1;`;
     const planId = plans[0]?.id;
     if (planId) {
-      await sql`
+      await adminSql`
         INSERT INTO public.subscriptions (organization_id, plan_id, status)
         VALUES 
           (${orgAId}, ${planId}, 'active'),
@@ -83,7 +83,7 @@ async function runPhase3Verification() {
     }
 
     // Create Client A under Org A and Client B under Org B
-    await sql`
+    await adminSql`
       INSERT INTO public.clients (id, organization_id, name, phone, client_ref_id)
       VALUES 
         (${clientAId}, ${orgAId}, 'Client A (Owned by Org A)', '9999990001', 'REF-A-01'),
@@ -91,7 +91,7 @@ async function runPhase3Verification() {
     `;
 
     // Create system template and custom templates
-    await sql`
+    await adminSql`
       INSERT INTO public.checklist_templates (id, organization_id, name, service_type, requirements, is_system)
       VALUES
         (${sysTemplateId}, NULL, 'Global System Template Test', 'Audit', '[{"name":"Tax Audit Checklist","is_required":true}]'::jsonb, true),
@@ -106,22 +106,26 @@ async function runPhase3Verification() {
     // =========================================================================
     console.log("--- Testing Fix A: Cross-Tenant Client Association Guard ---");
 
+    const { getTenantDb } = await import("../../src/lib/db");
+    const sqlA = getTenantDb(orgAId);
+    const sqlB = getTenantDb(orgBId);
+
     // Test A1: Legitimate case creation with Firm A's own client succeeds
-    const checkA = await sql`
+    const checkA = await sqlA`
       SELECT id FROM public.clients WHERE id = ${clientAId} AND organization_id = ${orgAId} LIMIT 1;
     `;
     assert(checkA.length > 0, "TEST-A1", "Firm A's own client successfully verified for case creation");
 
     const validCaseId = crypto.randomUUID();
-    await sql`
+    await sqlA`
       INSERT INTO public.cases (id, organization_id, client_id, title, service_type, reference_number, status)
       VALUES (${validCaseId}, ${orgAId}, ${clientAId}, 'Legitimate Case Org A', 'ITR', ${'CASE-A-' + nonce}, 'waiting_for_client');
     `;
-    const caseVerify = await sql`SELECT id FROM public.cases WHERE id = ${validCaseId} AND organization_id = ${orgAId};`;
+    const caseVerify = await sqlA`SELECT id FROM public.cases WHERE id = ${validCaseId} AND organization_id = ${orgAId};`;
     assert(caseVerify.length === 1, "TEST-A1", "Legitimate case created under Firm A with its own client");
 
     // Test A2: Firm A attempting to create case with Firm B's client ID is blocked
-    const checkB_FromA = await sql`
+    const checkB_FromA = await sqlA`
       SELECT id FROM public.clients WHERE id = ${clientBId} AND organization_id = ${orgAId} LIMIT 1;
     `;
     const isClientAllowedForOrgA = checkB_FromA.length > 0;
@@ -134,8 +138,7 @@ async function runPhase3Verification() {
       if (checkB_FromA.length === 0) {
         throw new Error("Client not found or does not belong to your organization.");
       }
-      // If code was broken, it would insert here
-      await sql`
+      await sqlA`
         INSERT INTO public.cases (organization_id, client_id, title, service_type, reference_number, status)
         VALUES (${orgAId}, ${clientBId}, 'Illegitimate Cross Case', 'ITR', 'CROSS-01', 'waiting_for_client');
       `;
@@ -149,7 +152,7 @@ async function runPhase3Verification() {
 
     // Test A3: Nonexistent client ID rejected
     const randomClientId = crypto.randomUUID();
-    const checkRandom = await sql`
+    const checkRandom = await sqlA`
       SELECT id FROM public.clients WHERE id = ${randomClientId} AND organization_id = ${orgAId} LIMIT 1;
     `;
     assert(checkRandom.length === 0, "TEST-A3", "Nonexistent client ID correctly rejected");
@@ -160,14 +163,13 @@ async function runPhase3Verification() {
     console.log("\n--- Testing Fix B: System Checklist Template Protection ---");
 
     // Test B1: Ordinary tenant attempting to modify system template is rejected
-    const sysTemplateRow = await sql`
+    const sysTemplateRow = await sqlA`
       SELECT id, is_system, organization_id FROM public.checklist_templates WHERE id = ${sysTemplateId} LIMIT 1;
     `;
     assert(sysTemplateRow[0]?.is_system === true, "TEST-B1", "Target template confirmed as global is_system=true");
 
     let sysUpdateBlocked = false;
     if (sysTemplateRow[0].is_system) {
-      // Logic from updateChecklistTemplateAction
       sysUpdateBlocked = true;
     }
     assert(sysUpdateBlocked, "TEST-B1", "Ordinary tenant modification of system template blocked with safe error");
@@ -175,36 +177,35 @@ async function runPhase3Verification() {
     // Test B2: Ordinary tenant attempting to delete system template is rejected
     let sysDeleteBlocked = false;
     if (sysTemplateRow[0].is_system) {
-      // Logic from deleteChecklistTemplateAction
       sysDeleteBlocked = true;
     }
     assert(sysDeleteBlocked, "TEST-B2", "Ordinary tenant deletion of system template blocked with safe error");
 
     // Verify system template remains intact in database
-    const sysStillExists = await sql`SELECT id FROM public.checklist_templates WHERE id = ${sysTemplateId};`;
+    const sysStillExists = await sqlA`SELECT id FROM public.checklist_templates WHERE id = ${sysTemplateId};`;
     assert(sysStillExists.length === 1, "TEST-B2", "System template preserved intact in database");
 
     // Test B3: Firm A attempting to modify or delete Firm B's custom template is rejected
-    const templateB_ForA = await sql`
+    const templateB_ForA = await sqlA`
       SELECT id, is_system, organization_id FROM public.checklist_templates WHERE id = ${customTemplateBId} LIMIT 1;
     `;
-    const isAuthorizedForOrgA = templateB_ForA[0].organization_id === orgAId;
+    const isAuthorizedForOrgA = templateB_ForA.length > 0 && templateB_ForA[0].organization_id === orgAId;
     assert(!isAuthorizedForOrgA, "TEST-B3", "Firm A denied permission to modify or delete Firm B's custom template");
 
     // Test B4: Firm A legitimately updating and deleting its own custom template succeeds
-    await sql`
+    await sqlA`
       UPDATE public.checklist_templates
       SET name = 'Firm A Updated Checklist'
       WHERE id = ${customTemplateAId} AND organization_id = ${orgAId} AND is_system = false;
     `;
-    const updatedA = await sql`SELECT name FROM public.checklist_templates WHERE id = ${customTemplateAId};`;
+    const updatedA = await sqlA`SELECT name FROM public.checklist_templates WHERE id = ${customTemplateAId};`;
     assert(updatedA[0]?.name === 'Firm A Updated Checklist', "TEST-B4", "Firm A successfully updated its own custom template");
 
-    await sql`
+    await sqlA`
       DELETE FROM public.checklist_templates
       WHERE id = ${customTemplateAId} AND organization_id = ${orgAId} AND is_system = false;
     `;
-    const deletedA = await sql`SELECT id FROM public.checklist_templates WHERE id = ${customTemplateAId};`;
+    const deletedA = await sqlA`SELECT id FROM public.checklist_templates WHERE id = ${customTemplateAId};`;
     assert(deletedA.length === 0, "TEST-B4", "Firm A successfully deleted its own custom template");
 
     // Test B5: Admin authorization verification
@@ -227,11 +228,11 @@ async function runPhase3Verification() {
   } finally {
     // Clean up isolated test data
     console.log("\n--> Cleaning up isolated test fixtures...");
-    await sql`DELETE FROM public.cases WHERE organization_id IN (${orgAId}, ${orgBId});`;
-    await sql`DELETE FROM public.clients WHERE organization_id IN (${orgAId}, ${orgBId});`;
-    await sql`DELETE FROM public.checklist_templates WHERE id IN (${sysTemplateId}, ${customTemplateAId}, ${customTemplateBId});`;
-    await sql`DELETE FROM public.subscriptions WHERE organization_id IN (${orgAId}, ${orgBId});`;
-    await sql`DELETE FROM public.organizations WHERE id IN (${orgAId}, ${orgBId});`;
+    await adminSql`DELETE FROM public.cases WHERE organization_id IN (${orgAId}, ${orgBId});`;
+    await adminSql`DELETE FROM public.clients WHERE organization_id IN (${orgAId}, ${orgBId});`;
+    await adminSql`DELETE FROM public.checklist_templates WHERE id IN (${sysTemplateId}, ${customTemplateAId}, ${customTemplateBId});`;
+    await adminSql`DELETE FROM public.subscriptions WHERE organization_id IN (${orgAId}, ${orgBId});`;
+    await adminSql`DELETE FROM public.organizations WHERE id IN (${orgAId}, ${orgBId});`;
     console.log("✅ Test fixtures cleaned up successfully.");
   }
 

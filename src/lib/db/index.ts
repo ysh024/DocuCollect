@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import { hashToken } from "@/lib/tokens";
 
 // Configure global HTTP keep-alive dispatcher for Node.js runtime without pipelining
 if (typeof process !== "undefined" && process.versions?.node) {
@@ -22,32 +23,35 @@ let cachedSql: any = null;
 let cachedUrl: string | null = null;
 
 /**
- * Returns a Neon SQL tagged template executor.
- * Direct endpoint without PgBouncer pooler proxy is used for the Neon HTTP driver
- * to eliminate proxy queuing stalls, cold-start timeouts, and network handshake overhead.
+ * Returns the restricted Neon SQL tagged template executor (docucollect_app).
+ * Employs NOBYPASSRLS for defense-in-depth against data leakage.
  */
 export function getDb() {
-  let connectionString = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
+  const connectionString = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
   if (!connectionString || connectionString.includes("your-neon-database-url")) {
     return null;
   }
 
-  // Web applications on serverless runtimes use Neon connection pooling (-pooler)
-  // to support up to 10,000 concurrent queries without connection exhaustion
   const targetConnectionString = connectionString;
 
   if (!cachedSql || cachedUrl !== targetConnectionString) {
     const baseSql = neon(targetConnectionString);
 
     // Create resilient wrapper with exponential backoff retry for transient cold-start / socket wakeups
-    const resilientSql = async (strings: TemplateStringsArray, ...values: any[]) => {
+    const resilientSql: any = async (strings: TemplateStringsArray, ...values: any[]) => {
       let lastErr: any;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
           return await (baseSql as any)(strings, ...values);
         } catch (err: any) {
           lastErr = err;
-          const msg = (String(err?.message || "") + " " + String(err?.cause?.message || "") + " " + String(err?.cause?.code || "")).toLowerCase();
+          const msg = (
+            String(err?.message || "") +
+            " " +
+            String(err?.cause?.message || "") +
+            " " +
+            String(err?.cause?.code || "")
+          ).toLowerCase();
           const isTransient =
             msg.includes("fetch failed") ||
             msg.includes("etimedout") ||
@@ -59,7 +63,6 @@ export function getDb() {
             msg.includes("503");
 
           if (isTransient && attempt < 2) {
-            // Neon compute cold-start wake up backoff (400ms, 800ms)
             await new Promise((r) => setTimeout(r, (attempt + 1) * 400));
             continue;
           }
@@ -69,14 +72,102 @@ export function getDb() {
       throw lastErr;
     };
 
-    // Attach raw query property
-    (resilientSql as any).query = (baseSql as any).query;
+    // Attach raw query, transaction, and raw driver references
+    resilientSql.query = (baseSql as any).query;
+    resilientSql.transaction = (baseSql as any).transaction;
+    resilientSql._rawSql = baseSql;
 
     cachedSql = resilientSql;
     cachedUrl = targetConnectionString;
   }
 
   return cachedSql;
+}
+
+export type TenantSqlExecutor = {
+  (strings: TemplateStringsArray, ...values: any[]): Promise<any[]>;
+  transaction: (fn: (tx: any) => any[]) => Promise<any[]>;
+};
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Returns a tenant-scoped SQL executor that establishes transaction-local tenant context
+ * (app.current_org_id) inside the same atomic request/transaction.
+ * Fails closed if the organization ID is missing, malformed, or invalid.
+ */
+export function getTenantDb(orgId: string): TenantSqlExecutor {
+  if (!orgId || typeof orgId !== "string" || !UUID_REGEX.test(orgId.trim())) {
+    throw new Error("Security Violation: Missing or invalid organization ID for tenant database access");
+  }
+
+  const validOrgId = orgId.trim();
+  const db = getDb();
+  if (!db) {
+    throw new Error("Database connection not configured");
+  }
+
+  const rawSql = db._rawSql || db;
+
+  const tenantSql = (async (strings: TemplateStringsArray, ...values: any[]) => {
+    const [_, result] = await rawSql.transaction((tx: any) => [
+      tx`SELECT set_config('app.current_org_id', ${validOrgId}, true)`,
+      tx(strings, ...values),
+    ]);
+    return result;
+  }) as TenantSqlExecutor;
+
+  tenantSql.transaction = async (fn: (tx: any) => any[]) => {
+    const [_, ...results] = await rawSql.transaction((tx: any) => [
+      tx`SELECT set_config('app.current_org_id', ${validOrgId}, true)`,
+      ...fn(tx),
+    ]);
+    return results;
+  };
+
+  return tenantSql;
+}
+
+export async function resolvePublicUploadLink(token: string): Promise<{ case_id: string; organization_id: string } | null> {
+  const cleanToken = (token || "").trim();
+  if (!cleanToken || cleanToken.length < 16) {
+    return null;
+  }
+
+  const db = getDb();
+  if (!db) return null;
+
+  try {
+    const rows = await db`
+      SELECT case_id, organization_id
+      FROM public.resolve_upload_link_for_public(${cleanToken})
+      LIMIT 1;
+    `;
+    if (rows && rows.length > 0) {
+      return rows[0] as { case_id: string; organization_id: string };
+    }
+  } catch {
+    // Fallback is intentionally narrow: exact token/hash match only with a revoked/expiry check.
+  }
+
+  try {
+    const tokenHash = hashToken(cleanToken);
+    const rows = await db`
+      SELECT case_id, organization_id
+      FROM public.upload_links
+      WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
+        AND revoked_at IS NULL
+        AND (expires_at IS NULL OR expires_at > now())
+      LIMIT 1;
+    `;
+    if (rows && rows.length > 0) {
+      return rows[0] as { case_id: string; organization_id: string };
+    }
+  } catch {
+    // A missing/invalid public-token function or a blocked unauthenticated lookup must fail closed.
+  }
+
+  return null;
 }
 
 /**

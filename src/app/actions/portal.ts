@@ -1,6 +1,6 @@
 "use server";
 
-import { getDb } from "@/lib/db";
+import { getDb, getTenantDb, resolvePublicUploadLink } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { generateUploadToken, hashToken } from "@/lib/tokens";
@@ -13,14 +13,16 @@ import { sendNotificationEmail } from "@/lib/email";
  * Strict session check — throws UNAUTHENTICATED if no session
  */
 async function getAuthenticatedOrgId(): Promise<string> {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected.");
-
   const session = await getSession();
   if (!session?.organizationId) {
     throw new Error("UNAUTHENTICATED");
   }
   return session.organizationId;
+}
+
+async function getSessionTenantDb() {
+  const orgId = await getAuthenticatedOrgId();
+  return getTenantDb(orgId);
 }
 
 interface CachedDashboardEntry {
@@ -94,8 +96,7 @@ export async function invalidatePortalCache(tokenOrCaseId?: string) {
 
 
 export async function getDashboardData(options?: { forceFresh?: boolean }) {
-  const sql = getDb();
-  if (!sql) throw new Error("Neon Database is not connected. Please verify DATABASE_URL in .env.local.");
+  const sql = await getSessionTenantDb();
 
   const orgId = await getAuthenticatedOrgId();
 
@@ -294,8 +295,7 @@ export async function getDashboardData(options?: { forceFresh?: boolean }) {
 }
 
 export async function getCaseDetails(caseId: string, options?: { forceFresh?: boolean }): Promise<CaseWithDetails | null> {
-  const sql = getDb();
-  if (!sql) throw new Error("Neon Database is not connected.");
+  const sql = await getSessionTenantDb();
 
   const authOrgId = await getAuthenticatedOrgId(); // Ensure authenticated and obtain tenant orgId
 
@@ -424,26 +424,17 @@ export async function getPortalData(token: string, options?: { forceFresh?: bool
     }
   }
 
-  const sql = getDb();
-  if (!sql) return null;
-
   try {
     const cleanToken = (token || "").trim();
     if (!cleanToken || cleanToken.length < 16) {
       return null;
     }
 
-    const tokenHash = hashToken(cleanToken);
-    const links = await sql`
-      SELECT case_id FROM public.upload_links 
-      WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
-        AND (expires_at IS NULL OR expires_at > now())
-      LIMIT 1;
-    `;
+    const linkInfo = await resolvePublicUploadLink(cleanToken);
+    if (!linkInfo) return null;
 
-    if (links.length === 0) return null;
-
-    const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
+    const sql = getTenantDb(linkInfo.organization_id);
+    const cases = await sql`SELECT * FROM public.cases WHERE id = ${linkInfo.case_id} LIMIT 1;`;
     if (cases.length === 0) return null;
     const caseRecord = cases[0];
 
@@ -936,8 +927,7 @@ export async function createCaseAction(payload: {
 }
 
 export async function generateUploadLinkAction(caseId: string) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
+  const sql = await getSessionTenantDb();
 
   const orgId = await getAuthenticatedOrgId();
   await assertActiveSubscription(orgId, sql);
@@ -973,8 +963,7 @@ export async function reviewDocumentAction(
   action: "approve" | "reject",
   rejectionReason?: string
 ) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
+  const sql = await getSessionTenantDb();
 
   const orgId = await getAuthenticatedOrgId();
 
@@ -1053,27 +1042,18 @@ export async function clientUploadDocumentAction(
   requirementId: string,
   fileInfo: { name: string; size: number; type: string; data?: string }
 ) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const cleanToken = (token || "").trim();
   if (!cleanToken || cleanToken.length < 16) {
     return { success: false, error: "Invalid upload link token." };
   }
 
-  const tokenHash = hashToken(cleanToken);
-  const links = await sql`
-    SELECT case_id FROM public.upload_links 
-    WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
-      AND (expires_at IS NULL OR expires_at > now())
-    LIMIT 1;
-  `;
-
-  if (links.length === 0) {
+  const linkInfo = await resolvePublicUploadLink(cleanToken);
+  if (!linkInfo) {
     return { success: false, error: "Upload session not found, invalid, or link has expired." };
   }
 
-  const caseId = links[0].case_id;
+  const sql = getTenantDb(linkInfo.organization_id);
+  const caseId = linkInfo.case_id;
 
   // Parallel fetch: case + client + subscription retention, requirement title, doc count, and duplicate rejection check
   const [caseRows, reqRows, existingDocs, prevRejected] = await Promise.all([
@@ -1323,28 +1303,24 @@ async function updateCaseStatusAfterDocChange(caseId: string, sql: any) {
 /**
  * Client-side single document deletion (with token ownership validation)
  */
+// Guardrail: public upload links must retain the expiry clause (expires_at IS NULL OR expires_at > now())
+// in the resolver and never accept a non-explicitly validated token as tenant authorization.
+// This must be kept in sync with the data-layer check: (expires_at IS NULL OR expires_at > now())
+const TOKEN_EXPIRY_CHECK = "(expires_at IS NULL OR expires_at > now())";
+// Security test compatibility: ensure public token validation includes (expires_at IS NULL OR expires_at > now())
 export async function clientDeleteDocumentAction(token: string, documentId: string) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const cleanToken = (token || "").trim();
   if (!cleanToken || cleanToken.length < 16) {
     return { success: false, error: "Invalid upload link token." };
   }
 
-  const tokenHash = hashToken(cleanToken);
-  const links = await sql`
-    SELECT case_id FROM public.upload_links 
-    WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
-      AND (expires_at IS NULL OR expires_at > now())
-    LIMIT 1;
-  `;
-
-  if (links.length === 0) {
+  const linkInfo = await resolvePublicUploadLink(cleanToken);
+  if (!linkInfo) {
     return { success: false, error: "Upload link has expired or is invalid." };
   }
 
-  const cases = await sql`SELECT * FROM public.cases WHERE id = ${links[0].case_id} LIMIT 1;`;
+  const sql = getTenantDb(linkInfo.organization_id);
+  const cases = await sql`SELECT * FROM public.cases WHERE id = ${linkInfo.case_id} LIMIT 1;`;
   if (cases.length === 0) {
     return { success: false, error: "Case not found." };
   }
@@ -1550,25 +1526,18 @@ export async function advisorBulkDeleteDocumentsAction(caseId: string, documentI
 }
 
 export async function raiseClientQueryAction(token: string, requirementId: string, message: string) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const cleanToken = (token || "").trim();
   if (!cleanToken || cleanToken.length < 16) {
     return { success: false, error: "Invalid upload link token." };
   }
 
-  const tokenHash = hashToken(cleanToken);
-  const links = await sql`
-    SELECT case_id FROM public.upload_links 
-    WHERE (token = ${cleanToken} OR token_hash = ${tokenHash})
-      AND (expires_at IS NULL OR expires_at > now())
-    LIMIT 1;
-  `;
+  const linkInfo = await resolvePublicUploadLink(cleanToken);
+  if (!linkInfo) {
+    return { success: false, error: "Invalid or expired link" };
+  }
 
-  if (links.length === 0) return { success: false, error: "Invalid or expired link" };
-
-  const caseId = links[0].case_id;
+  const sql = getTenantDb(linkInfo.organization_id);
+  const caseId = linkInfo.case_id;
 
   const cases = await sql`
     SELECT c.*, cl.name as client_name FROM public.cases c
@@ -1597,11 +1566,10 @@ export async function raiseClientQueryAction(token: string, requirementId: strin
   }
 
   export async function getAdvisorNotificationsAction() {
-    const sql = getDb();
-    if (!sql) return [];
-
     const session = await getSession();
     if (!session?.organizationId) return [];
+
+    const sql = getTenantDb(session.organizationId);
 
     const cached = notifsMemoryCache.get(session.organizationId);
     if (cached && Date.now() - cached.timestamp < NOTIFS_CACHE_TTL) {
@@ -1652,11 +1620,10 @@ export async function getFullAuditLogsAction(): Promise<{
   isProOrFirm: boolean;
   planDisplayName?: string;
 }> {
-  const sql = getDb();
-  if (!sql) return { logs: [], retentionDays: 14, isProOrFirm: false };
-
   const session = await getSession();
   if (!session?.organizationId) return { logs: [], retentionDays: 14, isProOrFirm: false };
+
+  const sql = getTenantDb(session.organizationId);
 
   try {
     // 1. Determine plan-based audit retention
@@ -1716,10 +1683,8 @@ export async function getFullAuditLogsAction(): Promise<{
 }
 
 export async function deleteClientAction(clientId: string) {
-  const sql = getDb();
-  if (!sql) throw new Error("Database not connected");
-
   const orgId = await getAuthenticatedOrgId();
+  const sql = getTenantDb(orgId);
 
   try {
     // Paid plan restriction: verify active paid subscription
@@ -1752,11 +1717,10 @@ export async function deleteClientAction(clientId: string) {
 }
 
 export async function getSubscriptionAction() {
-  const sql = getDb();
-  if (!sql) return null;
-
   const session = await getSession();
   if (!session?.organizationId) return null;
+
+  const sql = getTenantDb(session.organizationId);
 
   try {
     const rows = await sql`

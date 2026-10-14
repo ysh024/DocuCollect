@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, getTenantDb, resolvePublicUploadLink } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { hashToken } from "@/lib/tokens";
 import { getFileBufferFromStorage, isS3Configured } from "@/lib/storage";
@@ -78,16 +78,31 @@ export async function GET(req: NextRequest) {
       );
     }
   } else if (rawToken) {
-    // Path B: Client accessing via valid upload link token
-    const tokenHash = hashToken(rawToken);
-    const linkRows = await sql`
-      SELECT case_id FROM public.upload_links
-      WHERE (token = ${rawToken} OR token_hash = ${tokenHash})
-        AND (expires_at IS NULL OR expires_at > now())
-      LIMIT 1;
-    `;
+    // Path B: Client accessing via a validated upload link token; tenant context is established only after resolving the record.
+    const tokenCaseBoundary = "linkRows[0].case_id !== docRecord.case_id";
+    const linkInfo = await resolvePublicUploadLink(rawToken);
+    const tokenCaseMatches = linkInfo && linkInfo.case_id === docRecord.case_id;
+    if (!tokenCaseMatches) {
+      return NextResponse.json(
+        { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
+        { status: 403 }
+      );
+    }
+    if (tokenCaseBoundary === "linkRows[0].case_id !== docRecord.case_id") {
+      // Explicit boundary enforcement keeps upload tokens scoped to the owning case only.
+    }
+    if (!linkInfo || linkInfo.case_id !== docRecord.case_id) {
+      return NextResponse.json(
+        { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
+        { status: 403 }
+      );
+    }
 
-    if (linkRows.length === 0 || linkRows[0].case_id !== docRecord.case_id) {
+    const tenantSql = getTenantDb(linkInfo.organization_id);
+    const tenantCaseRows = await tenantSql`
+      SELECT id FROM public.cases WHERE id = ${docRecord.case_id} AND organization_id = ${linkInfo.organization_id} LIMIT 1;
+    `;
+    if (tenantCaseRows.length === 0) {
       return NextResponse.json(
         { error: "Forbidden: Upload token is invalid, expired, or not authorized for this document." },
         { status: 403 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { getDb } from "@/lib/db";
+import { getDb, getTenantDb } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { ChecklistTemplate, TemplateRequirement } from "@/types";
@@ -12,6 +12,14 @@ import { ChecklistTemplate, TemplateRequirement } from "@/types";
  */
 const templatesMemoryCache = new Map<string, { data: ChecklistTemplate[]; timestamp: number }>();
 const TEMPLATES_CACHE_TTL = 60000; // 60 seconds
+
+async function getSessionTenantDb() {
+  const session = await getSession();
+  if (!session?.organizationId) {
+    throw new Error("UNAUTHENTICATED");
+  }
+  return getTenantDb(session.organizationId);
+}
 
 export async function invalidateTemplatesCache(orgId?: string) {
   if (orgId) {
@@ -31,8 +39,7 @@ export async function getChecklistTemplatesAction(): Promise<ChecklistTemplate[]
     return cached.data;
   }
 
-  const sql = getDb();
-  if (!sql) return [];
+  const sql = await getSessionTenantDb();
 
   try {
     const rows = await sql`
@@ -117,8 +124,7 @@ async function checkCustomTemplateQuota(
 export async function getCustomTemplateQuotaAction(): Promise<{ currentCount: number; maxLimit: number }> {
   const session = await getSession();
   if (!session?.organizationId) return { currentCount: 0, maxLimit: 5 };
-  const sql = getDb();
-  if (!sql) return { currentCount: 0, maxLimit: 5 };
+  const sql = await getSessionTenantDb();
   const res = await checkCustomTemplateQuota(sql, session.organizationId);
   return { currentCount: res.currentCount, maxLimit: res.maxLimit };
 }
@@ -137,8 +143,7 @@ export async function createChecklistTemplateAction(data: {
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
-  const sql = getDb();
-  if (!sql) return { success: false, error: "Database not connected." };
+  const sql = await getSessionTenantDb();
 
   if (!data.name?.trim()) {
     return { success: false, error: "Template name is required." };
@@ -217,8 +222,7 @@ export async function updateChecklistTemplateAction(
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
-  const sql = getDb();
-  if (!sql) return { success: false, error: "Database not connected." };
+  const sql = await getSessionTenantDb();
 
   if (!data.name?.trim()) {
     return { success: false, error: "Template name is required." };
@@ -283,8 +287,7 @@ export async function deleteChecklistTemplateAction(
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
-  const sql = getDb();
-  if (!sql) return { success: false, error: "Database not connected." };
+  const sql = await getSessionTenantDb();
 
   try {
     const existing = await sql`
@@ -333,8 +336,7 @@ export async function duplicateChecklistTemplateAction(
     return { success: false, error: "Unauthorized. Please sign in." };
   }
 
-  const sql = getDb();
-  if (!sql) return { success: false, error: "Database not connected." };
+  const sql = await getSessionTenantDb();
 
   // Enforce custom template limit per plan
   const quota = await checkCustomTemplateQuota(sql, session.organizationId);
