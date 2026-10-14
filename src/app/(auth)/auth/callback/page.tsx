@@ -33,8 +33,12 @@ export default function AuthCallbackPage() {
 
         if (!isCancelled) {
           setStatus("success");
-          // Smooth redirect into dashboard
-          window.location.href = "/dashboard";
+          const targetRedirect = urlParams.get("redirect");
+          const safeDest =
+            targetRedirect && targetRedirect.startsWith("/") && !targetRedirect.startsWith("/login")
+              ? targetRedirect
+              : "/dashboard";
+          window.location.href = safeDest;
         }
       } catch (err: any) {
         if (!isCancelled) {

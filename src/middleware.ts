@@ -49,20 +49,33 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users away from protected routes
   if (isProtected && !isValidSession) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
+    const fullPath = pathname + (request.nextUrl.search || "");
+    loginUrl.searchParams.set("redirect", fullPath);
     return NextResponse.redirect(loginUrl);
   }
 
   // Redirect authenticated users away from auth pages
   if (isAuthRoute && isValidSession) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+    // Allow users to switch accounts or view login if requested explicitly via ?switch=1 or ?logout=1
+    if (request.nextUrl.searchParams.has("switch") || request.nextUrl.searchParams.has("logout")) {
+      return NextResponse.next();
+    }
+    const redirectParam = request.nextUrl.searchParams.get("redirect");
+    const targetPath = redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/login") ? redirectParam : "/dashboard";
+    return NextResponse.redirect(new URL(targetPath, request.url));
   }
 
   const response = NextResponse.next();
-  // Standard security headers
+  // Standard defensive security headers
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.neon.tech https://*.amazonaws.com https://lh3.googleusercontent.com; connect-src 'self' https://*.neon.tech https://accounts.google.com; frame-ancestors 'self';"
+  );
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   return response;
 }
 

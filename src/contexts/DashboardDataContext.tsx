@@ -210,8 +210,17 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         globalNotificationsCache = notifsRes;
         setNotifications(notifsRes);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Background dashboard data sync error:", err);
+      const msg = String(err?.message || "");
+      if (msg.includes("UNAUTHENTICATED") && typeof window !== "undefined") {
+        try {
+          sessionStorage.removeItem(SESSION_CACHE_KEY);
+        } catch {}
+        window.location.href =
+          "/login?redirect=" +
+          encodeURIComponent(window.location.pathname + (window.location.search || ""));
+      }
     } finally {
       fetchingRef.current = false;
       setLoading(false);

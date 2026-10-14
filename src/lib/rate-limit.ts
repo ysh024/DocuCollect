@@ -48,7 +48,11 @@ export function checkRateLimit(
   // Filter timestamps within current sliding window
   const recentTimestamps = record.timestamps.filter((ts) => now - ts < windowMs);
 
-  if (recentTimestamps.length >= maxAttempts) {
+  // In development, permit higher attempts so local testing and verification never locks out the developer
+  const effectiveMax =
+    process.env.NODE_ENV === "development" ? Math.max(maxAttempts, 100) : maxAttempts;
+
+  if (recentTimestamps.length >= effectiveMax) {
     const oldestInWindow = recentTimestamps[0];
     const retryAfterMs = oldestInWindow + windowMs - now;
     const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));

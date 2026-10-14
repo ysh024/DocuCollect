@@ -25,7 +25,9 @@
     "preview:worker": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy:worker": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "test:security": "npx tsx security-audit/tests/adversarial-suite.ts && npx tsx scripts/test-security.ts",
+    "preinstall": "node -e \"require('fs').existsSync('.git/hooks/code-guardian/git-hooks/checkInstall.cjs') && require('child_process').execFileSync('node', ['.git/hooks/code-guardian/git-hooks/checkInstall.cjs'], {stdio:'inherit'})\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1148.0",

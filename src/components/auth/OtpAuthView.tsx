@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ShieldCheck,
   Mail,
@@ -40,6 +41,13 @@ const NEON_AUTH_URL =
   "https://ep-wild-snow-azyh1uu4.neonauth.c-3.ap-southeast-1.aws.neon.tech/neondb/auth";
 
 export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
+  const searchParams = useSearchParams();
+  const rawRedirect = searchParams.get("redirect");
+  const targetRedirect =
+    rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("/login")
+      ? rawRedirect
+      : "/dashboard";
+
   const [mode, setMode] = useState<"sign-in" | "sign-up" | "forgot-password">(initialMode);
   const [step, setStep] = useState<AuthStep>("credentials");
 
@@ -86,7 +94,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
     setError(null);
     setGoogleLoading(true);
     try {
-      const callbackURL = `${window.location.origin}/auth/callback`;
+      const callbackURL = `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(targetRedirect)}`;
       const cleanBase = NEON_AUTH_URL.replace(/\/$/, "");
 
       const res = await fetch(`${cleanBase}/sign-in/social`, {
@@ -137,10 +145,10 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
         return;
       }
 
-      setSuccess("Authenticated! Redirecting to your dashboard...");
+      setSuccess("Authenticated! Redirecting to your workspace...");
       setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 500);
+        window.location.href = targetRedirect;
+      }, 400);
     } catch (err: any) {
       setError(err.message || "Sign-in failed. Please try again.");
       setLoading(false);
@@ -236,10 +244,10 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
           return;
         }
 
-        setSuccess(result.message || "Password updated successfully! Redirecting to your dashboard...");
+        setSuccess(result.message || "Password updated successfully! Redirecting to your workspace...");
         setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 600);
+          window.location.href = targetRedirect;
+        }, 400);
         return;
       }
 
@@ -267,10 +275,10 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
           return;
         }
 
-        setSuccess(result.message || "Account activated and verified! Redirecting to your dashboard...");
+        setSuccess(result.message || "Account activated and verified! Redirecting to your workspace...");
         setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 600);
+          window.location.href = targetRedirect;
+        }, 400);
       } else {
         const result = await verifyLoginOtpAction(email, otp.trim());
         if (!result.success) {
@@ -279,10 +287,10 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
           return;
         }
 
-        setSuccess("Verified! Redirecting to your dashboard...");
+        setSuccess("Verified! Redirecting to your workspace...");
         setTimeout(() => {
-          window.location.href = "/dashboard";
-        }, 500);
+          window.location.href = targetRedirect;
+        }, 400);
       }
     } catch (err: any) {
       setError(err.message || "Verification failed.");
@@ -439,7 +447,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
               {mode === "forgot-password" && (
                 <form onSubmit={handleForgotPasswordSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                       Account Email Address
                     </label>
                     <div className="relative">
@@ -451,7 +459,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@yourfirm.com"
-                        className="block w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-sm placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                        className="block w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                       />
                     </div>
                   </div>
@@ -459,7 +467,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                   <button
                     type="submit"
                     disabled={loading || !email}
-                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 transition shadow-sm mt-3 cursor-pointer"
+                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition shadow-xs hover:shadow-emerald-600/20 active:scale-[0.99] mt-3 cursor-pointer"
                   >
                     {loading ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /><span>Sending reset code...</span></>
@@ -472,7 +480,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                     <button
                       type="button"
                       onClick={() => switchMode("sign-in")}
-                      className="text-xs font-semibold text-neutral-600 hover:text-neutral-900 cursor-pointer"
+                      className="text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
                     >
                       ← Back to Sign In
                     </button>
@@ -484,7 +492,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
               {mode === "sign-in" && (
                 <form onSubmit={handleLoginSubmit} className="space-y-3.5">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                       Email Address
                     </label>
                     <div className="relative">
@@ -496,20 +504,20 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@yourfirm.com"
-                        className="block w-full pl-10 pr-4 py-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-sm placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                        className="block w-full pl-10 pr-4 py-2.5 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                       />
                     </div>
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
                         Password
                       </label>
                       <button
                         type="button"
                         onClick={() => switchMode("forgot-password")}
-                        className="text-xs text-neutral-600 hover:text-neutral-900 underline font-medium cursor-pointer"
+                        className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline font-medium cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -522,12 +530,12 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
-                        className="block w-full pl-10 pr-10 py-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-sm placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                        className="block w-full pl-10 pr-10 py-2.5 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -537,7 +545,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 transition shadow-sm mt-3 cursor-pointer"
+                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition shadow-xs hover:shadow-emerald-600/20 active:scale-[0.99] mt-3 cursor-pointer"
                   >
                     {loading ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /><span>Signing in...</span></>
@@ -553,7 +561,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                 <form onSubmit={handleSignupSubmit} className="space-y-3.5">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                         Your Full Name
                       </label>
                       <div className="relative">
@@ -564,13 +572,13 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           placeholder="e.g. Rahul Sharma"
-                          className="block w-full pl-9 pr-3 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-xs placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                          className="block w-full pl-9 pr-3 py-2 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                         Firm / Agency Name
                       </label>
                       <div className="relative">
@@ -581,14 +589,14 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                           value={firmName}
                           onChange={(e) => setFirmName(e.target.value)}
                           placeholder="e.g. Apex Advisory"
-                          className="block w-full pl-9 pr-3 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-xs placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                          className="block w-full pl-9 pr-3 py-2 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                       Official Email
                     </label>
                     <div className="relative">
@@ -599,13 +607,13 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@yourfirm.com"
-                        className="block w-full pl-10 pr-4 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-xs placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                        className="block w-full pl-10 pr-4 py-2 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                       Set Password (min. 8 characters)
                     </label>
                     <div className="relative">
@@ -617,12 +625,12 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Create a strong password"
-                        className="block w-full pl-10 pr-10 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-xs placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                        className="block w-full pl-10 pr-10 py-2 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -630,7 +638,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                       WhatsApp / Phone (Optional)
                     </label>
                     <div className="relative">
@@ -640,7 +648,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="+91 98765 43210"
-                        className="block w-full pl-10 pr-4 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-xs placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                        className="block w-full pl-10 pr-4 py-2 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xs text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                       />
                     </div>
                   </div>
@@ -648,7 +656,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 transition shadow-sm mt-3 cursor-pointer"
+                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition shadow-xs hover:shadow-emerald-600/20 active:scale-[0.99] mt-3 cursor-pointer"
                   >
                     {loading ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /><span>Sending verification code...</span></>
@@ -667,7 +675,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
           {step === "verify-otp" && (
             <form onSubmit={handleVerifyOtpSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1.5">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1.5">
                   6-Digit Verification Code
                 </label>
                 <div className="relative">
@@ -682,10 +690,10 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                     placeholder="000000"
-                    className="block w-full pl-10 pr-4 py-3 bg-neutral-50 border border-neutral-300 rounded-xl text-xl font-mono tracking-[0.5em] text-center placeholder-neutral-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                    className="block w-full pl-10 pr-4 py-3 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-xl font-mono tracking-[0.5em] text-center text-neutral-900 dark:text-white placeholder-neutral-300 dark:placeholder-neutral-600 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                   />
                 </div>
-                <p className="text-xs text-neutral-400 mt-1.5 text-center">
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1.5 text-center">
                   Check your email inbox or spam folder. Valid for 10 minutes.
                 </p>
               </div>
@@ -693,7 +701,7 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
               {/* Set New Password field for Forgot Password flow */}
               {mode === "forgot-password" && (
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-600 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-700 dark:text-neutral-300 mb-1">
                     Set New Password (min. 8 characters)
                   </label>
                   <div className="relative">
@@ -705,12 +713,12 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your new password"
-                      className="block w-full pl-10 pr-10 py-2.5 bg-neutral-50 border border-neutral-300 rounded-xl text-sm placeholder-neutral-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent transition"
+                      className="block w-full pl-10 pr-10 py-2.5 bg-neutral-50 dark:bg-neutral-800/80 border border-neutral-300 dark:border-neutral-700 rounded-xl text-sm text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-500 focus:bg-white dark:focus:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -721,14 +729,14 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
               <button
                 type="submit"
                 disabled={loading || otp.length !== 6 || (mode === "forgot-password" && password.length < 8)}
-                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-neutral-900 hover:bg-neutral-800 disabled:opacity-50 transition shadow-sm cursor-pointer"
+                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 transition shadow-xs hover:shadow-emerald-600/20 active:scale-[0.99] cursor-pointer"
               >
                 {loading ? (
                   <><Loader2 className="w-4 h-4 animate-spin" /><span>Processing...</span></>
                 ) : mode === "forgot-password" ? (
-                  <><span>Reset Password & Enter Dashboard</span><ArrowRight className="w-4 h-4" /></>
+                  <><span>Reset Password & Enter Workspace</span><ArrowRight className="w-4 h-4" /></>
                 ) : (
-                  <><span>Verify Code & Enter Dashboard</span><ArrowRight className="w-4 h-4" /></>
+                  <><span>Verify Code & Enter Workspace</span><ArrowRight className="w-4 h-4" /></>
                 )}
               </button>
 
@@ -754,36 +762,36 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
           )}
 
           {/* Mode Switcher */}
-          <div className="mt-6 pt-5 border-t border-neutral-100 text-center">
+          <div className="mt-6 pt-5 border-t border-neutral-100 dark:border-neutral-800 text-center">
             {mode === "sign-in" ? (
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Don't have an account yet?{" "}
                 <button
                   type="button"
                   onClick={() => switchMode("sign-up")}
-                  className="font-semibold text-neutral-900 hover:underline cursor-pointer"
+                  className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer ml-1"
                 >
-                  Start free trial
+                  Start 30-day free trial
                 </button>
               </p>
             ) : mode === "forgot-password" ? (
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Remember your password?{" "}
                 <button
                   type="button"
                   onClick={() => switchMode("sign-in")}
-                  className="font-semibold text-neutral-900 hover:underline cursor-pointer"
+                  className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer ml-1"
                 >
                   Sign in
                 </button>
               </p>
             ) : (
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
                 Already registered?{" "}
                 <button
                   type="button"
                   onClick={() => switchMode("sign-in")}
-                  className="font-semibold text-neutral-900 hover:underline cursor-pointer"
+                  className="font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer ml-1"
                 >
                   Sign in to workspace
                 </button>
@@ -793,14 +801,14 @@ export function OtpAuthView({ initialMode = "sign-in" }: OtpAuthViewProps) {
         </div>
 
         {/* Security badge footer */}
-        <div className="mt-6 flex items-center justify-center gap-4 text-[11px] text-neutral-400">
-          <span className="flex items-center gap-1">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> AES-256 Cloud Vault
+        <div className="mt-6 flex items-center justify-center gap-3 text-[11px] text-neutral-500 dark:text-neutral-400 flex-wrap">
+          <span className="flex items-center gap-1 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> AES-256 Zero-Knowledge
           </span>
           <span>•</span>
-          <span>Password Protected</span>
+          <span>Multi-Factor OTP</span>
           <span>•</span>
-          <span>Row-Level Security</span>
+          <span>Tenant Isolated</span>
         </div>
       </div>
     </div>

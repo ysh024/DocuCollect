@@ -25,6 +25,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { getSession } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "DocuCollect — Client Document Collection Portal for CAs, Tax Consultants & Advocates",
@@ -150,9 +151,12 @@ const steps = [
   { num: "04", title: "Review & Approve", desc: "Preview PDFs instantly in-browser. Approve or reject with clear guidance." },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const session = await getSession();
+  const isLoggedIn = Boolean(session?.userId);
+
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 selection:bg-emerald-600 selection:text-white transition-colors duration-150 relative overflow-x-clip">
+    <div className="min-h-screen bg-white dark:bg-[#0c0e12] text-neutral-900 dark:text-neutral-100 selection:bg-emerald-600 selection:text-white transition-colors duration-150 relative overflow-x-clip scroll-smooth">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[520px] bg-gradient-to-b from-emerald-500/10 via-teal-500/5 to-transparent dark:from-emerald-500/15 dark:via-teal-700/5 dark:to-transparent blur-3xl pointer-events-none -z-10" />
 
@@ -183,19 +187,31 @@ export default function LandingPage() {
             {/* 1-Click Dark/Light Theme Switcher */}
             <ThemeToggle />
 
-            <Link
-              href="/login"
-              className="text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg shadow-xs hover:shadow-sm hover:shadow-emerald-600/20 active:scale-[0.98] transition-all"
-            >
-              Start Free
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+            {isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-xs hover:shadow-sm hover:shadow-emerald-600/20 active:scale-[0.98] transition-all"
+              >
+                Go to Dashboard
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm font-medium text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white px-3 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-lg shadow-xs hover:shadow-sm hover:shadow-emerald-600/20 active:scale-[0.98] transition-all"
+                >
+                  Start Free
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -225,11 +241,11 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
           <Link
-            href="/signup"
+            href={isLoggedIn ? "/dashboard" : "/signup"}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-xl shadow-md shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer"
           >
             <Briefcase className="w-4 h-4" />
-            <span>Start 30-Day Free Trial</span>
+            <span>{isLoggedIn ? "Open Workspace Dashboard" : "Start 30-Day Free Trial"}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
@@ -319,7 +335,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── USE CASES ─── */}
-      <section id="solutions" className="bg-neutral-50/80 dark:bg-neutral-900/50 border-y border-neutral-200/80 dark:border-neutral-800 py-16 transition-colors duration-150">
+      <section id="solutions" className="scroll-mt-20 bg-neutral-50/80 dark:bg-neutral-900/50 border-y border-neutral-200/80 dark:border-neutral-800 py-16 transition-colors duration-150">
         <div className="max-w-5xl mx-auto px-5 sm:px-6">
           <p className="text-center text-xs font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-widest mb-8">
             Built for every professional who collects documents from clients
@@ -337,7 +353,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── HOW IT WORKS ─── */}
-      <section id="how-it-works" className="max-w-5xl mx-auto px-5 sm:px-6 py-20">
+      <section id="how-it-works" className="scroll-mt-20 max-w-5xl mx-auto px-5 sm:px-6 py-20">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white mb-3">Get started in minutes</h2>
           <p className="text-neutral-600 dark:text-neutral-400 text-sm max-w-lg mx-auto">No complex setup. No client training required. Start collecting documents today.</p>
@@ -355,7 +371,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── FEATURES ─── */}
-      <section id="features" className="bg-neutral-50/80 dark:bg-neutral-900/50 border-y border-neutral-200/80 dark:border-neutral-800 py-20 transition-colors duration-150">
+      <section id="features" className="scroll-mt-20 bg-neutral-50/80 dark:bg-neutral-900/50 border-y border-neutral-200/80 dark:border-neutral-800 py-20 transition-colors duration-150">
         <div className="max-w-5xl mx-auto px-5 sm:px-6">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-white mb-3">Everything you need</h2>

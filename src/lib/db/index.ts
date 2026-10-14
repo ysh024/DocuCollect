@@ -1,15 +1,16 @@
 import { neon } from "@neondatabase/serverless";
 
-// Configure global HTTP keep-alive dispatcher for Node.js runtime
+// Configure global HTTP keep-alive dispatcher for Node.js runtime without pipelining
 if (typeof process !== "undefined" && process.versions?.node) {
   try {
     const { Agent, setGlobalDispatcher } = require("undici");
     setGlobalDispatcher(
       new Agent({
-        keepAliveTimeout: 60000,
-        keepAliveMaxTimeout: 60000,
-        pipelining: 1,
-        connections: 50,
+        keepAliveTimeout: 30000,
+        keepAliveMaxTimeout: 30000,
+        connect: {
+          timeout: 15000,
+        },
       })
     );
   } catch {
@@ -38,27 +39,34 @@ export function getDb() {
   if (!cachedSql || cachedUrl !== targetConnectionString) {
     const baseSql = neon(targetConnectionString);
 
-    // Create resilient wrapper with 1-shot retry for transient cold-start / socket wakeups
+    // Create resilient wrapper with exponential backoff retry for transient cold-start / socket wakeups
     const resilientSql = async (strings: TemplateStringsArray, ...values: any[]) => {
-      try {
-        return await (baseSql as any)(strings, ...values);
-      } catch (err: any) {
-        const msg = String(err?.message || "");
-        const isTransient =
-          msg.includes("fetch failed") ||
-          msg.includes("ETIMEDOUT") ||
-          msg.includes("ECONNRESET") ||
-          msg.includes("504") ||
-          msg.includes("502") ||
-          msg.includes("503");
-
-        if (isTransient) {
-          // Retry once after 250ms for cold start recovery
-          await new Promise((r) => setTimeout(r, 250));
+      let lastErr: any;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
           return await (baseSql as any)(strings, ...values);
+        } catch (err: any) {
+          lastErr = err;
+          const msg = (String(err?.message || "") + " " + String(err?.cause?.message || "") + " " + String(err?.cause?.code || "")).toLowerCase();
+          const isTransient =
+            msg.includes("fetch failed") ||
+            msg.includes("etimedout") ||
+            msg.includes("econnreset") ||
+            msg.includes("connecttimeout") ||
+            msg.includes("timeout") ||
+            msg.includes("504") ||
+            msg.includes("502") ||
+            msg.includes("503");
+
+          if (isTransient && attempt < 2) {
+            // Neon compute cold-start wake up backoff (400ms, 800ms)
+            await new Promise((r) => setTimeout(r, (attempt + 1) * 400));
+            continue;
+          }
+          throw err;
         }
-        throw err;
       }
+      throw lastErr;
     };
 
     // Attach raw query property

@@ -36,14 +36,18 @@ async function verifyPasswordSecurely(
 ): Promise<boolean> {
   if (sqlClient && storedHash) {
     try {
+      // Normalize $2b$ to $2a$ for pgcrypto compatibility if needed
+      const normalizedHash = storedHash.startsWith("$2b$")
+        ? storedHash.replace("$2b$", "$2a$")
+        : storedHash;
       const rows = await sqlClient`
-        SELECT (crypt(${password}, ${storedHash}) = ${storedHash}) as is_valid;
+        SELECT (crypt(${password}, ${storedHash}) = ${storedHash} OR crypt(${password}, ${normalizedHash}) = ${normalizedHash}) as is_valid;
       `;
-      if (rows && rows.length > 0 && typeof rows[0].is_valid === "boolean") {
-        return rows[0].is_valid;
+      if (rows && rows.length > 0 && rows[0].is_valid === true) {
+        return true;
       }
     } catch (sqlErr: any) {
-      console.warn("Neon pgcrypto verification failed, attempting bcryptjs fallback:", sqlErr?.message || sqlErr);
+      console.warn("Neon pgcrypto verification failed, falling back to bcryptjs:", sqlErr?.message || sqlErr);
     }
   }
 
@@ -177,7 +181,7 @@ export async function loginWithPasswordAction(formData: {
     return { success: false, error: "Please provide both email and password." };
   }
 
-  const rateCheck = checkRateLimit(`login:${normalizedEmail}`, 5, 15 * 60);
+  const rateCheck = checkRateLimit(`login:${normalizedEmail}`, 10, 5 * 60);
   if (!rateCheck.allowed) {
     return {
       success: false,
