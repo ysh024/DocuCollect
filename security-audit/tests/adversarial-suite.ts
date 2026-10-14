@@ -78,8 +78,10 @@ export async function runAdversarialLab(): Promise<TestResult[]> {
     // A-2: Malformed or forged session cookie verification
     const authCode = fs.readFileSync(path.join(process.cwd(), "src/lib/auth/index.ts"), "utf-8");
     const hasSignatureVerification = authCode.includes("jwtVerify") && authCode.includes("HS256");
+    const headerB64 = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+    const payloadB64 = Buffer.from(JSON.stringify({ userId: "synthetic-fake-attacker", role: "admin" })).toString("base64url");
+    const forgedToken = `${headerB64}.${payloadB64}.tampered_synthetic_signature_sample`;
     const { verifySessionToken } = await import("../../src/lib/auth");
-    const forgedToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJmYWtlLWFkbWluIiwicm9sZSI6ImFkbWluIn0.forged_signature_here";
     const forgedResult = await verifySessionToken(forgedToken);
     const rejectsForged = forgedResult === null;
     record(
