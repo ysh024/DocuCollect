@@ -91,24 +91,30 @@ export default function BillingPage() {
   };
 
   const planName = (subscription?.plan_name || subscription?.planName || "").toLowerCase();
+  const isPaidPlan =
+    planName === "pro" ||
+    planName === "professional" ||
+    planName === "starter" ||
+    planName === "firm";
   const planDisplayName =
-    subscription?.plan_display_name ||
-    subscription?.planDisplayName ||
-    (planName === "pro"
+    (planName === "pro" || planName === "professional")
       ? "Professional"
       : planName === "starter"
       ? "Starter"
       : planName === "firm"
       ? "Firm"
-      : "Free Trial");
+      : subscription?.plan_display_name ||
+        subscription?.planDisplayName ||
+        "Free Trial";
 
-  const status = subscription?.status || (planName && planName !== "free_trial" ? "active" : "trial");
-  const isActive = status === "active";
-  const isTrial = status === "trial";
-  const isExpired = status === "expired" || status === "cancelled";
+  const rawStatus = subscription?.status || (isPaidPlan ? "active" : "trial");
+  const isExpired = rawStatus === "expired" || rawStatus === "cancelled";
+  const isActive = isPaidPlan ? !isExpired : rawStatus === "active";
+  const isTrial = !isPaidPlan && !isExpired && (rawStatus === "trial" || planName === "free_trial" || !planName);
+  const status = isActive ? "active" : isTrial ? "trial" : "expired";
 
   const trialEnds = subscription?.trial_ends_at || subscription?.trialEndsAt;
-  const trialDaysLeft = mounted && trialEnds
+  const trialDaysLeft = mounted && !isPaidPlan && trialEnds
     ? Math.max(0, Math.ceil((new Date(trialEnds).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 

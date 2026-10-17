@@ -445,43 +445,74 @@ export function DashboardDataProvider({
   const metrics = data?.metrics || DEFAULT_METRICS;
   const clients = data?.clients || [];
   const cases = data?.cases || [];
-  const rawSub = data?.subscription || user?.subscription || null;
+
+  // Intelligent resolution of subscription: prioritize active paid plan over stale trial cache
+  const chooseBestSub = (subA: any, subB: any) => {
+    if (!subA && !subB) return null;
+    if (!subA) return subB;
+    if (!subB) return subA;
+    const isPaidA =
+      subA.status === "active" &&
+      (subA.plan_name === "pro" ||
+        subA.plan_name === "starter" ||
+        subA.plan_name === "firm" ||
+        subA.plan_name === "professional" ||
+        subA.planName === "pro" ||
+        subA.planName === "starter" ||
+        subA.planName === "firm" ||
+        subA.planName === "professional");
+    const isPaidB =
+      subB.status === "active" &&
+      (subB.plan_name === "pro" ||
+        subB.plan_name === "starter" ||
+        subB.plan_name === "firm" ||
+        subB.plan_name === "professional" ||
+        subB.planName === "pro" ||
+        subB.planName === "starter" ||
+        subB.planName === "firm" ||
+        subB.planName === "professional");
+    if (isPaidA && !isPaidB) return subA;
+    if (isPaidB && !isPaidA) return subB;
+    return subA || subB;
+  };
+  const rawSub = chooseBestSub(data?.subscription, user?.subscription);
+
+  const rawPlanName = (rawSub?.plan_name || rawSub?.planName || "free_trial").toLowerCase();
+  const isPaidTier =
+    rawPlanName === "pro" ||
+    rawPlanName === "professional" ||
+    rawPlanName === "starter" ||
+    rawPlanName === "firm";
+  const isExplicitExpired = rawSub?.status === "expired" || rawSub?.status === "cancelled";
+  const normalizedStatus = isPaidTier ? (isExplicitExpired ? "expired" : "active") : (rawSub?.status || "trial");
+
+  const normalizedPlanDisplayName =
+    (rawPlanName === "pro" || rawPlanName === "professional")
+      ? "Professional"
+      : rawPlanName === "starter"
+      ? "Starter"
+      : rawPlanName === "firm"
+      ? "Firm"
+      : rawSub?.plan_display_name || rawSub?.planDisplayName || "Free Trial";
+
   const subscription = rawSub
     ? {
         ...rawSub,
-        status: rawSub.status || "trial",
-        plan_name: rawSub.plan_name || rawSub.planName || "free_trial",
-        planName: rawSub.planName || rawSub.plan_name || "free_trial",
-        plan_display_name:
-          rawSub.plan_display_name ||
-          rawSub.planDisplayName ||
-          (rawSub.plan_name === "pro" || rawSub.planName === "pro"
-            ? "Professional"
-            : rawSub.plan_name === "starter" || rawSub.planName === "starter"
-            ? "Starter"
-            : rawSub.plan_name === "firm" || rawSub.planName === "firm"
-            ? "Firm"
-            : "Free Trial"),
-        planDisplayName:
-          rawSub.planDisplayName ||
-          rawSub.plan_display_name ||
-          (rawSub.plan_name === "pro" || rawSub.planName === "pro"
-            ? "Professional"
-            : rawSub.plan_name === "starter" || rawSub.planName === "starter"
-            ? "Starter"
-            : rawSub.plan_name === "firm" || rawSub.planName === "firm"
-            ? "Firm"
-            : "Free Trial"),
-        trial_ends_at: rawSub.trial_ends_at || rawSub.trialEndsAt,
-        trialEndsAt: rawSub.trialEndsAt || rawSub.trial_ends_at,
+        status: normalizedStatus,
+        plan_name: rawPlanName === "professional" ? "pro" : rawPlanName,
+        planName: rawPlanName === "professional" ? "pro" : rawPlanName,
+        plan_display_name: normalizedPlanDisplayName,
+        planDisplayName: normalizedPlanDisplayName,
+        trial_ends_at: isPaidTier ? null : (rawSub.trial_ends_at || rawSub.trialEndsAt),
+        trialEndsAt: isPaidTier ? null : (rawSub.trialEndsAt || rawSub.trial_ends_at),
         current_period_end: rawSub.current_period_end || rawSub.currentPeriodEnd,
         currentPeriodEnd: rawSub.currentPeriodEnd || rawSub.current_period_end,
-        max_clients: rawSub.max_clients || rawSub.maxClients || 10,
-        maxClients: rawSub.maxClients || rawSub.max_clients || 10,
-        file_retention_days: rawSub.file_retention_days || rawSub.fileRetentionDays || 14,
-        fileRetentionDays: rawSub.fileRetentionDays || rawSub.file_retention_days || 14,
-        max_storage_mb: rawSub.max_storage_mb || rawSub.maxStorageMb || 500,
-        maxStorageMb: rawSub.maxStorageMb || rawSub.max_storage_mb || 500,
+        max_clients: rawSub.max_clients || rawSub.maxClients || (isPaidTier ? (rawPlanName === "starter" ? 50 : 200) : 10),
+        maxClients: rawSub.maxClients || rawSub.max_clients || (isPaidTier ? (rawPlanName === "starter" ? 50 : 200) : 10),
+        file_retention_days: rawSub.file_retention_days || rawSub.fileRetentionDays || (isPaidTier ? 45 : 14),
+        fileRetentionDays: rawSub.fileRetentionDays || rawSub.file_retention_days || (isPaidTier ? 45 : 14),
+        max_storage_mb: rawSub.max_storage_mb || rawSub.maxStorageMb || (isPaidTier ? 5120 : 500),
+        maxStorageMb: rawSub.maxStorageMb || rawSub.max_storage_mb || (isPaidTier ? 5120 : 500),
       }
     : null;
 
@@ -543,7 +574,14 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
         toast({ title: "Account Upgraded!", description: res.message });
         setLicenseKey("");
         setShowCodeInput(false);
-        await refresh();
+        clearClientDashboardCache();
+        if (typeof window !== "undefined") {
+          try { sessionStorage.clear(); } catch {}
+        }
+        await refresh(false, true);
+        setTimeout(() => {
+          window.location.reload();
+        }, 800);
       } else {
         toast({ title: "Redemption Failed", description: res.error || "Invalid license key" });
       }

@@ -1800,37 +1800,60 @@ export async function getPortalData(token: string, options?: { forceFresh?: bool
 async function assertActiveSubscription(orgId: string, sql: any) {
   try {
     const subRows = await sql`
-      SELECT s.status, s.trial_ends_at, s.current_period_end
+      SELECT s.status, s.trial_ends_at, s.current_period_end, p.name as plan_name
       FROM public.subscriptions s
+      LEFT JOIN public.plans p ON s.plan_id = p.id
       WHERE s.organization_id = ${orgId}
+      ORDER BY 
+        CASE WHEN s.status = 'active' THEN 1 WHEN s.status = 'trial' THEN 2 ELSE 3 END,
+        s.created_at DESC
       LIMIT 1;
     `;
-    if (subRows.length === 0) return;
-
-    const sub = subRows[0];
     const now = new Date();
 
-    if (sub.status === "expired") {
+    if (subRows.length === 0) {
+      // Check organization creation date
+      const orgRows = await sql`SELECT created_at FROM public.organizations WHERE id = ${orgId} LIMIT 1;`;
+      if (orgRows.length > 0 && orgRows[0].created_at) {
+        const orgAgeMs = Date.now() - new Date(orgRows[0].created_at).getTime();
+        const trialPeriodMs = 30 * 24 * 60 * 60 * 1000;
+        if (orgAgeMs > trialPeriodMs) {
+          throw new Error(
+            "Your 30-day free trial has expired. To continue using DocGet, please upgrade your plan in Billing."
+          );
+        }
+      }
+      return;
+    }
+
+    const sub = subRows[0];
+
+    if (sub.status === "expired" || sub.status === "cancelled" || sub.status === "past_due") {
       throw new Error(
-        "Your 30-day free trial has expired. To continue using DocGet, please contact the administrator via UPI or WhatsApp to renew."
+        "Your subscription plan is no longer active. To continue using DocGet, please renew your plan in Billing."
       );
     }
 
     if (sub.status === "trial" && sub.trial_ends_at && new Date(sub.trial_ends_at) < now) {
       await sql`UPDATE public.subscriptions SET status = 'expired', updated_at = NOW() WHERE organization_id = ${orgId};`;
       throw new Error(
-        "Your 30-day free trial has expired. To continue using DocGet, please contact the administrator via UPI or WhatsApp to renew."
+        "Your 30-day free trial has expired. To continue using DocGet, please upgrade your plan in Billing."
       );
     }
 
     if (sub.status === "active" && sub.current_period_end && new Date(sub.current_period_end) < now) {
       await sql`UPDATE public.subscriptions SET status = 'expired', updated_at = NOW() WHERE organization_id = ${orgId};`;
       throw new Error(
-        "Your subscription plan has expired. Please visit Billing or contact the administrator to renew."
+        "Your subscription plan has expired. Please visit Billing to renew your subscription."
       );
     }
   } catch (err: any) {
-    if (err.message?.includes("expired") || err.message?.includes("trial")) {
+    if (
+      err.message?.includes("expired") ||
+      err.message?.includes("trial") ||
+      err.message?.includes("subscription") ||
+      err.message?.includes("Subscription")
+    ) {
       throw err;
     }
   }
@@ -1867,6 +1890,15 @@ export async function createClientAction(formData: {
       if (currentCount >= maxAllowed) {
         throw new Error(
           `Client limit reached (${currentCount}/${maxAllowed}). Please upgrade your plan in Billing to add more clients.`
+        );
+      }
+    } else {
+      const countRows = await sql`SELECT COUNT(*) as current_count FROM public.clients WHERE organization_id = ${orgId};`;
+      const currentCount = Number(countRows[0]?.current_count || 0);
+      const maxAllowed = 10;
+      if (currentCount >= maxAllowed) {
+        throw new Error(
+          `Client limit reached (${currentCount}/${maxAllowed}) on the Free Trial. Please upgrade your plan in Billing to add more clients.`
         );
       }
     }
@@ -1950,11 +1982,29 @@ export async function importClientsFromCsvAction(rows: ClientCsvRow[]) {
           `Adding ${rows.length} clients exceeds your plan limit of ${maxAllowed} total clients. You currently have ${remainingSlots} slot(s) remaining. Please upgrade your plan or reduce the import batch.`
         );
       }
+    } else {
+      const countRows = await sql`SELECT COUNT(*) as current_count FROM public.clients WHERE organization_id = ${orgId};`;
+      const currentCount = Number(countRows[0]?.current_count || 0);
+      const maxAllowed = 10;
+      const remainingSlots = Math.max(0, maxAllowed - currentCount);
+
+      if (currentCount >= maxAllowed) {
+        throw new Error(
+          `Client limit reached (${currentCount}/${maxAllowed}) on the Free Trial. Please upgrade your plan in Billing to add more clients.`
+        );
+      }
+
+      if (currentCount + rows.length > maxAllowed) {
+        throw new Error(
+          `Adding ${rows.length} clients exceeds your Free Trial limit of ${maxAllowed} total clients. You currently have ${remainingSlots} slot(s) remaining. Please upgrade your plan or reduce the import batch.`
+        );
+      }
     }
   } catch (quotaErr: any) {
     if (
       quotaErr.message?.includes("Client limit reached") ||
-      quotaErr.message?.includes("exceeds your plan limit")
+      quotaErr.message?.includes("exceeds your plan limit") ||
+      quotaErr.message?.includes("exceeds your Free Trial limit")
     ) {
       throw quotaErr;
     }
@@ -2299,10 +2349,10 @@ export async function clientUploadDocumentAction(
   const sql = getTenantDb(linkInfo.organization_id);
   const caseId = linkInfo.case_id;
 
-  // Parallel fetch: case + client + subscription retention, requirement title, doc count, and duplicate rejection check
+  // Parallel fetch: case + client + subscription retention & storage, requirement title, doc count, and duplicate rejection check
   const [caseRows, reqRows, existingDocs, prevRejected] = await Promise.all([
     sql`
-      SELECT c.*, cl.name as client_name, p.file_retention_days
+      SELECT c.*, cl.name as client_name, p.file_retention_days, p.max_storage_mb
       FROM public.cases c
       LEFT JOIN public.clients cl ON cl.id = c.client_id
       LEFT JOIN public.subscriptions s ON s.organization_id = c.organization_id
@@ -2361,6 +2411,27 @@ export async function clientUploadDocumentAction(
       success: false,
       error: `File exceeds the 10 MB upload limit (${(fileInfo.size / (1024 * 1024)).toFixed(1)} MB). Please choose a file under 10 MB.`,
     };
+  }
+
+  // Check workspace aggregate storage quota
+  const maxStorageMb = Number(c.max_storage_mb || 500);
+  const maxStorageBytes = maxStorageMb * 1024 * 1024;
+  try {
+    const storageCheckRows = await sql`
+      SELECT COALESCE(SUM(d.file_size), 0)::bigint as total_bytes
+      FROM public.documents d
+      JOIN public.cases cs ON d.case_id = cs.id
+      WHERE cs.organization_id = ${c.organization_id};
+    `;
+    const totalUsedBytes = Number(storageCheckRows[0]?.total_bytes || 0);
+    if (totalUsedBytes + fileInfo.size > maxStorageBytes) {
+      return {
+        success: false,
+        error: `Storage quota reached for this organization (${(totalUsedBytes / (1024 * 1024)).toFixed(1)} MB used of ${maxStorageMb} MB limit). Please contact your advisor to upgrade storage.`,
+      };
+    }
+  } catch (storageErr) {
+    console.warn("Storage quota check error:", storageErr);
   }
 
   if (!fileInfo.data) {
@@ -3064,7 +3135,7 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
   }
 
   const cleanCode = code.trim().toUpperCase();
-  const sql = getDb();
+  const sql = getAdminDb() || getDb();
   if (!sql) return { success: false, error: "Database not connected." };
 
   const session = await getSession();
@@ -3107,9 +3178,13 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
       };
     }
 
-    // 3. Find the associated plan
+    // 3. Find the associated plan with flexible normalization
+    const normalizedPlanName = (key.plan_name || "").toLowerCase().trim();
+    const planKey = normalizedPlanName === "professional" ? "pro" : normalizedPlanName;
     const planRows = await sql`
-      SELECT id, name, display_name FROM public.plans WHERE name = ${key.plan_name} LIMIT 1;
+      SELECT id, name, display_name FROM public.plans 
+      WHERE LOWER(name) = ${planKey} OR LOWER(name) = ${normalizedPlanName}
+      LIMIT 1;
     `;
     if (planRows.length === 0) {
       return { success: false, error: `Configured plan "${key.plan_name}" not found in system.` };
@@ -3120,34 +3195,24 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
     const days = key.period === "yearly" ? 365 : 30;
     const currentPeriodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
-    // 5. Update or insert the subscription for this organization
-    const existing = await sql`
-      SELECT id FROM public.subscriptions WHERE organization_id = ${session.organizationId} LIMIT 1;
+    // 5. Update or insert the subscription atomically without unique collision errors
+    await sql`
+      INSERT INTO public.subscriptions (
+        organization_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, payment_method, payment_notes, activated_by, updated_at
+      ) VALUES (
+        ${session.organizationId}, ${plan.id}, 'active', NULL, now(), ${currentPeriodEnd}, 'license_key', ${'Redeemed single-use voucher: ' + cleanCode}, 'license_voucher', now()
+      )
+      ON CONFLICT (organization_id) DO UPDATE SET
+        plan_id = EXCLUDED.plan_id,
+        status = 'active',
+        trial_ends_at = NULL,
+        current_period_start = now(),
+        current_period_end = EXCLUDED.current_period_end,
+        payment_method = EXCLUDED.payment_method,
+        payment_notes = EXCLUDED.payment_notes,
+        activated_by = EXCLUDED.activated_by,
+        updated_at = now();
     `;
-
-    if (existing.length > 0) {
-      await sql`
-        UPDATE public.subscriptions
-        SET plan_id = ${plan.id},
-            status = 'active',
-            trial_ends_at = NULL,
-            current_period_start = now(),
-            current_period_end = ${currentPeriodEnd},
-            payment_method = 'license_key',
-            payment_notes = ${'Redeemed single-use voucher: ' + cleanCode},
-            activated_by = 'license_voucher',
-            updated_at = now()
-        WHERE id = ${existing[0].id};
-      `;
-    } else {
-      await sql`
-        INSERT INTO public.subscriptions (
-          organization_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, payment_method, payment_notes, activated_by
-        ) VALUES (
-          ${session.organizationId}, ${plan.id}, 'active', NULL, now(), ${currentPeriodEnd}, 'license_key', ${'Redeemed single-use voucher: ' + cleanCode}, 'license_voucher'
-        );
-      `;
-    }
 
     // 6. Permanently mark key as redeemed to prevent sharing / reuse
     await sql`
@@ -3161,6 +3226,7 @@ export async function redeemLicenseKeyAction({ code }: { code: string }) {
     `;
 
     invalidateDashboardCache(session.organizationId);
+    invalidateUserCache(session.userId);
     revalidatePath("/dashboard/billing");
     revalidatePath("/dashboard");
 
@@ -3393,16 +3459,18 @@ export async function activateSubscriptionAction({
   if (!sql) return { success: false, error: "Database not connected" };
 
   try {
-    // 1. Identify target organization
+    // 1. Identify target organization and user
     let targetOrgId = organizationId;
+    let targetUserId: string | undefined;
     if (!targetOrgId && userEmail) {
       const userRows = await sql`
-        SELECT organization_id FROM public.users WHERE LOWER(email) = LOWER(${userEmail.trim()}) LIMIT 1;
+        SELECT id, organization_id FROM public.users WHERE LOWER(email) = LOWER(${userEmail.trim()}) LIMIT 1;
       `;
       if (userRows.length === 0) {
         return { success: false, error: `No registered user found with email: ${userEmail}` };
       }
       targetOrgId = userRows[0].organization_id;
+      targetUserId = userRows[0].id;
     }
 
     if (!targetOrgId) {
@@ -3411,11 +3479,16 @@ export async function activateSubscriptionAction({
         return { success: false, error: "Please provide a user email or log in." };
       }
       targetOrgId = session.organizationId;
+      targetUserId = session.userId;
     }
 
-    // 2. Fetch the plan
+    // 2. Fetch the plan with flexible normalization
+    const normalized = planName.toLowerCase().trim();
+    const planKey = normalized === "professional" ? "pro" : normalized;
     const planRows = await sql`
-      SELECT id, name, display_name FROM public.plans WHERE name = ${planName} LIMIT 1;
+      SELECT id, name, display_name FROM public.plans 
+      WHERE LOWER(name) = ${planKey} OR LOWER(name) = ${normalized}
+      LIMIT 1;
     `;
     if (planRows.length === 0) {
       return { success: false, error: `Selected plan "${planName}" was not found.` };
@@ -3423,38 +3496,32 @@ export async function activateSubscriptionAction({
     const plan = planRows[0];
 
     const days = period === "yearly" ? 365 : 30;
+    const isTrialReset = planKey === "free_trial" || planKey === "trial";
+    const statusVal = isTrialReset ? "trial" : "active";
     const currentPeriodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    const trialEndsAtVal = isTrialReset ? currentPeriodEnd : null;
 
-    // 3. Upsert subscription
-    const existing = await sql`
-      SELECT id FROM public.subscriptions WHERE organization_id = ${targetOrgId} LIMIT 1;
+    // 3. Upsert subscription atomically without unique constraint crashes
+    await sql`
+      INSERT INTO public.subscriptions (
+        organization_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, payment_method, payment_notes, activated_by, updated_at
+      ) VALUES (
+        ${targetOrgId}, ${plan.id}, ${statusVal}, ${trialEndsAtVal}, now(), ${currentPeriodEnd}, ${paymentMethod}, ${paymentNotes || `Manual admin activation (${period}) by ${auth.email}`}, ${auth.email || "admin"}, now()
+      )
+      ON CONFLICT (organization_id) DO UPDATE SET
+        plan_id = EXCLUDED.plan_id,
+        status = ${statusVal},
+        trial_ends_at = ${trialEndsAtVal},
+        current_period_start = now(),
+        current_period_end = EXCLUDED.current_period_end,
+        payment_method = EXCLUDED.payment_method,
+        payment_notes = EXCLUDED.payment_notes,
+        activated_by = EXCLUDED.activated_by,
+        updated_at = now();
     `;
 
-    if (existing.length > 0) {
-      await sql`
-        UPDATE public.subscriptions
-        SET plan_id = ${plan.id},
-            status = 'active',
-            trial_ends_at = NULL,
-            current_period_start = now(),
-            current_period_end = ${currentPeriodEnd},
-            payment_method = ${paymentMethod},
-            payment_notes = ${paymentNotes || `Manual admin activation (${period}) by ${auth.email}`},
-            activated_by = ${auth.email || "admin"},
-            updated_at = now()
-        WHERE id = ${existing[0].id};
-      `;
-    } else {
-      await sql`
-        INSERT INTO public.subscriptions (
-          organization_id, plan_id, status, trial_ends_at, current_period_start, current_period_end, payment_method, payment_notes, activated_by
-        ) VALUES (
-          ${targetOrgId}, ${plan.id}, 'active', NULL, now(), ${currentPeriodEnd}, ${paymentMethod}, ${paymentNotes || `Manual admin activation (${period}) by ${auth.email}`}, ${auth.email || "admin"}
-        );
-      `;
-    }
-
     if (targetOrgId) invalidateDashboardCache(targetOrgId);
+    invalidateUserCache(targetUserId);
     revalidatePath("/dashboard/billing");
     revalidatePath("/dashboard");
     return {

@@ -74,13 +74,23 @@ export function Sidebar() {
   };
 
   const sub = subscription || user?.subscription;
+  const isPaidActive =
+    (sub?.status === "active" || sub?.status === "paid") &&
+    (sub?.plan_name === "pro" ||
+      sub?.planName === "pro" ||
+      sub?.plan_name === "professional" ||
+      sub?.planName === "professional" ||
+      sub?.plan_name === "starter" ||
+      sub?.planName === "starter" ||
+      sub?.plan_name === "firm" ||
+      sub?.planName === "firm");
+  const isOnTrial = !isPaidActive && (sub?.status === "trial" || sub?.plan_name === "free_trial" || sub?.planName === "free_trial");
   const trialEnds = sub?.trial_ends_at || sub?.trialEndsAt;
-  const trialDaysLeft = trialEnds
+  const trialDaysLeft = (!isPaidActive && trialEnds)
     ? Math.max(0, Math.ceil((new Date(trialEnds).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 
   const isTrialExpiringSoon = trialDaysLeft !== null && trialDaysLeft <= 7;
-  const isOnTrial = sub?.status === "trial";
 
   return (
     <aside className="w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 flex flex-col h-screen sticky top-0 shrink-0 z-20">
@@ -308,7 +318,7 @@ export function Sidebar() {
               <p className="text-[10px] text-neutral-500 dark:text-neutral-400 truncate">
                 {isOnTrial
                   ? `Trial · ${trialDaysLeft ?? "?"} days left`
-                  : user.subscription?.planDisplayName || "Lead Advisor"}
+                  : sub?.planDisplayName || user.subscription?.planDisplayName || "Professional"}
               </p>
             </div>
           </Link>
@@ -792,10 +802,16 @@ export function RedeemVoucherModal({
           title: "Voucher Redeemed!",
           description: res.message || "Your subscription is now active.",
         });
+        clearClientDashboardCache();
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.clear();
+          } catch {}
+        }
         if (onSuccess) onSuccess();
         setTimeout(() => {
           window.location.reload();
-        }, 1500);
+        }, 1200);
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred while redeeming voucher.");
