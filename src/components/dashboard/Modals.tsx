@@ -485,57 +485,16 @@ export function DocumentPreviewModal({
 
             {/* Right Pane Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Current Status Card */}
-              <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${
-                document.status === "approved"
-                  ? "bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-200"
-                  : document.status === "rejected"
-                  ? "bg-rose-50/70 dark:bg-rose-950/40 border-rose-200/80 dark:border-rose-900/60 text-rose-900 dark:text-rose-200"
-                  : "bg-blue-50/70 dark:bg-blue-950/40 border-blue-200/80 dark:border-blue-900/60 text-blue-900 dark:text-blue-200"
-              }`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-bold flex items-center gap-1.5">
-                    {document.status === "approved" ? (
-                      <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    ) : document.status === "rejected" ? (
-                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                    ) : (
-                      <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    )}
-                    <span>
-                      {document.status === "approved"
-                        ? "Document Verified"
-                        : document.status === "rejected"
-                        ? "Document Rejected"
-                        : "Pending Verification"}
-                    </span>
+              {document.status === "rejected" && document.rejection_reason && (
+                <div className="p-3 rounded-xl border border-rose-200/80 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-xs space-y-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-rose-800 dark:text-rose-300">
+                    Advisor feedback given:
                   </span>
-                  <span className="text-[10px] opacity-75 font-mono">v{document.version}</span>
+                  <p className="text-[11px] leading-relaxed italic text-rose-950 dark:text-rose-200 bg-white/70 dark:bg-black/30 p-2 rounded-lg border border-rose-200/50 dark:border-rose-900/40">
+                    "{document.rejection_reason}"
+                  </p>
                 </div>
-
-                {document.status === "rejected" && document.rejection_reason && (
-                  <div className="pt-1 border-t border-rose-200/80 dark:border-rose-900/60 space-y-1">
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-rose-800 dark:text-rose-300">
-                      Advisor feedback given:
-                    </span>
-                    <p className="text-[11px] leading-relaxed italic text-rose-950 dark:text-rose-200 bg-white/70 dark:bg-black/30 p-2 rounded-lg border border-rose-200/50 dark:border-rose-900/40">
-                      "{document.rejection_reason}"
-                    </p>
-                  </div>
-                )}
-
-                {document.status === "approved" && (
-                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
-                    This document satisfies all requirements and has been verified by the advisory team.
-                  </p>
-                )}
-
-                {document.status === "under_review" && (
-                  <p className="text-[11px] text-blue-800 dark:text-blue-300">
-                    Document received from client. Review the preview on the left and choose an action below.
-                  </p>
-                )}
-              </div>
+              )}
 
               {/* Advisor Actions (Approve / Reject) */}
               {caseId && (
