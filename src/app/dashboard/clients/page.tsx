@@ -354,8 +354,8 @@ export default function ClientsPage() {
         </div>
 
         {/* Client Header Profile Banner */}
-        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-5 sm:p-6 shadow-subtle space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-neutral-100 dark:border-neutral-800 pb-4">
+        <div className="sticky top-16 z-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-4 sm:p-5 shadow-sm space-y-3 transition-colors">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 border-b border-neutral-100 dark:border-neutral-800 pb-3">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-center font-black text-lg shrink-0">
                 {selectedClient.name.slice(0, 2).toUpperCase()}
