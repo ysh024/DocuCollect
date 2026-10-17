@@ -22,7 +22,6 @@ import {
   Loader2,
   ArrowRight,
   X,
-  Asterisk,
 } from "lucide-react";
 import {
   getPortalData,
@@ -611,9 +610,9 @@ export default function ClientUploadPortalPage() {
                           {req.is_required && (
                             <span
                               title="Required document"
-                              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/40 shrink-0"
+                              className="text-rose-600 dark:text-rose-400 font-black text-sm leading-none select-none shrink-0"
                             >
-                              <Asterisk className="w-2.5 h-2.5" />
+                              *
                             </span>
                           )}
                         </div>
