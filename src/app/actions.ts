@@ -100,7 +100,7 @@ import {
 } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { uploadFileToStorage, isS3Configured } from "@/lib/storage";
-import { invalidateLogoCache, checkRateLimit, resetRateLimit } from "@/lib/utils";
+import { invalidateLogoCache, checkRateLimit, resetRateLimit, normalizePhoneNumber, getWhatsAppNumber } from "@/lib/utils";
 
 // =====================================================================
 // EMAIL OTP DELIVERY
@@ -1872,6 +1872,29 @@ export async function createClientAction(formData: {
   const orgId = await getAuthenticatedOrgId();
   const sql = getTenantDb(orgId);
 
+  // 1. Strict required fields validation: without necessary details don't create client
+  const cleanName = (formData.name || "").trim();
+  if (!cleanName) {
+    throw new Error("Client full name is required.");
+  }
+
+  const rawPhone = (formData.phone || "").trim();
+  if (!rawPhone) {
+    throw new Error("WhatsApp / Mobile number is required to create a client.");
+  }
+
+  const phoneNorm = normalizePhoneNumber(rawPhone);
+  if (!phoneNorm.isValid) {
+    throw new Error(phoneNorm.error || "Please enter a valid 10-digit WhatsApp or mobile number.");
+  }
+
+  // Normalize alternate phone if provided
+  let formattedAltPhone: string | null = null;
+  if (formData.alternate_phone?.trim()) {
+    const altNorm = normalizePhoneNumber(formData.alternate_phone.trim());
+    formattedAltPhone = altNorm.isValid ? altNorm.display : formData.alternate_phone.trim();
+  }
+
   // Enforce subscription active status
   await assertActiveSubscription(orgId, sql);
 
@@ -1913,10 +1936,10 @@ export async function createClientAction(formData: {
     INSERT INTO public.clients (
       organization_id, name, email, phone, alternate_phone, company, client_ref_id, address, notes
     ) VALUES (
-      ${orgId}, ${formData.name}, ${formData.email || null}, ${formData.phone},
-      ${formData.alternate_phone || null}, ${formData.company || null},
-      ${formData.client_ref_id || `CLI-${Date.now().toString().slice(-4)}`},
-      ${formData.address || null}, ${formData.notes || null}
+      ${orgId}, ${cleanName}, ${formData.email?.trim() || null}, ${phoneNorm.display},
+      ${formattedAltPhone}, ${formData.company?.trim() || null},
+      ${formData.client_ref_id?.trim() || `CLI-${Date.now().toString().slice(-4)}`},
+      ${formData.address?.trim() || null}, ${formData.notes?.trim() || null}
     )
     RETURNING *;
   `;
@@ -2026,13 +2049,24 @@ export async function importClientsFromCsvAction(rows: ClientCsvRow[]) {
       throw new Error(`Row ${i + 1} (${name}) has an empty Phone number.`);
     }
 
+    const phoneNorm = normalizePhoneNumber(phone);
+    if (!phoneNorm.isValid) {
+      throw new Error(`Row ${i + 1} (${name}): ${phoneNorm.error || "Phone number must be at least 10 digits."}`);
+    }
+
+    let formattedAltPhone: string | null = null;
+    if (r.alternate_phone?.trim()) {
+      const altNorm = normalizePhoneNumber(r.alternate_phone.trim());
+      formattedAltPhone = altNorm.isValid ? altNorm.display : r.alternate_phone.trim();
+    }
+
     validatedClients.push({
       name,
-      phone,
+      phone: phoneNorm.display,
       email: r.email ? String(r.email).trim() || null : null,
       company: r.company ? String(r.company).trim() || null : null,
       client_ref_id: r.client_ref_id ? String(r.client_ref_id).trim() : `CLI-${timestamp}-${i + 1}`,
-      alternate_phone: r.alternate_phone ? String(r.alternate_phone).trim() || null : null,
+      alternate_phone: formattedAltPhone,
       address: r.address ? String(r.address).trim() || null : null,
       notes: r.notes ? String(r.notes).trim() || null : null,
     });
@@ -2087,16 +2121,29 @@ export async function updateClientAction(
   await assertActiveSubscription(orgId, sql);
 
   if (!clientId) throw new Error("Client ID is required");
-  if (!formData.name?.trim()) throw new Error("Name is required");
-  if (!formData.phone?.trim()) throw new Error("Phone number is required");
+  const cleanName = (formData.name || "").trim();
+  if (!cleanName) throw new Error("Client full name is required");
+  const rawPhone = (formData.phone || "").trim();
+  if (!rawPhone) throw new Error("WhatsApp / Mobile number is required");
+
+  const phoneNorm = normalizePhoneNumber(rawPhone);
+  if (!phoneNorm.isValid) {
+    throw new Error(phoneNorm.error || "Please enter a valid 10-digit WhatsApp or mobile number.");
+  }
+
+  let formattedAltPhone: string | null = null;
+  if (formData.alternate_phone?.trim()) {
+    const altNorm = normalizePhoneNumber(formData.alternate_phone.trim());
+    formattedAltPhone = altNorm.isValid ? altNorm.display : formData.alternate_phone.trim();
+  }
 
   const updated = await sql`
     UPDATE public.clients
     SET
-      name = ${formData.name.trim()},
+      name = ${cleanName},
       email = ${formData.email ? formData.email.trim() || null : null},
-      phone = ${formData.phone.trim()},
-      alternate_phone = ${formData.alternate_phone ? formData.alternate_phone.trim() || null : null},
+      phone = ${phoneNorm.display},
+      alternate_phone = ${formattedAltPhone},
       company = ${formData.company ? formData.company.trim() || null : null},
       client_ref_id = ${formData.client_ref_id ? formData.client_ref_id.trim() || null : null},
       address = ${formData.address ? formData.address.trim() || null : null},

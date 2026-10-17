@@ -43,6 +43,7 @@ import {
 import type { PublicPaymentSettings } from "@/app/actions";
 import { useToast } from "@/components/ui";
 import { DeleteConfirmationModal } from "@/components/ui";
+import { getWhatsAppNumber } from "@/lib/utils";
 
 export default function AdminPortalPage() {
   const { toast } = useToast();
@@ -1296,7 +1297,7 @@ export default function AdminPortalPage() {
                       className="w-full sm:flex-1 bg-neutral-950 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
                     />
                     <a
-                      href={`https://wa.me/${dispatchPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                      href={`https://wa.me/${getWhatsAppNumber(dispatchPhone)}?text=${encodeURIComponent(
                         `Hello! Here is your one-time DocGet license voucher key: *${lastGeneratedKey.code}* (${lastGeneratedKey.plan_name.toUpperCase()} - ${lastGeneratedKey.period.toUpperCase()}).\n\nPlease redeem it on your DocGet Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
                       )}`}
                       target="_blank"

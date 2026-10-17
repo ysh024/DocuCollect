@@ -443,3 +443,97 @@ export async function sendNotificationEmail(opts: EmailOptions): Promise<{ succe
   }
   return { success: true, status: "DEV_FALLBACK" };
 }
+
+// =====================================================================
+// SMART WHATSAPP & PHONE NUMBER NORMALIZATION
+// =====================================================================
+
+export interface NormalizedPhone {
+  cleanWa: string;
+  display: string;
+  isValid: boolean;
+  error?: string;
+}
+
+/**
+ * Smart phone and WhatsApp number normalization.
+ * Handles:
+ *  - 10-digit Indian numbers without country code (e.g. "9718871979") -> cleanWa: "919718871979", display: "+91 97188 71979"
+ *  - Numbers with leading 0 (e.g. "09718871979") -> cleanWa: "919718871979", display: "+91 97188 71979"
+ *  - Already prefixed with 91 or +91 (e.g. "+91 9718871979") -> cleanWa: "919718871979", display: "+91 97188 71979"
+ *  - International formats (+1, +44, +971, etc.) -> preserves country code and digits
+ */
+export function normalizePhoneNumber(
+  rawPhone: string | null | undefined,
+  defaultCountryCode = "91"
+): NormalizedPhone {
+  if (!rawPhone || !rawPhone.trim()) {
+    return {
+      cleanWa: "",
+      display: "",
+      isValid: false,
+      error: "WhatsApp / Mobile number is required.",
+    };
+  }
+
+  const trimmed = rawPhone.trim();
+  // Strip all non-digit characters
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (digits.length < 10) {
+    return {
+      cleanWa: digits,
+      display: trimmed,
+      isValid: false,
+      error: "WhatsApp number must be at least 10 digits (e.g. 9876543210).",
+    };
+  }
+
+  if (digits.length > 15) {
+    return {
+      cleanWa: digits,
+      display: trimmed,
+      isValid: false,
+      error: "Phone number is too long (maximum 15 digits).",
+    };
+  }
+
+  let finalDigits = digits;
+
+  // Case 1: 11 digits starting with 0 (e.g. 09876543210 -> 9876543210)
+  if (digits.length === 11 && digits.startsWith("0")) {
+    finalDigits = digits.slice(1);
+  }
+
+  // Case 2: exactly 10 digits (standard Indian mobile without country code)
+  if (finalDigits.length === 10) {
+    finalDigits = `${defaultCountryCode}${finalDigits}`;
+  }
+
+  // Format clean international display string:
+  let displayFormatted = "";
+  if (finalDigits.startsWith("91") && finalDigits.length === 12) {
+    displayFormatted = `+91 ${finalDigits.slice(2, 7)} ${finalDigits.slice(7)}`;
+  } else if (finalDigits.startsWith("1") && finalDigits.length === 11) {
+    displayFormatted = `+1 (${finalDigits.slice(1, 4)}) ${finalDigits.slice(4, 7)}-${finalDigits.slice(7)}`;
+  } else {
+    displayFormatted = `+${finalDigits}`;
+  }
+
+  return {
+    cleanWa: finalDigits,
+    display: displayFormatted,
+    isValid: true,
+  };
+}
+
+/**
+ * Returns digits-only international format suitable for wa.me URLs (e.g. https://wa.me/{cleanWa})
+ * Automatically fixes 10-digit numbers (e.g. "9718871979" -> "919718871979") so WhatsApp links never fail!
+ */
+export function getWhatsAppNumber(phone: string | null | undefined, defaultCountryCode = "91"): string {
+  if (!phone) return "";
+  const normalized = normalizePhoneNumber(phone, defaultCountryCode);
+  return normalized.cleanWa || phone.replace(/\D/g, "");
+}
+

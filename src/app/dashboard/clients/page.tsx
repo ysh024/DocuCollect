@@ -34,7 +34,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Client, CaseWithDetails, Document } from "@/types";
-import { formatDate, formatBytes, getCaseStatusBadge, downloadFileWithFeedback } from "@/lib/utils";
+import { formatDate, formatBytes, getCaseStatusBadge, downloadFileWithFeedback, normalizePhoneNumber, getWhatsAppNumber } from "@/lib/utils";
 import {
   NewClientModal,
   DocumentPreviewModal,
@@ -269,7 +269,7 @@ export default function ClientsPage() {
   if (selectedClient) {
     const clientCases = getClientCases(selectedClient.id);
     const clientDocs = getClientDocuments(selectedClient.id);
-    const cleanPhone = selectedClient.phone.replace(/[^0-9]/g, "");
+    const cleanPhone = getWhatsAppNumber(selectedClient.phone);
     const activeCasesCount = clientCases.filter((c) => c.status !== "completed" && c.status !== "archived").length;
     const completedCasesCount = clientCases.filter((c) => c.status === "completed").length;
     const approvedDocsCount = clientDocs.filter((d) => d.doc.status === "approved").length;
@@ -1035,7 +1035,7 @@ export default function ClientsPage() {
                 paginatedClients.map((client) => {
                   const clientCases = getClientCases(client.id);
                   const clientDocs = getClientDocuments(client.id);
-                  const cleanPhone = client.phone.replace(/[^0-9]/g, "");
+                  const cleanPhone = getWhatsAppNumber(client.phone);
 
                   return (
                     <tr
@@ -1292,11 +1292,13 @@ function EditClientModal({
   if (!isOpen || !client || !mounted) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !phone.trim()) {
+    const cleanName = name.trim();
+    const phoneNorm = normalizePhoneNumber(phone);
+
+    if (!cleanName || !phoneNorm.isValid) {
       toast({
         title: "Required fields missing",
-        description: "Full Name and Phone number are required.",
+        description: !cleanName ? "Client Full Name is required." : (phoneNorm.error || "Please enter a valid 10-digit WhatsApp / mobile number."),
         type: "error",
       });
       return;
@@ -1305,19 +1307,19 @@ function EditClientModal({
     setLoading(true);
     try {
       await updateClientAction(client.id, {
-        name,
-        phone,
-        email,
-        company,
-        client_ref_id: clientRefId,
-        alternate_phone: alternatePhone,
-        address,
-        notes,
+        name: cleanName,
+        phone: phoneNorm.display,
+        email: email.trim() || undefined,
+        company: company.trim() || undefined,
+        client_ref_id: clientRefId.trim() || undefined,
+        alternate_phone: alternatePhone.trim() ? normalizePhoneNumber(alternatePhone).display : undefined,
+        address: address.trim() || undefined,
+        notes: notes.trim() || undefined,
       });
 
       toast({
         title: "Client updated!",
-        description: `${name}'s details have been saved successfully.`,
+        description: `${cleanName}'s details have been saved successfully.`,
       });
       onSuccess();
       onClose();
@@ -1377,17 +1379,46 @@ function EditClientModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  WhatsApp / Phone <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
-                  required
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                    WhatsApp / Mobile <span className="text-rose-500">*</span>
+                  </label>
+                  {phone.trim() && (
+                    <span className={`text-[10px] font-medium flex items-center gap-1 ${
+                      normalizePhoneNumber(phone).isValid 
+                        ? "text-emerald-600 dark:text-emerald-400" 
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {normalizePhoneNumber(phone).isValid ? (
+                        <>
+                          <CheckCircle className="w-3 h-3 text-emerald-500 inline" />
+                          Ready: {normalizePhoneNumber(phone).display}
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-3 h-3 text-amber-500 inline" />
+                          10 digits min
+                        </>
+                      )}
+                    </span>
+                  )}
+                </div>
+                <div className="relative flex rounded-lg shadow-sm">
+                  <span className="inline-flex items-center px-2.5 rounded-l-lg border border-r-0 border-neutral-300 dark:border-neutral-700 bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 text-xs font-medium select-none">
+                    🇮🇳 +91
+                  </span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="98765 43210 (10 digits)"
+                    className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-r-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                    required
+                  />
+                </div>
+                <p className="mt-1 text-[10px] text-neutral-500 dark:text-neutral-400">
+                  Enter 10-digit number without country code or with +91. Auto-formatted for WhatsApp.
+                </p>
               </div>
 
               <div>

@@ -28,7 +28,7 @@ import {
   clientUploadDocumentAction,
 } from "@/app/actions";
 import { ClientPortalData } from "@/types";
-import { formatBytes, formatDateTime } from "@/lib/utils";
+import { formatBytes, formatDateTime, getWhatsAppNumber } from "@/lib/utils";
 import {
   RequirementsPopover,
   ThemeToggle,
@@ -258,7 +258,7 @@ export default function ClientUploadPortalPage() {
 
   const { case: caseInfo, client, organization, requirements, progress } = portalData;
   const isAllApproved = progress.percentage === 100;
-  const advisorPhone = (organization.contact_phone || client.phone || "").replace(/[^0-9]/g, "");
+  const advisorPhone = getWhatsAppNumber(organization.contact_phone || client.phone || "");
   const advisorEmail = organization.contact_email || "";
   const advisorName = organization.advisor_name || organization.name;
   const uploadedCount = progress.approved + progress.under_review;
