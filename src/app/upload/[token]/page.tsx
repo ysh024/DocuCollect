@@ -22,9 +22,6 @@ import {
   Loader2,
   ArrowRight,
   X,
-  History,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import {
   getPortalData,
@@ -50,7 +47,6 @@ export default function ClientUploadPortalPage() {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [replacingReqId, setReplacingReqId] = useState<string | null>(null);
-  const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const [hasConsent, setHasConsent] = useState<boolean>(false);
   const [consentHighlighted, setConsentHighlighted] = useState<boolean>(false);
@@ -836,89 +832,7 @@ export default function ClientUploadPortalPage() {
                     </div>
                   )}
 
-                  {/* Document Version Records (Preserved History under single doc heading) */}
-                  {req.history && req.history.length > 1 && (
-                    <div className="mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedHistory((prev) => ({
-                            ...prev,
-                            [req.id]: !prev[req.id],
-                          }))
-                        }
-                        className="flex items-center justify-between w-full py-1 text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer"
-                      >
-                        <span className="flex items-center gap-1.5">
-                          <History className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>
-                            File Records ({req.history.length} versions kept under this requirement)
-                          </span>
-                        </span>
-                        <span className="text-[10px] text-neutral-400 flex items-center gap-1">
-                          {expandedHistory[req.id] ? "Hide records" : "View all records"}
-                          {expandedHistory[req.id] ? (
-                            <ChevronUp className="w-3 h-3" />
-                          ) : (
-                            <ChevronDown className="w-3 h-3" />
-                          )}
-                        </span>
-                      </button>
 
-                      {expandedHistory[req.id] && (
-                        <div className="mt-1.5 space-y-1.5 pl-2 border-l-2 border-neutral-200 dark:border-neutral-800 animate-in fade-in">
-                          {req.history
-                            .slice()
-                            .sort((a, b) => (b.version || 0) - (a.version || 0))
-                            .map((doc, docIdx) => {
-                              const isLatest = doc.id === latestDoc?.id;
-                              return (
-                                <div
-                                  key={doc.id || docIdx}
-                                  className={`p-2 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors ${
-                                    isLatest
-                                      ? "bg-neutral-100/80 dark:bg-neutral-800/60 font-medium"
-                                      : "bg-neutral-50/60 dark:bg-neutral-900/40 text-neutral-600 dark:text-neutral-400"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span
-                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                        isLatest
-                                          ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                                          : "bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
-                                      }`}
-                                    >
-                                      v{doc.version || req.history!.length - docIdx}
-                                    </span>
-                                    <div className="min-w-0">
-                                      <p className="text-[11px] font-medium truncate text-neutral-800 dark:text-neutral-200">
-                                        {doc.file_name}
-                                      </p>
-                                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                                        {formatBytes(doc.file_size)} • Uploaded {formatDateTime(doc.uploaded_at)}
-                                        {isLatest ? " • Current active file" : " • Previous version preserved"}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-1.5 shrink-0">
-                                    {isLatest ? (
-                                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-900">
-                                        Active
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full">
-                                        Preserved
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
