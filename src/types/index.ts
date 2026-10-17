@@ -232,6 +232,7 @@ export interface Database {
           uploaded_at: string;
           reviewed_at: string | null;
           reviewed_by: string | null;
+          auto_delete_at?: string | null;
         };
         Insert: {
           id?: string;
@@ -249,6 +250,7 @@ export interface Database {
           uploaded_at?: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          auto_delete_at?: string | null;
         };
         Update: {
           id?: string;
@@ -266,6 +268,7 @@ export interface Database {
           uploaded_at?: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
+          auto_delete_at?: string | null;
         };
       };
       upload_links: {

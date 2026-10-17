@@ -175,26 +175,26 @@ export function DocumentPreviewModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-5xl h-[92vh] max-h-[880px] shadow-2xl border border-neutral-200/90 dark:border-neutral-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 transition-colors">
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl w-full max-w-7xl h-[92vh] max-h-[920px] shadow-2xl border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 transition-colors">
         
         {/* Top Header Toolbar */}
-        <div className="px-5 py-3 border-b border-neutral-200/90 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/90 dark:bg-neutral-800/90 shrink-0 gap-3">
+        <div className="px-5 py-3 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/90 dark:bg-neutral-800/90 shrink-0 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-neutral-900 text-white flex items-center justify-center shrink-0 shadow-2xs">
-              <FileText className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 dark:bg-neutral-800 text-white flex items-center justify-center shrink-0 shadow-2xs border border-neutral-800 dark:border-neutral-700">
+              <FileText className="w-4 h-4 text-emerald-400" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-xs font-bold text-neutral-900 truncate max-w-[220px] sm:max-w-sm md:max-w-md">
+                <h3 className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate max-w-[220px] sm:max-w-sm md:max-w-md">
                   {document.file_name}
                 </h3>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-neutral-200/70 text-neutral-700 shrink-0 font-mono">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-neutral-200/80 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 shrink-0 font-mono">
                   v{document.version}
                 </span>
               </div>
-              <p className="text-[11px] text-neutral-500 truncate">
-                {requirementName} • {formatBytes(document.file_size)}
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
+                {requirementName} • {formatBytes(document.file_size)} • Uploaded {formatDateTime(document.uploaded_at)}
               </p>
             </div>
           </div>
@@ -203,18 +203,18 @@ export function DocumentPreviewModal({
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold shrink-0 border ${
                 document.status === "approved"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  ? "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
                   : document.status === "rejected"
-                  ? "bg-rose-50 text-rose-700 border-rose-200"
-                  : "bg-amber-50 text-amber-700 border-amber-200"
+                  ? "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800"
+                  : "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
               }`}
             >
               {document.status === "approved" ? (
-                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               ) : document.status === "rejected" ? (
-                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
               ) : (
-                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
               )}
               <span className="capitalize">{document.status.replace("_", " ")}</span>
             </span>
@@ -224,7 +224,7 @@ export function DocumentPreviewModal({
               target="_blank"
               rel="noopener noreferrer"
               title="Open document in new window"
-              className="w-8 h-8 rounded-xl bg-white hover:bg-neutral-100 text-neutral-600 hover:text-neutral-900 border border-neutral-200 flex items-center justify-center transition-colors shadow-2xs"
+              className="w-8 h-8 rounded-xl bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white border border-neutral-200 dark:border-neutral-700 flex items-center justify-center transition-colors shadow-2xs"
             >
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
@@ -242,12 +242,12 @@ export function DocumentPreviewModal({
                 });
               }}
               title="Download file directly to computer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-neutral-100 text-neutral-700 rounded-xl text-xs font-semibold border border-neutral-200 shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-xl text-xs font-semibold border border-neutral-200 dark:border-neutral-700 shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
             >
               {isDownloading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
               ) : (
-                <Download className="w-3.5 h-3.5 text-emerald-600" />
+                <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               )}
               <span className="hidden sm:inline">{isDownloading ? "Downloading..." : "Download"}</span>
             </button>
@@ -256,189 +256,326 @@ export function DocumentPreviewModal({
               type="button"
               onClick={onClose}
               title="Close modal"
-              className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-500 hover:text-neutral-900 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-xl bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Center Viewer Canvas */}
-        <div className="flex-1 min-h-0 bg-neutral-900 relative overflow-hidden flex items-center justify-center">
-          {isImage ? (
-            <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
-              <img
-                src={previewUrl}
-                alt={document.file_name}
-                style={{
-                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                  transition: "transform 0.15s ease-out",
-                }}
-                className="max-h-full max-w-full object-contain rounded shadow-lg select-none"
-              />
-            </div>
-          ) : isPdf ? (
-            <iframe
-              src={`${previewUrl}#toolbar=0`}
-              title={document.file_name}
-              className="w-full h-full border-0 bg-white"
-            />
-          ) : (
-            <div className="text-center text-white space-y-3 p-6">
-              <FileText className="w-12 h-12 text-neutral-400 mx-auto" />
-              <p className="text-sm font-semibold">{document.file_name}</p>
-              <p className="text-xs text-neutral-400">Binary format preview ready for download</p>
-              <a
-                href={downloadUrl}
-                download={document.file_name}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download File</span>
-              </a>
-            </div>
-          )}
-
-          {isImage && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-neutral-700 flex items-center gap-2 text-white shadow-xl z-10">
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.max(50, z - 25))}
-                title="Zoom Out"
-                className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-[11px] font-mono font-medium px-1">{zoom}%</span>
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.min(250, z + 25))}
-                title="Zoom In"
-                className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <div className="h-3 w-px bg-neutral-700 mx-1" />
-              <button
-                type="button"
-                onClick={handleRotate}
-                title="Rotate 90°"
-                className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Bottom Action Footer */}
-        {isRejecting ? (
-          <div className="px-5 py-3.5 bg-rose-50/90 border-t border-rose-200 space-y-2.5 shrink-0 z-10">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-rose-900 text-xs font-bold">
-                <AlertCircle className="w-4 h-4 text-rose-600" />
-                <span>Specify Rejection Reason & Instructions for Client</span>
+        {/* Side-by-Side Main Body */}
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+          {/* Left Pane: Document Viewer Canvas */}
+          <div className="flex-1 min-w-0 bg-neutral-950 relative overflow-hidden flex items-center justify-center">
+            {isImage ? (
+              <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+                <img
+                  src={previewUrl}
+                  alt={document.file_name}
+                  style={{
+                    transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                    transition: "transform 0.15s ease-out",
+                  }}
+                  className="max-h-full max-w-full object-contain rounded shadow-lg select-none"
+                />
               </div>
-              <button
-                type="button"
-                onClick={() => setIsRejecting(false)}
-                className="text-xs text-neutral-500 hover:text-neutral-800 font-medium cursor-pointer"
-              >
-                Cancel
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <select
-                value={selectedTemplate}
-                onChange={(e) => {
-                  setSelectedTemplate(e.target.value);
-                  setRejectionReason(e.target.value);
-                }}
-                className="sm:col-span-1 text-xs bg-white border border-rose-200 rounded-lg p-2 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
-              >
-                <option value="">-- Quick Predefined Reason --</option>
-                {PREDEFINED_REJECTION_REASONS.map((r, i) => (
-                  <option key={i} value={r.template}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-
-              <textarea
-                rows={2}
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Explain what the client needs to correct..."
-                className="sm:col-span-2 text-xs bg-white border border-rose-200 rounded-lg p-2 text-neutral-800 placeholder-neutral-400 focus:outline-none focus:ring-1 focus:ring-rose-500 resize-none"
+            ) : isPdf ? (
+              <iframe
+                src={`${previewUrl}#toolbar=0`}
+                title={document.file_name}
+                className="w-full h-full border-0 bg-white"
               />
-            </div>
+            ) : (
+              <div className="text-center text-white space-y-3 p-6">
+                <FileText className="w-12 h-12 text-neutral-400 mx-auto" />
+                <p className="text-sm font-semibold">{document.file_name}</p>
+                <p className="text-xs text-neutral-400">Binary format preview ready for download</p>
+                <a
+                  href={downloadUrl}
+                  download={document.file_name}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download File</span>
+                </a>
+              </div>
+            )}
 
-            <div className="flex items-center justify-end gap-2 pt-0.5">
-              <button
-                type="button"
-                onClick={() => setIsRejecting(false)}
-                className="px-3.5 py-1.5 text-xs font-medium text-neutral-600 hover:text-neutral-900 bg-white border border-neutral-300 rounded-xl cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={loadingReject || !rejectionReason.trim()}
-                onClick={handleReject}
-                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs disabled:opacity-50 cursor-pointer"
-              >
-                <AlertCircle className="w-3.5 h-3.5" />
-                <span>{loadingReject ? "Sending..." : "Confirm & Send Feedback"}</span>
-              </button>
-            </div>
+            {/* Floating Image Zoom / Rotate Bar */}
+            {isImage && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-neutral-700 flex items-center gap-2 text-white shadow-xl z-10">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(50, z - 25))}
+                  title="Zoom Out"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[11px] font-mono font-medium px-1">{zoom}%</span>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(250, z + 25))}
+                  title="Zoom In"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <div className="h-3 w-px bg-neutral-700 mx-1" />
+                <button
+                  type="button"
+                  onClick={handleRotate}
+                  title="Rotate 90°"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
+                >
+                  <RotateCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="px-5 py-3 bg-white dark:bg-neutral-900 border-t border-neutral-200/90 dark:border-neutral-800 flex items-center justify-between shrink-0 z-10 transition-colors">
-            <div className="text-xs text-neutral-500 dark:text-neutral-400">
-              <span className="hidden sm:inline text-[11px]">
-                Uploaded {formatDateTime(document.uploaded_at)} • Direct encrypted preview
+
+          {/* Right Pane: Document Feedback & Related Information */}
+          <div className="w-full lg:w-96 xl:w-[420px] shrink-0 bg-white dark:bg-neutral-900 border-t lg:border-t-0 lg:border-l border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden">
+            {/* Right Pane Header */}
+            <div className="px-5 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-800/50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <FileCheck2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h4 className="text-xs font-bold text-neutral-900 dark:text-neutral-100 uppercase tracking-wider">
+                  Review & Feedback
+                </h4>
+              </div>
+              <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-mono">
+                Audit Panel
               </span>
             </div>
 
-            <div className="flex items-center gap-2.5">
+            {/* Right Pane Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Current Status Card */}
+              <div className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                document.status === "approved"
+                  ? "bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-200/80 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-200"
+                  : document.status === "rejected"
+                  ? "bg-rose-50/70 dark:bg-rose-950/40 border-rose-200/80 dark:border-rose-900/60 text-rose-900 dark:text-rose-200"
+                  : "bg-blue-50/70 dark:bg-blue-950/40 border-blue-200/80 dark:border-blue-900/60 text-blue-900 dark:text-blue-200"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold flex items-center gap-1.5">
+                    {document.status === "approved" ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    ) : document.status === "rejected" ? (
+                      <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    ) : (
+                      <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    )}
+                    <span>
+                      {document.status === "approved"
+                        ? "Document Verified"
+                        : document.status === "rejected"
+                        ? "Document Rejected"
+                        : "Pending Verification"}
+                    </span>
+                  </span>
+                  <span className="text-[10px] opacity-75 font-mono">v{document.version}</span>
+                </div>
+
+                {document.status === "rejected" && document.rejection_reason && (
+                  <div className="pt-1 border-t border-rose-200/80 dark:border-rose-900/60 space-y-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-rose-800 dark:text-rose-300">
+                      Advisor feedback given:
+                    </span>
+                    <p className="text-[11px] leading-relaxed italic text-rose-950 dark:text-rose-200 bg-white/70 dark:bg-black/30 p-2 rounded-lg border border-rose-200/50 dark:border-rose-900/40">
+                      "{document.rejection_reason}"
+                    </p>
+                  </div>
+                )}
+
+                {document.status === "approved" && (
+                  <p className="text-[11px] text-emerald-800 dark:text-emerald-300">
+                    This document satisfies all requirements and has been verified by the advisory team.
+                  </p>
+                )}
+
+                {document.status === "under_review" && (
+                  <p className="text-[11px] text-blue-800 dark:text-blue-300">
+                    Document received from client. Review the preview on the left and choose an action below.
+                  </p>
+                )}
+              </div>
+
+              {/* Advisor Actions (Approve / Reject) */}
+              {caseId && (
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={loadingAction}
+                      onClick={handleApprove}
+                      className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl text-xs font-bold shadow-xs inline-flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                    >
+                      {loadingAction ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-3.5 h-3.5" />
+                      )}
+                      <span>{loadingAction ? "Approving..." : "Approve & Verify"}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRejecting(!isRejecting);
+                        if (!isRejecting && !rejectionReason) {
+                          setSelectedTemplate(PREDEFINED_REJECTION_REASONS[0].template);
+                          setRejectionReason(PREDEFINED_REJECTION_REASONS[0].template);
+                        }
+                      }}
+                      className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition cursor-pointer inline-flex items-center justify-center gap-1.5 ${
+                        isRejecting
+                          ? "bg-rose-600 text-white border-rose-600"
+                          : "bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800"
+                      }`}
+                    >
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{isRejecting ? "Close Feedback" : "Reject & Feedback"}</span>
+                    </button>
+                  </div>
+
+                  {/* Feedback Form Drawer */}
+                  {isRejecting && (
+                    <div className="p-3.5 bg-rose-50/80 dark:bg-rose-950/40 rounded-xl border border-rose-200 dark:border-rose-900/60 space-y-3 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs text-rose-900 dark:text-rose-200 font-bold">
+                        <span className="flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                          <span>Client Feedback & Rejection</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsRejecting(false)}
+                          className="text-[11px] text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                          Quick Reason (1-Click Fill):
+                        </label>
+                        <select
+                          value={selectedTemplate}
+                          onChange={(e) => {
+                            setSelectedTemplate(e.target.value);
+                            setRejectionReason(e.target.value);
+                          }}
+                          className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                        >
+                          <option value="">-- Choose standard template --</option>
+                          {PREDEFINED_REJECTION_REASONS.map((r, i) => (
+                            <option key={i} value={r.template}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                          Custom Instructions for Client:
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          placeholder="Explain what the client needs to correct (e.g. upload page 2, fix blurry scan)..."
+                          className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-rose-500 resize-none"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={loadingReject || !rejectionReason.trim()}
+                        onClick={handleReject}
+                        className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs inline-flex items-center justify-center gap-1.5 transition cursor-pointer disabled:opacity-50"
+                      >
+                        {loadingReject ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <AlertCircle className="w-3.5 h-3.5" />
+                        )}
+                        <span>{loadingReject ? "Sending..." : "Send Feedback to Client"}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Related Information & Metadata Card */}
+              <div className="p-3.5 bg-neutral-50/80 dark:bg-neutral-800/50 rounded-xl border border-neutral-200/70 dark:border-neutral-800 space-y-2.5 text-xs">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
+                  <Info className="w-3.5 h-3.5 text-neutral-400" />
+                  <span>Document Details & Related Information</span>
+                </div>
+
+                <div className="divide-y divide-neutral-200/60 dark:divide-neutral-800 text-[11px]">
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">Requirement:</span>
+                    <span className="font-semibold text-neutral-900 dark:text-neutral-100 text-right truncate">{requirementName}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">File Name:</span>
+                    <span className="font-mono text-neutral-800 dark:text-neutral-200 text-right truncate max-w-[200px]" title={document.file_name}>
+                      {document.file_name}
+                    </span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">Version:</span>
+                    <span className="font-bold text-neutral-900 dark:text-neutral-100">v{document.version}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">File Size:</span>
+                    <span className="font-medium text-neutral-800 dark:text-neutral-200">{formatBytes(document.file_size)}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">File Type:</span>
+                    <span className="font-mono text-[10px] text-neutral-600 dark:text-neutral-300">{document.mime_type || "Document"}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">Uploaded On:</span>
+                    <span className="text-neutral-800 dark:text-neutral-200 text-right">{formatDateTime(document.uploaded_at)}</span>
+                  </div>
+                  {document.auto_delete_at && (
+                    <div className="py-1.5 flex items-center justify-between gap-2">
+                      <span className="text-neutral-500 dark:text-neutral-400">Auto-Retention Expiry:</span>
+                      <span className="text-neutral-800 dark:text-neutral-200 text-right">{formatDateTime(document.auto_delete_at)}</span>
+                    </div>
+                  )}
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-neutral-500 dark:text-neutral-400">Security:</span>
+                    <span className="text-emerald-700 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      <span>Encrypted Storage</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Pane Footer */}
+            <div className="px-4 py-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-800/50 flex items-center justify-between shrink-0">
+              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                Press Esc or click close
+              </span>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-xl transition cursor-pointer"
+                className="px-3.5 py-1.5 bg-neutral-200/80 hover:bg-neutral-300/80 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-300 rounded-xl text-xs font-semibold transition cursor-pointer"
               >
-                Close
+                Close Window
               </button>
-
-              {caseId && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsRejecting(true);
-                      setSelectedTemplate(PREDEFINED_REJECTION_REASONS[0].template);
-                      setRejectionReason(PREDEFINED_REJECTION_REASONS[0].template);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-semibold transition cursor-pointer"
-                  >
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                    <span>Reject / Feedback</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={loadingAction}
-                    onClick={handleApprove}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>{loadingAction ? "Approving..." : "Verify & Approve"}</span>
-                  </button>
-                </>
-              )}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>,
     window.document.body
@@ -525,48 +662,48 @@ export function ReviewModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-neutral-200/90 overflow-hidden">
-        <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/70 backdrop-blur-xs animate-in fade-in">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-lg w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden">
+        <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/50 dark:bg-neutral-800/40">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-400 flex items-center justify-center">
               <CheckCircle className="w-4 h-4" />
             </div>
             <div>
-              <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider block">
+              <span className="text-[10px] font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider block">
                 Verification & Audit
               </span>
-              <h3 className="text-sm font-bold text-neutral-900">{requirement.name}</h3>
+              <h3 className="text-sm font-bold text-neutral-900 dark:text-white">{requirement.name}</h3>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="p-6 space-y-4">
-          <div className="p-4 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-3">
+          <div className="p-4 bg-neutral-50 dark:bg-neutral-800/60 rounded-xl border border-neutral-200/80 dark:border-neutral-700/60 space-y-3">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-neutral-900 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-9 h-9 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white dark:text-emerald-400 border border-transparent dark:border-neutral-700 flex items-center justify-center shrink-0 shadow-xs">
                 <FileText className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-neutral-900 truncate">{document.file_name}</p>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 bg-neutral-200 text-neutral-800 rounded-md">
+                  <p className="text-xs font-bold text-neutral-900 dark:text-white truncate">{document.file_name}</p>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 rounded-md">
                     v{document.version}
                   </span>
                 </div>
-                <p className="text-[11px] text-neutral-500 mt-0.5">
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5">
                   {formatBytes(document.file_size)} • {document.mime_type || "Document File"} • Uploaded {formatDateTime(document.uploaded_at)}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-neutral-200/60">
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
               <button
                 type="button"
                 disabled={isDownloading}
@@ -579,12 +716,12 @@ export function ReviewModal({
                     onComplete: () => setIsDownloading(false),
                   });
                 }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-800 hover:text-neutral-950 bg-white hover:bg-neutral-50 px-3 py-1.5 rounded-lg border border-neutral-300 shadow-2xs transition-all cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-neutral-800 dark:text-neutral-200 hover:text-neutral-950 dark:hover:text-white bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-neutral-700 shadow-2xs transition-all cursor-pointer disabled:opacity-60"
               >
                 {isDownloading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
                 ) : (
-                  <Download className="w-3.5 h-3.5 text-emerald-600" />
+                  <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 )}
                 <span>{isDownloading ? "Downloading..." : "Download Document"}</span>
               </button>
@@ -592,14 +729,14 @@ export function ReviewModal({
           </div>
 
           {isRejecting ? (
-            <div className="space-y-3 p-4 bg-rose-50/60 rounded-xl border border-rose-200/80">
-              <div className="flex items-center gap-1.5 text-rose-900 text-xs font-bold">
-                <AlertCircle className="w-4 h-4 text-rose-600" />
+            <div className="space-y-3 p-4 bg-rose-50/60 dark:bg-rose-950/30 rounded-xl border border-rose-200/80 dark:border-rose-900/60">
+              <div className="flex items-center gap-1.5 text-rose-900 dark:text-rose-300 text-xs font-bold">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                 <span>Specify Rejection Reason for Client</span>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Common Reasons (1-Click Fill):
                 </label>
                 <select
@@ -608,11 +745,11 @@ export function ReviewModal({
                     setSelectedTemplate(e.target.value);
                     setCustomReason(e.target.value);
                   }}
-                  className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
                 >
                   <option value="">-- Choose standard template --</option>
                   {PREDEFINED_REJECTION_REASONS.map((r, i) => (
-                    <option key={i} value={r.template}>
+                    <option key={i} value={r.template} className="dark:bg-neutral-800">
                       {r.label}
                     </option>
                   ))}
@@ -620,7 +757,7 @@ export function ReviewModal({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
                   Custom feedback note:
                 </label>
                 <textarea
@@ -628,7 +765,7 @@ export function ReviewModal({
                   value={customReason}
                   onChange={(e) => setCustomReason(e.target.value)}
                   placeholder="Explain why this scan was rejected (e.g. blur, cropped corners, wrong year)..."
-                  className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2 text-neutral-800 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
                 />
               </div>
 
@@ -637,7 +774,7 @@ export function ReviewModal({
                   type="button"
                   disabled={loading}
                   onClick={() => setIsRejecting(false)}
-                  className="px-3 py-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+                  className="px-3 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
                 >
                   Back
                 </button>
@@ -653,20 +790,20 @@ export function ReviewModal({
               </div>
             </div>
           ) : (
-            <p className="text-xs text-neutral-500 leading-relaxed">
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
               Ensure the scanned document is legible, uncropped, and has matching identification before approving for filing or audit.
             </p>
           )}
         </div>
 
         {!isRejecting && (
-          <div className="px-6 py-3.5 bg-neutral-50/70 border-t border-neutral-100 flex items-center justify-between">
+          <div className="px-6 py-3.5 bg-neutral-50/70 dark:bg-neutral-800/40 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
             <button
               type="button"
               onClick={() => setIsRejecting(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 rounded-xl border border-rose-200/80 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl border border-rose-200/80 dark:border-rose-900/60 transition-colors"
             >
-              <XCircle className="w-3.5 h-3.5 text-rose-600" />
+              <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
               <span>Reject & Request Re-upload</span>
             </button>
 
@@ -674,7 +811,7 @@ export function ReviewModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3.5 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+                className="px-3.5 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
               >
                 Cancel
               </button>

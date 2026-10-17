@@ -645,51 +645,75 @@ export default function CaseDetailPage() {
           </div>
         </div>
 
-        {/* Action Buttons Toolbar - Unified heights, paddings, and styles */}
+        {/* Action Buttons Toolbar - Smart hover-expand method for clean UI & enhanced UX */}
         <div className="flex flex-wrap items-center gap-2">
           {underReviewCount > 0 && (
             <button
               type="button"
               disabled={batchLoading}
               onClick={handleApproveAll}
-              className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+              className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer disabled:opacity-50"
+              title={`Approve All (${underReviewCount})`}
             >
-              {batchLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
-              <span>{batchLoading ? "Approving..." : `Approve All (${underReviewCount})`}</span>
+              <div className="relative shrink-0 flex items-center justify-center">
+                {batchLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                )}
+                <span className="absolute -top-1.5 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 text-[9px] font-extrabold rounded-full shadow-2xs">
+                  {underReviewCount}
+                </span>
+              </div>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-2 transition-all duration-300 ease-out">
+                {batchLoading ? "Approving..." : `Approve All (${underReviewCount})`}
+              </span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setIsReminderOpen(true)}
-            className="h-9 px-3.5 bg-amber-50 hover:bg-amber-100/80 active:scale-[0.98] dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+            className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-amber-50 hover:bg-amber-100/80 active:scale-[0.98] dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer"
+            title="Send Reminder"
           >
-            <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-            <span>Send Reminder</span>
+            <Bell className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-1.5 transition-all duration-300 ease-out">
+              Send Reminder
+            </span>
           </button>
 
           <button
             type="button"
             onClick={handleCopyLink}
-            className="h-9 px-3.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+            className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer"
+            title={copied ? "Copied" : "Copy Link"}
           >
-            {copied ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />}
-            <span>{copied ? "Copied" : "Copy Link"}</span>
+            {copied ? (
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            ) : (
+              <Copy className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />
+            )}
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-1.5 transition-all duration-300 ease-out">
+              {copied ? "Copied" : "Copy Link"}
+            </span>
           </button>
 
           <button
             type="button"
             disabled={downloadingAll}
             onClick={handleDownloadZip}
-            className="h-9 px-3.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+            className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 active:scale-[0.98] text-neutral-700 dark:text-neutral-200 border border-neutral-200/80 dark:border-neutral-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer disabled:opacity-50"
             title="Download all case documents (excluding rejected files) in a single ZIP file"
           >
             {downloadingAll ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400 shrink-0" />
             ) : (
-              <Download className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
+              <Download className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400 shrink-0" />
             )}
-            <span>{downloadingAll ? "Zipping..." : "Download ZIP"}</span>
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-1.5 transition-all duration-300 ease-out">
+              {downloadingAll ? "Zipping..." : "Download ZIP"}
+            </span>
           </button>
 
           {selectedDocIds.size > 0 && (
@@ -697,35 +721,47 @@ export default function CaseDetailPage() {
               type="button"
               disabled={downloadingSelected}
               onClick={handleDownloadSelected}
-              className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+              className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer disabled:opacity-50"
               title="Download selected files directly to system"
             >
-              {downloadingSelected ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              <span>Download Selected ({selectedDocIds.size})</span>
+              <div className="relative shrink-0 flex items-center justify-center">
+                {downloadingSelected ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                <span className="absolute -top-1.5 -right-2 px-1 min-w-[14px] h-3.5 flex items-center justify-center bg-white dark:bg-neutral-900 text-emerald-700 dark:text-emerald-400 text-[9px] font-extrabold rounded-full shadow-2xs">
+                  {selectedDocIds.size}
+                </span>
+              </div>
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-2 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-2 transition-all duration-300 ease-out">
+                {downloadingSelected ? "Downloading..." : `Download Selected (${selectedDocIds.size})`}
+              </span>
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setIsShareOpen(true)}
-            className="h-9 px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+            className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white border border-emerald-600 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer"
+            title="Share on WhatsApp"
           >
-            <MessageSquareShare className="w-3.5 h-3.5 text-white" />
-            <span>Share on WhatsApp</span>
+            <MessageSquareShare className="w-3.5 h-3.5 text-white shrink-0" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-1.5 transition-all duration-300 ease-out">
+              Share on WhatsApp
+            </span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsDeleteCaseModalOpen(true)}
-            className="h-9 px-3 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 active:scale-[0.98] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shadow-2xs transition-all cursor-pointer"
+            className="group h-9 px-2.5 hover:px-3.5 focus-visible:px-3.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 active:scale-[0.98] text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-semibold inline-flex items-center justify-center shadow-2xs transition-all duration-300 ease-out cursor-pointer"
             title="Delete this entire case"
           >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete Case</span>
+            <Trash2 className="w-3.5 h-3.5 shrink-0" />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 group-hover:max-w-xs group-hover:opacity-100 group-hover:ml-1.5 group-focus-visible:max-w-xs group-focus-visible:opacity-100 group-focus-visible:ml-1.5 transition-all duration-300 ease-out">
+              Delete Case
+            </span>
           </button>
         </div>
       </div>
@@ -1151,22 +1187,6 @@ export default function CaseDetailPage() {
         />
       )}
 
-      {/* Document Preview Pop-up Window Modal */}
-      {previewDoc && (
-        <DocumentPreviewModal
-          document={previewDoc.doc}
-          requirementName={previewDoc.req.name}
-          requirementId={previewDoc.req.id}
-          caseId={caseData.id}
-          isOpen={true}
-          onClose={() => setPreviewDoc(null)}
-          onStatusUpdated={() => {
-            if (caseData?.id) caseDetailsClientCache.delete(caseData.id);
-            loadCase(true);
-            if (refreshDashboard) refreshDashboard();
-          }}
-        />
-      )}
 
       {/* WhatsApp Share Modal */}
       {isShareOpen && (
