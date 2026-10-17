@@ -511,7 +511,7 @@ export function DocumentPreviewModal({
                       ) : (
                         <CheckCircle className="w-3.5 h-3.5" />
                       )}
-                      <span>{loadingAction ? "Approving..." : "Approve & Verify"}</span>
+                      <span>{loadingAction ? "Approving..." : "Approve"}</span>
                     </button>
 
                     <button
@@ -530,7 +530,7 @@ export function DocumentPreviewModal({
                       }`}
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
-                      <span>{isRejecting ? "Close Feedback" : "Reject & Feedback"}</span>
+                      <span>{isRejecting ? "Close" : "Feedback / Reject"}</span>
                     </button>
                   </div>
 
@@ -596,7 +596,7 @@ export function DocumentPreviewModal({
                         ) : (
                           <AlertCircle className="w-3.5 h-3.5" />
                         )}
-                        <span>{loadingReject ? "Sending..." : "Send Feedback to Client"}</span>
+                        <span>{loadingReject ? "Sending..." : "Feedback / Reject"}</span>
                       </button>
                     </div>
                   )}
@@ -878,7 +878,7 @@ export function ReviewModal({
                   className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>{loading ? "Sending..." : "Reject & Request Re-upload"}</span>
+                  <span>{loading ? "Sending..." : "Feedback / Reject"}</span>
                 </button>
               </div>
             </div>
@@ -897,7 +897,7 @@ export function ReviewModal({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl border border-rose-200/80 dark:border-rose-900/60 transition-colors"
             >
               <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-              <span>Reject & Request Re-upload</span>
+              <span>Feedback / Reject</span>
             </button>
 
             <div className="flex items-center gap-2">
@@ -915,7 +915,7 @@ export function ReviewModal({
                 className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
-                <span>{loading ? "Verifying..." : "Approve & Verify"}</span>
+                <span>{loading ? "Approving..." : "Approve"}</span>
               </button>
             </div>
           </div>

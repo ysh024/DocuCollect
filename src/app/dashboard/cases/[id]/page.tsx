@@ -25,6 +25,7 @@ import {
   History,
   ChevronDown,
   ChevronUp,
+  Asterisk,
 } from "lucide-react";
 import { InfoPopover } from "@/components/ui";
 import {
@@ -921,13 +922,12 @@ export default function CaseDetailPage() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-xs font-bold text-neutral-900 dark:text-white">{req.name}</h3>
-                        {req.is_required ? (
-                          <span className="text-[10px] font-medium text-rose-600 dark:text-rose-400">
-                            Required
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                            Optional
+                        {req.is_required && (
+                          <span
+                            title="Required document"
+                            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/40 shrink-0"
+                          >
+                            <Asterisk className="w-2.5 h-2.5" />
                           </span>
                         )}
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${reqBadge.className}`}>
@@ -1012,8 +1012,17 @@ export default function CaseDetailPage() {
                               v{latestDoc.version}
                             </span>
                           </div>
-                          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5">
-                            {formatBytes(latestDoc.file_size)} • Uploaded {formatDateTime(latestDoc.uploaded_at)} • <span className="text-emerald-600 dark:text-emerald-400 font-medium group-hover:underline">Click to open preview</span>
+                          <p className="text-[10px] text-neutral-400 dark:text-neutral-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>{formatBytes(latestDoc.file_size)}</span>
+                            <span>•</span>
+                            <span>Uploaded {formatDateTime(latestDoc.uploaded_at)}</span>
+                            <span>•</span>
+                            <span
+                              className="inline-flex items-center text-emerald-600 dark:text-emerald-400 p-0.5 rounded hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
+                              title="Click to open preview"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </span>
                           </p>
                         </div>
                       </div>
