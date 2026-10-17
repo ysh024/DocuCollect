@@ -445,7 +445,45 @@ export function DashboardDataProvider({
   const metrics = data?.metrics || DEFAULT_METRICS;
   const clients = data?.clients || [];
   const cases = data?.cases || [];
-  const subscription = data?.subscription || user?.subscription || null;
+  const rawSub = data?.subscription || user?.subscription || null;
+  const subscription = rawSub
+    ? {
+        ...rawSub,
+        status: rawSub.status || "trial",
+        plan_name: rawSub.plan_name || rawSub.planName || "free_trial",
+        planName: rawSub.planName || rawSub.plan_name || "free_trial",
+        plan_display_name:
+          rawSub.plan_display_name ||
+          rawSub.planDisplayName ||
+          (rawSub.plan_name === "pro" || rawSub.planName === "pro"
+            ? "Professional"
+            : rawSub.plan_name === "starter" || rawSub.planName === "starter"
+            ? "Starter"
+            : rawSub.plan_name === "firm" || rawSub.planName === "firm"
+            ? "Firm"
+            : "Free Trial"),
+        planDisplayName:
+          rawSub.planDisplayName ||
+          rawSub.plan_display_name ||
+          (rawSub.plan_name === "pro" || rawSub.planName === "pro"
+            ? "Professional"
+            : rawSub.plan_name === "starter" || rawSub.planName === "starter"
+            ? "Starter"
+            : rawSub.plan_name === "firm" || rawSub.planName === "firm"
+            ? "Firm"
+            : "Free Trial"),
+        trial_ends_at: rawSub.trial_ends_at || rawSub.trialEndsAt,
+        trialEndsAt: rawSub.trialEndsAt || rawSub.trial_ends_at,
+        current_period_end: rawSub.current_period_end || rawSub.currentPeriodEnd,
+        currentPeriodEnd: rawSub.currentPeriodEnd || rawSub.current_period_end,
+        max_clients: rawSub.max_clients || rawSub.maxClients || 10,
+        maxClients: rawSub.maxClients || rawSub.max_clients || 10,
+        file_retention_days: rawSub.file_retention_days || rawSub.fileRetentionDays || 14,
+        fileRetentionDays: rawSub.fileRetentionDays || rawSub.file_retention_days || 14,
+        max_storage_mb: rawSub.max_storage_mb || rawSub.maxStorageMb || 500,
+        maxStorageMb: rawSub.maxStorageMb || rawSub.max_storage_mb || 500,
+      }
+    : null;
 
   return (
     <DashboardDataContext.Provider
@@ -595,8 +633,10 @@ export function TrialExpiryGuard({ children }: { children: React.ReactNode }) {
   const now = new Date();
   const isTrial = subscription.status === "trial";
   const isExpiredStatus = subscription.status === "expired";
-  const trialExpired = isTrial && subscription.trial_ends_at && new Date(subscription.trial_ends_at) < now;
-  const planExpired = subscription.status === "active" && subscription.current_period_end && new Date(subscription.current_period_end) < now;
+  const trialEnds = subscription.trial_ends_at || subscription.trialEndsAt;
+  const periodEnd = subscription.current_period_end || subscription.currentPeriodEnd;
+  const trialExpired = isTrial && trialEnds && new Date(trialEnds) < now;
+  const planExpired = subscription.status === "active" && periodEnd && new Date(periodEnd) < now;
 
   const isBlocked = isExpiredStatus || trialExpired || planExpired;
   const isBillingPage = pathname === "/dashboard/billing";

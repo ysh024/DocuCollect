@@ -57,7 +57,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, activeTab, navigateToTab, isNavigating } = useDashboardData();
+  const { user, subscription, activeTab, navigateToTab, isNavigating } = useDashboardData();
 
   // Warm-up / prefetch all dashboard routes in the browser cache on initial mount
   useEffect(() => {
@@ -73,12 +73,14 @@ export function Sidebar() {
     return name.slice(0, 2).toUpperCase();
   };
 
-  const trialDaysLeft = user?.subscription?.trialEndsAt
-    ? Math.max(0, Math.ceil((new Date(user.subscription.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+  const sub = subscription || user?.subscription;
+  const trialEnds = sub?.trial_ends_at || sub?.trialEndsAt;
+  const trialDaysLeft = trialEnds
+    ? Math.max(0, Math.ceil((new Date(trialEnds).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 
   const isTrialExpiringSoon = trialDaysLeft !== null && trialDaysLeft <= 7;
-  const isOnTrial = user?.subscription?.status === "trial";
+  const isOnTrial = sub?.status === "trial";
 
   return (
     <aside className="w-64 bg-white dark:bg-neutral-900 border-r border-neutral-200/80 dark:border-neutral-800 flex flex-col h-screen sticky top-0 shrink-0 z-20">
@@ -601,10 +603,12 @@ export function Header() {
     }
   };
 
-  const planName = (subscription?.plan_name || user?.subscription?.planName || "").toLowerCase();
+  const sub = subscription || user?.subscription;
+  const planName = (sub?.plan_name || sub?.planName || "").toLowerCase();
   const isStarter = planName === "starter";
-  const isFreeOrTrial = !planName || planName === "free_trial" || planName === "free" || planName === "trial";
-  const showUpgrade = isFreeOrTrial || isStarter;
+  const isFreeOrTrial = !planName || planName === "free_trial" || planName === "trial" || sub?.status === "trial";
+  const isPaid = sub?.status === "active" && !isFreeOrTrial;
+  const showUpgrade = !isPaid;
   const upgradeTarget = isStarter ? "Professional" : "Starter";
 
   return (

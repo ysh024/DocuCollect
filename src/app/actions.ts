@@ -1374,9 +1374,13 @@ export async function getDashboardData(options?: { forceFresh?: boolean }) {
       (SELECT row_to_json(sub) FROM (
         SELECT s.status, s.trial_ends_at, s.current_period_end,
                p.display_name as plan_display_name, p.name as plan_name,
-               p.max_clients, p.max_cases_per_client
+               p.max_clients, p.max_cases_per_client, p.file_retention_days, p.max_storage_mb
         FROM public.subscriptions s JOIN public.plans p ON s.plan_id = p.id
-        WHERE s.organization_id = ${orgId} LIMIT 1
+        WHERE s.organization_id = ${orgId}
+        ORDER BY 
+          CASE WHEN s.status = 'active' THEN 1 WHEN s.status = 'trial' THEN 2 ELSE 3 END,
+          s.created_at DESC
+        LIMIT 1
       ) sub) as subscription;
   `;
 
@@ -1516,11 +1520,23 @@ export async function getDashboardData(options?: { forceFresh?: boolean }) {
       casesAwaitingReview,
     },
     subscription: sub ? {
-      status: sub.status,
+      status: sub.status || "trial",
       trialEndsAt: sub.trial_ends_at,
-      planName: sub.plan_name,
-      planDisplayName: sub.plan_display_name,
-      maxClients: sub.max_clients,
+      trial_ends_at: sub.trial_ends_at,
+      currentPeriodEnd: sub.current_period_end,
+      current_period_end: sub.current_period_end,
+      planName: sub.plan_name || "free_trial",
+      plan_name: sub.plan_name || "free_trial",
+      planDisplayName: sub.plan_display_name || "Free Trial",
+      plan_display_name: sub.plan_display_name || "Free Trial",
+      maxClients: sub.max_clients || 10,
+      max_clients: sub.max_clients || 10,
+      maxCasesPerClient: sub.max_cases_per_client || 5,
+      max_cases_per_client: sub.max_cases_per_client || 5,
+      fileRetentionDays: sub.file_retention_days || 14,
+      file_retention_days: sub.file_retention_days || 14,
+      maxStorageMb: sub.max_storage_mb || 500,
+      max_storage_mb: sub.max_storage_mb || 500,
     } : null,
     clients,
     cases,
@@ -2931,11 +2947,14 @@ export async function getSubscriptionAction() {
     const rows = await sql`
       SELECT s.*, p.name as plan_name, p.display_name as plan_display_name,
              p.price_monthly, p.price_yearly, p.max_clients, p.max_cases_per_client,
-             p.max_storage_mb, p.file_retention_days, p.features,
+             p.max_storage_mb, p.file_retention_days, p.max_upload_size_mb, p.features,
              (SELECT COUNT(*) FROM public.clients WHERE organization_id::text = ${session.organizationId}::text) as current_clients_count
       FROM public.subscriptions s
       JOIN public.plans p ON s.plan_id = p.id
       WHERE s.organization_id::text = ${session.organizationId}::text
+      ORDER BY 
+        CASE WHEN s.status = 'active' THEN 1 WHEN s.status = 'trial' THEN 2 ELSE 3 END,
+        s.created_at DESC
       LIMIT 1;
     `;
 
@@ -2950,24 +2969,65 @@ export async function getSubscriptionAction() {
         const newRows = await sql`
           SELECT s.*, p.name as plan_name, p.display_name as plan_display_name,
                  p.price_monthly, p.price_yearly, p.max_clients, p.max_cases_per_client,
-                 p.max_storage_mb, p.file_retention_days, p.features,
+                 p.max_storage_mb, p.file_retention_days, p.max_upload_size_mb, p.features,
                  (SELECT COUNT(*) FROM public.clients WHERE organization_id::text = ${session.organizationId}::text) as current_clients_count
           FROM public.subscriptions s
           JOIN public.plans p ON s.plan_id = p.id
           WHERE s.organization_id::text = ${session.organizationId}::text
+          ORDER BY 
+            CASE WHEN s.status = 'active' THEN 1 WHEN s.status = 'trial' THEN 2 ELSE 3 END,
+            s.created_at DESC
           LIMIT 1;
         `;
-        const res = (newRows[0] as any) || null;
-        if (res) res.email = session.email || "";
-        return res;
+        const rawNew = (newRows[0] as any) || null;
+        if (rawNew) {
+          return {
+            ...rawNew,
+            email: session.email || "",
+            status: rawNew.status || "trial",
+            planName: rawNew.plan_name || "free_trial",
+            plan_name: rawNew.plan_name || "free_trial",
+            planDisplayName: rawNew.plan_display_name || "Free Trial",
+            plan_display_name: rawNew.plan_display_name || "Free Trial",
+            trialEndsAt: rawNew.trial_ends_at,
+            trial_ends_at: rawNew.trial_ends_at,
+            currentPeriodEnd: rawNew.current_period_end,
+            current_period_end: rawNew.current_period_end,
+            maxClients: rawNew.max_clients || 10,
+            max_clients: rawNew.max_clients || 10,
+            fileRetentionDays: rawNew.file_retention_days || 14,
+            file_retention_days: rawNew.file_retention_days || 14,
+            maxStorageMb: rawNew.max_storage_mb || 500,
+            max_storage_mb: rawNew.max_storage_mb || 500,
+          };
+        }
+        return null;
       }
     }
 
-    const res = (rows[0] as any) || null;
-    if (res) {
-      res.email = session.email || "";
+    const raw = (rows[0] as any) || null;
+    if (raw) {
+      return {
+        ...raw,
+        email: session.email || "",
+        status: raw.status || "trial",
+        planName: raw.plan_name || "free_trial",
+        plan_name: raw.plan_name || "free_trial",
+        planDisplayName: raw.plan_display_name || "Free Trial",
+        plan_display_name: raw.plan_display_name || "Free Trial",
+        trialEndsAt: raw.trial_ends_at,
+        trial_ends_at: raw.trial_ends_at,
+        currentPeriodEnd: raw.current_period_end,
+        current_period_end: raw.current_period_end,
+        maxClients: raw.max_clients || 10,
+        max_clients: raw.max_clients || 10,
+        fileRetentionDays: raw.file_retention_days || 14,
+        file_retention_days: raw.file_retention_days || 14,
+        maxStorageMb: raw.max_storage_mb || 500,
+        max_storage_mb: raw.max_storage_mb || 500,
+      };
     }
-    return res;
+    return null;
   } catch {
     return null;
   }

@@ -319,7 +319,7 @@ interface CachedUserEntry {
   timestamp: number;
 }
 const userProfileCache = new Map<string, CachedUserEntry>();
-const USER_PROFILE_CACHE_TTL = 60000; // 60 seconds
+const USER_PROFILE_CACHE_TTL = 5000; // 5 seconds
 
 export function invalidateUserCache(userId?: string) {
   if (userId) {
@@ -359,7 +359,7 @@ export async function getCurrentUser() {
       SELECT 
         u.id, u.email, u.full_name, u.role, u.organization_id, u.phone, u.email_verified, u.last_login_at, u.is_deactivated,
         o.name as organization_name, o.branding_color, o.logo_url, o.settings, o.updated_at as org_updated_at,
-        s.status as subscription_status, s.trial_ends_at,
+        s.status as subscription_status, s.trial_ends_at, s.current_period_end,
         p.name as plan_name, p.display_name as plan_display_name, p.file_retention_days,
         p.max_clients, p.max_cases_per_client, p.max_storage_mb
       FROM public.users u
@@ -367,6 +367,9 @@ export async function getCurrentUser() {
       LEFT JOIN public.subscriptions s ON s.organization_id = o.id
       LEFT JOIN public.plans p ON s.plan_id = p.id
       WHERE u.id::text = ${session.userId}
+      ORDER BY 
+        CASE WHEN s.status = 'active' THEN 1 WHEN s.status = 'trial' THEN 2 ELSE 3 END,
+        s.created_at DESC
       LIMIT 1;
     `;
 
@@ -393,12 +396,21 @@ export async function getCurrentUser() {
       subscription: {
         status: u.subscription_status || "trial",
         trialEndsAt: u.trial_ends_at,
+        trial_ends_at: u.trial_ends_at,
+        currentPeriodEnd: u.current_period_end,
+        current_period_end: u.current_period_end,
         planName: u.plan_name || "free_trial",
+        plan_name: u.plan_name || "free_trial",
         planDisplayName: u.plan_display_name || "Free Trial",
-        fileRetentionDays: u.file_retention_days || 7,
+        plan_display_name: u.plan_display_name || "Free Trial",
+        fileRetentionDays: u.file_retention_days || 14,
+        file_retention_days: u.file_retention_days || 14,
         maxClients: u.max_clients || 10,
+        max_clients: u.max_clients || 10,
         maxCasesPerClient: u.max_cases_per_client || 5,
+        max_cases_per_client: u.max_cases_per_client || 5,
         maxStorageMb: u.max_storage_mb || 500,
+        max_storage_mb: u.max_storage_mb || 500,
       },
     };
 

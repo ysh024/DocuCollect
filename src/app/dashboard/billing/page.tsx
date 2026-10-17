@@ -31,7 +31,6 @@ import {
 import { useToast } from "@/components/ui";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
-let globalSubscriptionCache: any | null = null;
 let globalPlansCache: any[] | null = null;
 let globalPaymentSettingsCache: PublicPaymentSettings | null = null;
 
@@ -39,7 +38,7 @@ export default function BillingPage() {
   const { toast } = useToast();
   const { subscription: contextSub, refresh } = useDashboardData();
   const [mounted, setMounted] = useState(false);
-  const [subscription, setSubscription] = useState<any>(() => contextSub || globalSubscriptionCache || null);
+  const [subscription, setSubscription] = useState<any>(() => contextSub || null);
   const [plans, setPlans] = useState<any[]>(() => globalPlansCache || []);
   const [paymentSettings, setPaymentSettings] = useState<PublicPaymentSettings | null>(() => globalPaymentSettingsCache);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -55,17 +54,16 @@ export default function BillingPage() {
     try {
       const sub = await getSubscriptionAction();
       if (sub) {
-        globalSubscriptionCache = sub;
         setSubscription(sub);
       }
 
-      const pl = !globalPlansCache ? await getAllPlansAction() : globalPlansCache;
-      if (pl) {
+      const pl = await getAllPlansAction();
+      if (pl && pl.length > 0) {
         globalPlansCache = pl;
         setPlans(pl);
       }
 
-      const pay = !globalPaymentSettingsCache ? await getPublicPaymentSettingsAction() : globalPaymentSettingsCache;
+      const pay = await getPublicPaymentSettingsAction();
       if (pay) {
         globalPaymentSettingsCache = pay;
         setPaymentSettings(pay);
@@ -76,9 +74,12 @@ export default function BillingPage() {
   };
 
   useEffect(() => {
-    if (contextSub) setSubscription(contextSub);
-    if (!globalSubscriptionCache || !globalPlansCache || !globalPaymentSettingsCache) {
-      loadData();
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (contextSub) {
+      setSubscription((prev: any) => ({ ...(prev || {}), ...contextSub }));
     }
   }, [contextSub]);
 
@@ -89,20 +90,45 @@ export default function BillingPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const trialDaysLeft = mounted && subscription?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(subscription.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+  const planName = (subscription?.plan_name || subscription?.planName || "").toLowerCase();
+  const planDisplayName =
+    subscription?.plan_display_name ||
+    subscription?.planDisplayName ||
+    (planName === "pro"
+      ? "Professional"
+      : planName === "starter"
+      ? "Starter"
+      : planName === "firm"
+      ? "Firm"
+      : "Free Trial");
+
+  const status = subscription?.status || (planName && planName !== "free_trial" ? "active" : "trial");
+  const isActive = status === "active";
+  const isTrial = status === "trial";
+  const isExpired = status === "expired" || status === "cancelled";
+
+  const trialEnds = subscription?.trial_ends_at || subscription?.trialEndsAt;
+  const trialDaysLeft = mounted && trialEnds
+    ? Math.max(0, Math.ceil((new Date(trialEnds).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 
-  const isActive = subscription?.status === "active";
-  const isTrial = subscription?.status === "trial";
-  const isExpired = subscription?.status === "expired" || subscription?.status === "cancelled";
+  const currentPeriodEnd = subscription?.current_period_end || subscription?.currentPeriodEnd;
 
-  const planIcons: Record<string, any> = { free_trial: Zap, starter: Shield, pro: Crown, firm: Building };
-  const PlanIcon = planIcons[subscription?.plan_name] || Zap;
+  const planIcons: Record<string, any> = {
+    free_trial: Zap,
+    trial: Zap,
+    starter: Shield,
+    pro: Crown,
+    professional: Crown,
+    firm: Building,
+  };
+  const PlanIcon = planIcons[planName] || Crown;
 
   const clientsUsed = Number(subscription?.current_clients_count || 0);
-  const maxClients = Number(subscription?.max_clients || 10);
+  const maxClients = Number(subscription?.max_clients || subscription?.maxClients || 10);
   const clientUsagePercent = Math.min(100, Math.round((clientsUsed / maxClients) * 100));
+  const fileRetentionDays = subscription?.file_retention_days || subscription?.fileRetentionDays || 14;
+  const maxUploadSizeMb = subscription?.max_upload_size_mb || subscription?.maxStorageMb || 25;
 
   const contactPhone = paymentSettings?.contact_phone || "+919876543210";
   const upiId = paymentSettings?.upi_id || "docget@upi";
@@ -141,7 +167,7 @@ export default function BillingPage() {
                   : "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800"
               }`}
             >
-              {!mounted || !subscription ? "Loading..." : (subscription?.plan_display_name || "Free Trial")}
+              {!mounted || !subscription ? "Loading..." : planDisplayName}
             </span>
           </div>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -172,7 +198,7 @@ export default function BillingPage() {
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
               !mounted || !subscription
-                ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700"
+                ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border-neutral-200 dark:border-neutral-700"
                 : isActive
                 ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-850"
                 : isTrial
@@ -183,13 +209,13 @@ export default function BillingPage() {
             {mounted && isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />}
             {!mounted || !subscription
               ? "Checking..."
-              : subscription?.status === "trial"
+              : isTrial
               ? "Free Trial Active"
-              : subscription?.status === "active"
+              : isActive
               ? "Active Plan"
-              : subscription?.status === "cancelled"
-              ? "Cancelled"
-              : "Expired"}
+              : isExpired
+              ? "Expired"
+              : "Active"}
           </span>
         </div>
 
@@ -202,7 +228,7 @@ export default function BillingPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-base font-bold text-neutral-900 dark:text-white">
-                    You are on the {subscription.plan_display_name || "Free Trial"} Plan
+                    You are on the {planDisplayName} Plan
                   </p>
                 </div>
                 {isTrial && trialDaysLeft !== null && (
@@ -210,11 +236,11 @@ export default function BillingPage() {
                     {trialDaysLeft > 0 ? `${trialDaysLeft} days remaining in your 30-day trial` : "Trial period ended"}
                   </p>
                 )}
-                {isActive && subscription.current_period_end && (
+                {isActive && currentPeriodEnd && (
                   <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                     Valid until:{" "}
                     <strong className="text-neutral-800 dark:text-neutral-200">
-                      {new Date(subscription.current_period_end).toLocaleDateString("en-IN", {
+                      {new Date(currentPeriodEnd).toLocaleDateString("en-IN", {
                         day: "numeric",
                         month: "long",
                         year: "numeric",
@@ -230,15 +256,15 @@ export default function BillingPage() {
               </div>
               <div className="grid grid-cols-3 gap-3 text-center border-t sm:border-t-0 sm:border-l border-neutral-100 dark:border-neutral-800 pt-3 sm:pt-0 sm:pl-4 shrink-0">
                 <div className="bg-neutral-50 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-100 dark:border-neutral-800 min-w-[70px]">
-                  <p className="text-sm font-black text-neutral-900 dark:text-white">{subscription.max_clients}</p>
+                  <p className="text-sm font-black text-neutral-900 dark:text-white">{maxClients}</p>
                   <p className="text-[10px] text-neutral-500 dark:text-neutral-400">Max Clients</p>
                 </div>
                 <div className="bg-neutral-50 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-100 dark:border-neutral-800 min-w-[70px]">
-                  <p className="text-sm font-black text-neutral-900 dark:text-white">{subscription.file_retention_days}d</p>
+                  <p className="text-sm font-black text-neutral-900 dark:text-white">{fileRetentionDays}d</p>
                   <p className="text-[10px] text-neutral-500 dark:text-neutral-400">Retention</p>
                 </div>
                 <div className="bg-neutral-50 dark:bg-neutral-800/60 p-2 rounded-xl border border-neutral-100 dark:border-neutral-800 min-w-[70px]">
-                  <p className="text-sm font-black text-neutral-900 dark:text-white">{subscription.max_upload_size_mb || 10}MB</p>
+                  <p className="text-sm font-black text-neutral-900 dark:text-white">{maxUploadSizeMb}MB</p>
                   <p className="text-[10px] text-neutral-500 dark:text-neutral-400">Max Upload</p>
                 </div>
               </div>
