@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   Trash2,
@@ -420,40 +421,69 @@ export function InfoPopover({
   align = "left",
   side = "top",
   className = "",
-  iconClassName = "w-3.5 h-3.5 text-neutral-400 hover:text-neutral-700 transition-colors",
+  iconClassName = "w-3.5 h-3.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors",
   buttonLabel,
 }: InfoPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top?: number; bottom?: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [effectiveAlign, setEffectiveAlign] = useState<"left" | "right" | "center">(align);
-  const [effectiveSide, setEffectiveSide] = useState<"top" | "bottom">(side);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const updatePosition = useCallback(() => {
+    if (!buttonRef.current || typeof window === "undefined") return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const popoverWidth = 260;
+
+    // Vertical placement
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+
+    let useBottom = side === "bottom";
+    if (side === "top" && spaceAbove < 160 && spaceBelow > spaceAbove) {
+      useBottom = true;
+    } else if (side === "bottom" && spaceBelow < 160 && spaceAbove > spaceBelow) {
+      useBottom = false;
+    }
+
+    // Horizontal placement
+    let targetLeft: number;
+    if (align === "right") {
+      targetLeft = rect.right - popoverWidth;
+    } else if (align === "center") {
+      targetLeft = rect.left + rect.width / 2 - popoverWidth / 2;
+    } else {
+      targetLeft = rect.left;
+    }
+
+    // Viewport clamping
+    const maxLeft = window.innerWidth - popoverWidth - 12;
+    targetLeft = Math.max(12, Math.min(maxLeft, targetLeft));
+
+    if (useBottom) {
+      setCoords({
+        top: Math.round(rect.bottom + 6),
+        left: Math.round(targetLeft),
+      });
+    } else {
+      setCoords({
+        bottom: Math.round(window.innerHeight - rect.top + 6),
+        left: Math.round(targetLeft),
+      });
+    }
+  }, [side, align]);
 
   const handleMouseEnter = () => {
     if (closeTimeoutRef.current) {
       clearTimeout(closeTimeoutRef.current);
       closeTimeoutRef.current = null;
     }
-    if (containerRef.current && typeof window !== "undefined") {
-      const rect = containerRef.current.getBoundingClientRect();
-      const distFromRight = window.innerWidth - rect.right;
-      const distFromLeft = rect.left;
-      const distFromTop = rect.top;
-
-      if (distFromRight < 270) {
-        setEffectiveAlign("right");
-      } else if (distFromLeft < 140) {
-        setEffectiveAlign("left");
-      } else {
-        setEffectiveAlign(align);
-      }
-
-      if (distFromTop < 140) {
-        setEffectiveSide("bottom");
-      } else {
-        setEffectiveSide(side);
-      }
-    }
+    updatePosition();
     setIsOpen(true);
   };
 
@@ -465,94 +495,111 @@ export function InfoPopover({
 
   useEffect(() => {
     if (!isOpen) return;
+    updatePosition();
+
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        popoverRef.current &&
+        !popoverRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setIsOpen(false);
     }
+    const handleScrollOrResize = () => {
+      updatePosition();
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
       if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
     };
-  }, [isOpen]);
-
-  const alignClasses =
-    effectiveAlign === "right"
-      ? "right-0"
-      : effectiveAlign === "center"
-      ? "left-1/2 -translate-x-1/2"
-      : "left-0";
-
-  const sideClasses =
-    effectiveSide === "bottom"
-      ? "top-full mt-1.5"
-      : "bottom-full mb-1.5";
+  }, [isOpen, updatePosition]);
 
   const hasItems = items && items.length > 0;
   const displayText = text || content;
 
   return (
     <div
-      ref={containerRef}
-      className={`relative inline-flex items-center align-middle ${className}`}
+      className={`inline-flex items-center align-middle ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       <button
+        ref={buttonRef}
         type="button"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (!isOpen) updatePosition();
           setIsOpen((prev) => !prev);
         }}
         aria-label={title || "More information"}
         aria-expanded={isOpen}
         className={`inline-flex items-center gap-1 focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-400 rounded p-0.5 cursor-pointer ${
-          buttonLabel ? "text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:white bg-neutral-100/80 dark:bg-neutral-800 px-2 py-0.5 rounded-md" : ""
+          buttonLabel
+            ? "text-xs font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100/80 dark:bg-neutral-800 px-2 py-0.5 rounded-md"
+            : ""
         }`}
       >
         <Info className={iconClassName} />
         {buttonLabel && <span>{buttonLabel}</span>}
       </button>
 
-      {isOpen && (
-        <div
-          role="tooltip"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          className={`absolute ${sideClasses} ${alignClasses} z-50 w-64 max-w-[calc(100vw-2rem)] bg-neutral-900 dark:bg-neutral-800 text-neutral-100 text-xs rounded-xl p-3 shadow-2xl border border-neutral-700/80 animate-in fade-in-0 zoom-in-95 pointer-events-auto select-text`}
-          style={{ minWidth: "200px" }}
-        >
-          {title && (
-            <p className="font-bold text-white mb-1 tracking-tight text-xs flex items-center gap-1.5">
-              <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              {title}
-            </p>
-          )}
+      {isOpen &&
+        mounted &&
+        coords &&
+        createPortal(
+          <div
+            ref={popoverRef}
+            role="tooltip"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            className="fixed z-[99999] w-64 max-w-[calc(100vw-1.5rem)] bg-neutral-900/95 dark:bg-neutral-800/95 backdrop-blur-xs text-neutral-100 text-xs rounded-xl p-3.5 shadow-2xl border border-neutral-700/80 dark:border-neutral-600/80 animate-in fade-in-0 zoom-in-95 pointer-events-auto select-text"
+            style={{
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: `${coords.left}px`,
+            }}
+          >
+            {title && (
+              <p className="font-bold text-white mb-1.5 tracking-tight text-xs flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                {title}
+              </p>
+            )}
 
-          {displayText && (
-            <div className="text-neutral-300 leading-relaxed font-normal">
-              {displayText}
-            </div>
-          )}
+            {displayText && (
+              <div className="text-neutral-300 leading-relaxed font-normal">
+                {displayText}
+              </div>
+            )}
 
-          {hasItems && (
-            <ul className="space-y-1 mt-1 text-neutral-300 list-disc list-inside leading-relaxed">
-              {items.map((item, idx) => (
-                <li key={idx} className="text-[11px] text-neutral-300">
-                  {item}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+            {hasItems && (
+              <ul className="space-y-1.5 mt-1.5 text-neutral-300 list-disc list-inside leading-relaxed">
+                {items.map((item, idx) => (
+                  <li key={idx} className="text-[11px] text-neutral-300">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
