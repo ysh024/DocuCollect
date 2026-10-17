@@ -27,7 +27,7 @@ try {
 
 import { neon } from "@neondatabase/serverless";
 import crypto from "crypto";
-import { generateUploadToken, hashToken } from "../../src/lib/tokens";
+import { generateUploadToken, hashToken } from "../../src/lib/utils";
 
 interface TestFinding {
   vector: string;

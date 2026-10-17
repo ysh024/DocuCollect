@@ -10,10 +10,10 @@ import assert from "assert";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { checkRateLimit, resetRateLimit } from "../../src/lib/rate-limit";
+import { checkRateLimit, resetRateLimit } from "../../src/lib/utils";
 import { generateOtp, hashOtp } from "../../src/lib/auth";
-import { verifyAdminAuthorization } from "../../src/app/actions/portal";
-import { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } from "../../src/lib/storage/crypto";
+import { verifyAdminAuthorization } from "../../src/app/actions";
+import { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } from "../../src/lib/storage";
 
 export interface TestResult {
   id: string;

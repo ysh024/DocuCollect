@@ -15,28 +15,28 @@ import {
   Building2,
   Lock,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { ThemeToggle } from "@/components/ui";
 
 export const metadata: Metadata = {
-  title: "Pricing Plans — Simple, Transparent Pricing for CAs & Law Firms | DocuCollect",
+  title: "Pricing Plans — Simple, Transparent Pricing for CAs & Law Firms | DocGet",
   description:
-    "Transparent pricing plans for Chartered Accountants, Tax Consultants, and Law Firms. Includes Zero-Knowledge AES-256-GCM encryption, WhatsApp checklists, practice audit trails up to 60 days, and a 30-day free trial.",
+    "Transparent pricing plans for Chartered Accountants, Tax Consultants, and Law Firms. Includes AES-256-GCM at-rest encryption, WhatsApp checklists, practice audit trails up to 60 days, and a 30-day free trial.",
   keywords: [
-    "DocuCollect pricing",
+    "DocGet pricing",
     "CA software pricing India",
     "document collection software price",
     "tax consultant client portal plans",
-    "Zero Knowledge encrypted storage pricing",
+    "AES-256 encrypted storage pricing",
     "Chartered Accountant subscription plans",
   ],
   alternates: {
-    canonical: "https://docucollect.app/pricing",
+    canonical: "https://docget.app/pricing",
   },
   openGraph: {
-    title: "DocuCollect Pricing — Transparent Plans for CAs & Legal Practices",
+    title: "DocGet Pricing — Transparent Plans for CAs & Legal Practices",
     description:
-      "Start free for 30 days. Transparent plans with Zero-Knowledge encryption, audit trails up to 60 days, and multi-file downloads.",
-    url: "https://docucollect.app/pricing",
+      "Start free for 30 days. Transparent plans with AES-256-GCM encryption, audit trails up to 60 days, and multi-file downloads.",
+    url: "https://docget.app/pricing",
     type: "website",
   },
 };
@@ -54,7 +54,7 @@ const plans = [
     features: [
       "Up to 10 active clients",
       "500 MB encrypted cloud storage",
-      "Zero-Knowledge AES-256-GCM encryption",
+      "AES-256-GCM storage encryption",
       "14-day practice audit trail",
       "Max 5 cases per client",
       "Max 5 custom templates",
@@ -76,7 +76,7 @@ const plans = [
     features: [
       "Up to 50 active clients",
       "2 GB encrypted cloud storage",
-      "Zero-Knowledge AES-256-GCM encryption",
+      "AES-256-GCM storage encryption",
       "30-day practice audit trail",
       "Max 10 cases per client",
       "Max 5 custom templates",
@@ -100,7 +100,7 @@ const plans = [
     features: [
       "Up to 200 active clients",
       "5 GB encrypted cloud storage",
-      "Zero-Knowledge AES-256-GCM encryption",
+      "AES-256-GCM storage encryption",
       "45-day comprehensive audit trail",
       "Max 25 cases per client",
       "Max 10 custom templates",
@@ -125,7 +125,7 @@ const plans = [
     features: [
       "500+ active clients (Upcoming)",
       "20 GB+ custom storage quota",
-      "Zero-Knowledge AES-256-GCM encryption",
+      "AES-256-GCM storage encryption",
       "60-day audit trail (Max 2 Months)",
       "Max 50 cases per client",
       "Max 25 custom templates",
@@ -143,7 +143,7 @@ const faqs = [
     a: "We accept payments directly via UPI QR code and Net Banking (NEFT/RTGS/IMPS). Once payment is completed, share the transaction screenshot on WhatsApp from your dashboard Billing page. You will immediately receive a single-use license voucher key to unlock your plan.",
   },
   {
-    q: "What is Zero-Knowledge storage encryption?",
+    q: "How is client document storage secured?",
     a: "Every document uploaded by your clients is encrypted at the application layer with AES-256-GCM before writing to cloud storage. Even our underlying cloud database and storage providers (Neon and AWS) cannot view or inspect client files. Only authenticated advisors can stream-decrypt them.",
   },
   {
@@ -195,7 +195,7 @@ export default function PricingPage() {
             <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-emerald-600 flex items-center justify-center shadow-xs">
               <Layers className="w-4 h-4 text-white" />
             </div>
-            <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">DocuCollect</span>
+            <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">DocGet</span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
             <ThemeToggle />
@@ -216,7 +216,7 @@ export default function PricingPage() {
       <section className="max-w-4xl mx-auto px-5 sm:px-6 pt-16 pb-10 text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/80 text-emerald-800 dark:text-emerald-300 text-xs font-semibold mb-5 shadow-2xs">
           <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-          <span>Zero-Knowledge AES-256-GCM · Direct UPI / Bank Transfer</span>
+          <span>AES-256-GCM Storage Encryption · Direct UPI / Bank Transfer</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-neutral-900 dark:text-white mb-3">
           Simple, honest pricing for professionals
@@ -334,7 +334,7 @@ export default function PricingPage() {
                   ["Cloud Storage Quota", "500 MB", "2 GB", "5 GB", "20 GB+ (Upcoming)"],
                   ["Cases Limit Per Client", "Max 5 cases", "Max 10 cases", "Max 25 cases", "Max 50 cases (Upcoming)"],
                   ["Custom Checklist Templates", "Max 5 templates", "Max 5 templates", "Max 10 templates", "Max 25 templates (Upcoming)"],
-                  ["Zero-Knowledge AES-256-GCM", "✓ Included", "✓ Included", "✓ Included", "✓ Included"],
+                  ["AES-256-GCM Storage Encryption", "✓ Included", "✓ Included", "✓ Included", "✓ Included"],
                   ["Audit Trail History", "14 days", "30 days", "45 days", "60 days (Upcoming)"],
                   ["Export Clients to Excel", "—", "✓ Included", "✓ Included", "✓ Included"],
                   ["Delete Clients & Portfolios", "—", "✓ Included", "✓ Included", "✓ Included"],
@@ -380,7 +380,7 @@ export default function PricingPage() {
       <section className="bg-neutral-900 dark:bg-neutral-900 border-t border-neutral-800 py-14">
         <div className="max-w-2xl mx-auto px-5 sm:px-6 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">Start collecting documents today</h2>
-          <p className="text-neutral-400 text-sm mb-6">30-day free trial. Zero-knowledge encrypted. No credit card required.</p>
+          <p className="text-neutral-400 text-sm mb-6">30-day free trial. AES-256-GCM encrypted. No credit card required.</p>
           <Link
             href="/signup"
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-white hover:bg-neutral-100 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-neutral-900 dark:text-white font-semibold text-sm rounded-xl transition shadow-xs"
@@ -397,7 +397,7 @@ export default function PricingPage() {
             <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-white font-bold text-xs">
               D
             </div>
-            <span className="font-bold text-white">DocuCollect</span>
+            <span className="font-bold text-white">DocGet</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-5">
             <Link href="/pricing" className="text-white hover:underline">Pricing</Link>
@@ -406,7 +406,7 @@ export default function PricingPage() {
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <Link href="/refund" className="hover:text-white transition-colors">Refunds</Link>
           </div>
-          <p>© 2026 DocuCollect · Built for Indian professionals · UPI / Bank Transfer</p>
+          <p>© 2026 DocGet · Built for Indian professionals · UPI / Bank Transfer</p>
         </div>
       </footer>
     </div>

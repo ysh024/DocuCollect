@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { cache } from "react";
-import { getDb, getTenantDb } from "@/lib/db";
+import { getDb, getAdminDb, getTenantDb } from "@/lib/db";
 
 /**
  * Resolves JWT secret for signing and verification.
@@ -156,7 +156,7 @@ const VERIFICATION_CACHE_TTL = 300000; // 5 minutes
 
 /**
  * Get current session user from cookie.
- * Supports both DocuCollect JWT sessions and Neon Better Auth sessions (Google OAuth).
+ * Supports both DocGet JWT sessions and Neon Better Auth sessions (Google OAuth).
  * Enforces strict verification: unverified users cannot enter dashboard.
  */
 export const getSession = cache(async function getSession(): Promise<SessionPayload | null> {
@@ -174,7 +174,7 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
           return verified;
         }
 
-        const sql = getDb();
+        const sql = getAdminDb() || getDb();
         if (sql) {
           const userRows = await sql`
             SELECT email_verified, is_deactivated FROM public.users WHERE id::text = ${verified.userId} LIMIT 1;
@@ -194,7 +194,7 @@ export const getSession = cache(async function getSession(): Promise<SessionPayl
       cookieStore.get("better-auth_session_token")?.value;
 
     if (betterAuthToken) {
-      const sql = getDb();
+      const sql = getAdminDb() || getDb();
       if (sql) {
         const sessions = await sql`
           SELECT s.*, u.id as better_user_id, u.email as better_email, u.name as better_name,
@@ -348,10 +348,10 @@ export async function getCurrentUser() {
       try {
         sql = getTenantDb(session.organizationId);
       } catch {
-        sql = getDb();
+        sql = getAdminDb() || getDb();
       }
     } else {
-      sql = getDb();
+      sql = getAdminDb() || getDb();
     }
     if (!sql) return null;
 

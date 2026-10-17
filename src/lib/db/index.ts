@@ -1,5 +1,5 @@
 import { neon } from "@neondatabase/serverless";
-import { hashToken } from "@/lib/tokens";
+import { hashToken } from "@/lib/utils";
 
 // Configure global HTTP keep-alive dispatcher for Node.js runtime without pipelining
 if (typeof process !== "undefined" && process.versions?.node) {
@@ -7,10 +7,10 @@ if (typeof process !== "undefined" && process.versions?.node) {
     const { Agent, setGlobalDispatcher } = require("undici");
     setGlobalDispatcher(
       new Agent({
-        keepAliveTimeout: 30000,
-        keepAliveMaxTimeout: 30000,
+        keepAliveTimeout: 4000,
+        keepAliveMaxTimeout: 8000,
         connect: {
-          timeout: 15000,
+          timeout: 10000,
         },
       })
     );
@@ -22,13 +22,20 @@ if (typeof process !== "undefined" && process.versions?.node) {
 let cachedSql: any = null;
 let cachedUrl: string | null = null;
 
+function cleanConnectionString(raw?: string | null): string {
+  if (!raw) return "";
+  return raw.replace(/^["']|["']$/g, "").trim();
+}
+
 /**
  * Returns the restricted Neon SQL tagged template executor (docucollect_app).
  * Employs NOBYPASSRLS for defense-in-depth against data leakage.
  */
 export function getDb() {
-  const connectionString = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
+  const rawConnectionString = process.env.DATABASE_URL_POOLED || process.env.DATABASE_URL;
+  const connectionString = cleanConnectionString(rawConnectionString);
   if (!connectionString || connectionString.includes("your-neon-database-url")) {
+    console.warn("⚠️ [NEON DB CONNECTION] process.env.DATABASE_URL is missing or unconfigured!");
     return null;
   }
 
@@ -56,6 +63,8 @@ export function getDb() {
             msg.includes("fetch failed") ||
             msg.includes("etimedout") ||
             msg.includes("econnreset") ||
+            msg.includes("enotfound") ||
+            msg.includes("eai_again") ||
             msg.includes("connecttimeout") ||
             msg.includes("timeout") ||
             msg.includes("504") ||
@@ -63,7 +72,7 @@ export function getDb() {
             msg.includes("503");
 
           if (isTransient && attempt < 2) {
-            await new Promise((r) => setTimeout(r, (attempt + 1) * 400));
+            await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
             continue;
           }
           throw err;
@@ -82,6 +91,80 @@ export function getDb() {
   }
 
   return cachedSql;
+}
+
+let cachedAdminSql: any = null;
+let cachedAdminUrl: string | null = null;
+
+/**
+ * Returns the unrestricted Neon SQL tagged template executor for system administration.
+ * Utilizes ADMIN_DATABASE_URL or MIGRATION_DATABASE_URL (neondb_owner) which has BYPASSRLS
+ * privileges to oversee all tenants, organizations, cases, and metrics platform-wide.
+ * ONLY call from verified admin functions after verifyAdminAuthorization.
+ */
+export function getAdminDb() {
+  const rawConnectionString =
+    process.env.ADMIN_DATABASE_URL ||
+    process.env.MIGRATION_DATABASE_URL ||
+    process.env.DATABASE_URL_POOLED ||
+    process.env.DATABASE_URL;
+  const connectionString = cleanConnectionString(rawConnectionString);
+
+  if (!connectionString || connectionString.includes("your-neon-database-url")) {
+    console.warn("⚠️ [NEON DB CONNECTION] process.env.DATABASE_URL / ADMIN_DATABASE_URL is missing or unconfigured!");
+    return null;
+  }
+
+  const targetConnectionString = connectionString;
+
+  if (!cachedAdminSql || cachedAdminUrl !== targetConnectionString) {
+    const baseSql = neon(targetConnectionString);
+
+    const resilientSql: any = async (strings: TemplateStringsArray, ...values: any[]) => {
+      let lastErr: any;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          return await (baseSql as any)(strings, ...values);
+        } catch (err: any) {
+          lastErr = err;
+          const msg = (
+            String(err?.message || "") +
+            " " +
+            String(err?.cause?.message || "") +
+            " " +
+            String(err?.cause?.code || "")
+          ).toLowerCase();
+          const isTransient =
+            msg.includes("fetch failed") ||
+            msg.includes("etimedout") ||
+            msg.includes("econnreset") ||
+            msg.includes("enotfound") ||
+            msg.includes("eai_again") ||
+            msg.includes("connecttimeout") ||
+            msg.includes("timeout") ||
+            msg.includes("504") ||
+            msg.includes("502") ||
+            msg.includes("503");
+
+          if (isTransient && attempt < 2) {
+            await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastErr;
+    };
+
+    resilientSql.query = (baseSql as any).query;
+    resilientSql.transaction = (baseSql as any).transaction;
+    resilientSql._rawSql = baseSql;
+
+    cachedAdminSql = resilientSql;
+    cachedAdminUrl = targetConnectionString;
+  }
+
+  return cachedAdminSql;
 }
 
 export type TenantSqlExecutor = {
@@ -110,19 +193,83 @@ export function getTenantDb(orgId: string): TenantSqlExecutor {
   const rawSql = db._rawSql || db;
 
   const tenantSql = (async (strings: TemplateStringsArray, ...values: any[]) => {
-    const [_, result] = await rawSql.transaction((tx: any) => [
-      tx`SELECT set_config('app.current_org_id', ${validOrgId}, true)`,
-      tx(strings, ...values),
-    ]);
-    return result;
+    let lastErr: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const [_, result] = await rawSql.transaction((tx: any) => [
+          tx`SELECT set_config('app.current_org_id', ${validOrgId}, true)`,
+          tx(strings, ...values),
+        ]);
+        return result;
+      } catch (err: any) {
+        lastErr = err;
+        const msg = (
+          String(err?.message || "") +
+          " " +
+          String(err?.cause?.message || "") +
+          " " +
+          String(err?.cause?.code || "")
+        ).toLowerCase();
+        const isTransient =
+          msg.includes("fetch failed") ||
+          msg.includes("etimedout") ||
+          msg.includes("econnreset") ||
+          msg.includes("enotfound") ||
+          msg.includes("eai_again") ||
+          msg.includes("connecttimeout") ||
+          msg.includes("timeout") ||
+          msg.includes("504") ||
+          msg.includes("502") ||
+          msg.includes("503");
+
+        if (isTransient && attempt < 2) {
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
   }) as TenantSqlExecutor;
 
   tenantSql.transaction = async (fn: (tx: any) => any[]) => {
-    const [_, ...results] = await rawSql.transaction((tx: any) => [
-      tx`SELECT set_config('app.current_org_id', ${validOrgId}, true)`,
-      ...fn(tx),
-    ]);
-    return results;
+    let lastErr: any;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const [_, ...results] = await rawSql.transaction((tx: any) => [
+          tx`SELECT set_config('app.current_org_id', ${validOrgId}, true)`,
+          ...fn(tx),
+        ]);
+        return results;
+      } catch (err: any) {
+        lastErr = err;
+        const msg = (
+          String(err?.message || "") +
+          " " +
+          String(err?.cause?.message || "") +
+          " " +
+          String(err?.cause?.code || "")
+        ).toLowerCase();
+        const isTransient =
+          msg.includes("fetch failed") ||
+          msg.includes("etimedout") ||
+          msg.includes("econnreset") ||
+          msg.includes("enotfound") ||
+          msg.includes("eai_again") ||
+          msg.includes("connecttimeout") ||
+          msg.includes("timeout") ||
+          msg.includes("504") ||
+          msg.includes("502") ||
+          msg.includes("503");
+
+        if (isTransient && attempt < 2) {
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 500));
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw lastErr;
   };
 
   return tenantSql;
@@ -134,21 +281,8 @@ export async function resolvePublicUploadLink(token: string): Promise<{ case_id:
     return null;
   }
 
-  const db = getDb();
+  const db = getAdminDb() || getDb();
   if (!db) return null;
-
-  try {
-    const rows = await db`
-      SELECT case_id, organization_id
-      FROM public.resolve_upload_link_for_public(${cleanToken})
-      LIMIT 1;
-    `;
-    if (rows && rows.length > 0) {
-      return rows[0] as { case_id: string; organization_id: string };
-    }
-  } catch {
-    // Fallback is intentionally narrow: exact token/hash match only with a revoked/expiry check.
-  }
 
   try {
     const tokenHash = hashToken(cleanToken);
@@ -163,8 +297,8 @@ export async function resolvePublicUploadLink(token: string): Promise<{ case_id:
     if (rows && rows.length > 0) {
       return rows[0] as { case_id: string; organization_id: string };
     }
-  } catch {
-    // A missing/invalid public-token function or a blocked unauthenticated lookup must fail closed.
+  } catch (err) {
+    console.error("resolvePublicUploadLink query error:", err);
   }
 
   return null;

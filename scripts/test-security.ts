@@ -7,9 +7,9 @@ import assert from "assert";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { checkRateLimit, resetRateLimit } from "../src/lib/rate-limit";
+import { checkRateLimit, resetRateLimit } from "../src/lib/utils";
 import { generateOtp, hashOtp } from "../src/lib/auth";
-import { verifyAdminAuthorization } from "../src/app/actions/portal";
+import { verifyAdminAuthorization } from "../src/app/actions";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -274,7 +274,7 @@ async function runTestSuite() {
     reportTest("VULN-09", "middleware.ts applies security response headers (CSP/HSTS/Frame-Options)", hasSecurityHeaders);
 
     // Cryptographic envelope check: AES-256-GCM DOCUENC1 header
-    const { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } = await import("../src/lib/storage/crypto");
+    const { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } = await import("../src/lib/storage");
     const dummyFile = Buffer.from("%PDF-1.4 dummy sensitive client tax return document data for security audit");
     const encrypted = encryptFileBuffer(dummyFile);
     reportTest("VULN-09", "Encrypted document contains DOCUENC1 magic header signature", isEncryptedBuffer(encrypted));

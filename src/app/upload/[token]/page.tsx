@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import {
   Shield,
@@ -18,14 +18,25 @@ import {
   Mail,
   Phone,
   Trash2,
+  FileUp,
+  Loader2,
+  ArrowRight,
+  X,
 } from "lucide-react";
-import { getPortalData, clientDeleteDocumentAction } from "@/app/actions/portal";
+import {
+  getPortalData,
+  clientDeleteDocumentAction,
+  clientUploadDocumentAction,
+} from "@/app/actions";
 import { ClientPortalData } from "@/types";
 import { formatBytes } from "@/lib/utils";
-import { InteractiveFileUpload } from "@/components/client-portal/InteractiveFileUpload";
-import { RequirementsPopover } from "@/components/ui/InfoPopover";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
+import {
+  RequirementsPopover,
+  ThemeToggle,
+  DeleteConfirmationModal,
+  useToast,
+  SafeImage,
+} from "@/components/ui";
 
 export default function ClientUploadPortalPage() {
   const params = useParams();
@@ -39,6 +50,53 @@ export default function ClientUploadPortalPage() {
   const [isNetworkError, setIsNetworkError] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
+  const [hasConsent, setHasConsent] = useState<boolean>(false);
+  const [consentHighlighted, setConsentHighlighted] = useState<boolean>(false);
+  const consentRef = useRef<HTMLDivElement>(null);
+  const consentCheckboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!token) return;
+    try {
+      const saved = localStorage.getItem(`docget_consent_${token}`);
+      if (saved === "true") {
+        setHasConsent(true);
+      }
+    } catch {
+      // ignore restricted localStorage errors
+    }
+  }, [token]);
+
+  const handleConsentChange = (checked: boolean) => {
+    setHasConsent(checked);
+    try {
+      localStorage.setItem(`docget_consent_${token}`, checked ? "true" : "false");
+    } catch {}
+    if (checked) {
+      toast({
+        title: "Consent Given",
+        description: "You may now upload the required documents.",
+        type: "success",
+      });
+    }
+  };
+
+  const promptConsent = () => {
+    setConsentHighlighted(true);
+    consentRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => {
+      consentCheckboxRef.current?.focus();
+    }, 250);
+    toast({
+      title: "Consent Required",
+      description: "Please check the consent box below before uploading documents.",
+      type: "error",
+    });
+    setTimeout(() => {
+      setConsentHighlighted(false);
+    }, 2500);
+  };
 
   const loadPortal = async (showLoading = false) => {
     if (!token) return;
@@ -265,10 +323,15 @@ export default function ClientUploadPortalPage() {
           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             {organization.logo_url ? (
               <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-neutral-200/80 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-0.5 shadow-xs shrink-0 overflow-hidden flex items-center justify-center">
-                <img
+                <SafeImage
                   src={organization.logo_url}
                   alt={organization.name}
                   className="w-full h-full object-cover rounded-[10px]"
+                  fallbackIcon={
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                  }
                 />
               </div>
             ) : (
@@ -402,6 +465,85 @@ export default function ClientUploadPortalPage() {
             </a>
           </div>
         )}
+
+        {/* Client Consent Declaration */}
+        <div
+          ref={consentRef}
+          id="consent-section"
+          className={`p-4 sm:p-5 rounded-2xl border transition-all duration-300 ${
+            consentHighlighted
+              ? "ring-2 ring-emerald-500 border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 shadow-md"
+              : hasConsent
+              ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs"
+              : "bg-white dark:bg-neutral-900 border-amber-300 dark:border-amber-700/70 shadow-2xs"
+          }`}
+        >
+          <div className="flex items-start gap-3.5">
+            <div className="pt-0.5 shrink-0">
+              <label className="relative flex items-center justify-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="client-consent-checkbox"
+                  ref={consentCheckboxRef}
+                  checked={hasConsent}
+                  onChange={(e) => handleConsentChange(e.target.checked)}
+                  className="peer sr-only"
+                />
+                <div
+                  className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                    hasConsent
+                      ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
+                      : "border-neutral-400 dark:border-neutral-500 bg-white dark:bg-neutral-800 hover:border-emerald-500 peer-focus:ring-2 peer-focus:ring-emerald-500"
+                  }`}
+                >
+                  {hasConsent && (
+                    <svg
+                      className="w-3.5 h-3.5 stroke-current stroke-[2.5] fill-none"
+                      viewBox="0 0 24 24"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
+                </div>
+              </label>
+            </div>
+
+            <div className="flex-1 space-y-1.5 min-w-0">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <label
+                  htmlFor="client-consent-checkbox"
+                  className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-100 cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Client Authorization & Document Accuracy Declaration</span>
+                </label>
+                {hasConsent ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                    <CheckCircle className="w-3 h-3" />
+                    Consent Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                    <AlertCircle className="w-3 h-3" />
+                    Required to Upload
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                In accordance with data protection practices under the DPDP Act 2023, I confirm that all uploaded documents are genuine, accurate, and lawfully provided. I authorize{" "}
+                <strong className="text-neutral-900 dark:text-neutral-200 font-semibold">{organization?.name || "the advisory firm"}</strong>{" "}
+                to collect, securely store, and process these records solely for case{" "}
+                <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-200">{caseInfo.reference_number}</span>.
+              </p>
+
+              {!hasConsent && (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium pt-0.5">
+                  👉 Please tick this consent box to unlock file uploads.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* 3. Direct Document Checklist with Quick Filter Tabs */}
         <div className="space-y-3">
@@ -563,6 +705,8 @@ export default function ClientUploadPortalPage() {
                         requirementId={req.id}
                         requirementName={req.name}
                         isReplacement={true}
+                        hasConsent={hasConsent}
+                        onRequireConsent={promptConsent}
                         onUploadComplete={() => loadPortal(true)}
                       />
                     </div>
@@ -648,6 +792,8 @@ export default function ClientUploadPortalPage() {
                         requirementId={req.id}
                         requirementName={req.name}
                         isReplacement={false}
+                        hasConsent={hasConsent}
+                        onRequireConsent={promptConsent}
                         onUploadComplete={() => loadPortal(true)}
                       />
                     </div>
@@ -714,7 +860,7 @@ export default function ClientUploadPortalPage() {
         <div className="text-center text-[11px] text-neutral-400 dark:text-neutral-500 space-y-1.5 pt-2">
           {organization.logo_url && (
             <div className="flex items-center justify-center gap-1.5 pb-1">
-              <img
+              <SafeImage
                 src={organization.logo_url}
                 alt={organization.name}
                 className="w-4 h-4 rounded-sm object-cover"
@@ -741,6 +887,282 @@ export default function ClientUploadPortalPage() {
           isLoading={isDeleting}
         />
       </main>
+    </div>
+  );
+}
+
+function InteractiveFileUpload({
+  token,
+  requirementId,
+  requirementName,
+  isReplacement = false,
+  hasConsent = false,
+  onRequireConsent,
+  onUploadComplete,
+}: {
+  token: string;
+  requirementId: string;
+  requirementName: string;
+  isReplacement?: boolean;
+  hasConsent?: boolean;
+  onRequireConsent?: () => void;
+  onUploadComplete: () => void;
+}) {
+  const { toast } = useToast();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB limit
+
+  const handleFile = (file: File) => {
+    setError(null);
+
+    const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"];
+    if (!allowed.includes(file.type) && !file.type.startsWith("image/")) {
+      setError("Please select a PDF or clear image scan (JPG, PNG).");
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setError(`File exceeds the 10 MB limit (${formatBytes(file.size)}). Please select a file under 10 MB.`);
+      return;
+    }
+
+    setSelectedFile(file);
+
+    if (file.type.startsWith("image/")) {
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    } else {
+      setPreviewUrl(null);
+    }
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!hasConsent) {
+      onRequireConsent?.();
+      return;
+    }
+    if (!selectedFile) return;
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      setError("No internet connection. Please check your network and try again.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress(20);
+
+    const interval = setInterval(() => {
+      setUploadProgress((p) => (p >= 85 ? 85 : p + 20));
+    }, 150);
+
+    try {
+      const reader = new FileReader();
+      const fileDataPromise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read file buffer"));
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const fileData = await fileDataPromise;
+      clearInterval(interval);
+      setUploadProgress(90);
+
+      const res = await clientUploadDocumentAction(token, requirementId, {
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type || "image/jpeg",
+        data: fileData,
+      });
+
+      setUploadProgress(100);
+
+      if (!res.success) {
+        setError((res as any).error || "Upload failed");
+        setUploading(false);
+      } else {
+        toast({
+          title: "Uploaded successfully",
+          description: `${requirementName} received for review.`,
+        });
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        onUploadComplete();
+      }
+    } catch (err: any) {
+      clearInterval(interval);
+      const isNet =
+        (typeof navigator !== "undefined" && !navigator.onLine) ||
+        err?.message?.includes("fetch") ||
+        err?.message?.includes("network") ||
+        err?.name === "TypeError";
+
+      setError(
+        isNet
+          ? "No internet connection. Please check your network and try again."
+          : (err.message || "Failed to upload document. Please retry.")
+      );
+      setUploading(false);
+    }
+  };
+
+  const handleCancelSelection = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setError(null);
+  };
+
+  return (
+    <div className="w-full space-y-2">
+      {error && (
+        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.webp,image/*"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleFile(e.target.files[0]);
+          }
+        }}
+      />
+
+      {!selectedFile ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (!hasConsent) {
+              onRequireConsent?.();
+              return;
+            }
+            fileInputRef.current?.click();
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (!hasConsent) {
+              onRequireConsent?.();
+              return;
+            }
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+              handleFile(e.dataTransfer.files[0]);
+            }
+          }}
+          className={`w-full py-3 px-4 rounded-xl border border-dashed text-xs font-semibold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+            !hasConsent
+              ? "border-neutral-300 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-800/40 text-neutral-500 dark:text-neutral-400 hover:border-amber-400 hover:bg-amber-50/30 dark:hover:bg-amber-950/20"
+              : isDragging
+              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300"
+              : isReplacement
+              ? "border-rose-300 dark:border-rose-800 bg-rose-50/50 dark:bg-rose-950/40 hover:bg-rose-100/70 dark:hover:bg-rose-900/50 text-rose-800 dark:text-rose-300"
+              : "border-neutral-300 dark:border-neutral-700 bg-neutral-50/70 dark:bg-neutral-800/60 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {!hasConsent ? (
+              <>
+                <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Accept consent above to upload {isReplacement ? "replacement" : "file"}</span>
+              </>
+            ) : (
+              <>
+                <FileUp className="w-4 h-4 text-neutral-500 dark:text-neutral-400 shrink-0" />
+                <span>{isReplacement ? "Tap to upload corrected file or photo" : "Tap to choose file or photo"}</span>
+              </>
+            )}
+          </div>
+          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-normal">
+            {!hasConsent ? "Tick the consent checkbox above to unlock" : "PDF, JPG, PNG up to 10 MB"}
+          </span>
+        </button>
+      ) : (
+        <div className="p-3 bg-neutral-50 dark:bg-neutral-800/90 rounded-xl border border-neutral-200 dark:border-neutral-700 space-y-2.5 animate-in fade-in">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              {previewUrl ? (
+                <img
+                  src={previewUrl}
+                  alt={`Upload preview of ${selectedFile.name}`}
+                  className="w-10 h-10 rounded-lg object-cover border border-neutral-200 dark:border-neutral-700 shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-lg bg-neutral-800 dark:bg-neutral-700 text-white flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-neutral-900 dark:text-neutral-100 truncate">{selectedFile.name}</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">{formatBytes(selectedFile.size)}</p>
+              </div>
+            </div>
+
+            {!uploading && (
+              <button
+                type="button"
+                onClick={handleCancelSelection}
+                className="w-6 h-6 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition"
+                title="Cancel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {uploading ? (
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin text-emerald-600 dark:text-emerald-400" />
+                  Uploading...
+                </span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-emerald-600 h-full transition-all duration-200"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
+              <button
+                type="button"
+                onClick={handleCancelSelection}
+                className="px-2.5 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmUpload}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+              >
+                <span>Upload</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

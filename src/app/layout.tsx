@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { ToastProvider } from "@/components/ui/Toast";
-import { ThemeProvider } from "@/contexts/ThemeContext";
+import { ToastProvider, ThemeProvider } from "@/components/ui";
 
-const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://docucollect.app";
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "https://docget.app";
 
 export const viewport: Viewport = {
   themeColor: "#059669",
@@ -15,27 +14,28 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "DocuCollect — Client Document Collection Portal for CAs & Advisors",
-    template: "%s | DocuCollect",
+    default: "DocGet — Client Document Collection Portal for CAs & Advisors",
+    template: "%s | DocGet",
   },
   description:
-    "Streamline client document collection for Chartered Accountants, Tax Consultants, and Law Firms. Zero-Knowledge AES-256-GCM encryption, WhatsApp upload links, structured checklists, multi-file downloads, and practice audit trails.",
+    "Streamline client document collection for Chartered Accountants, Tax Consultants, and Law Firms. Application-layer AES-256-GCM encryption, WhatsApp upload links, structured checklists, multi-file downloads, and practice audit trails.",
   keywords: [
-    "DocuCollect",
+    "DocGet",
     "document collection portal",
     "client document portal",
     "CA tax document collection",
     "WhatsApp document upload",
     "encrypted client portal",
-    "Zero-Knowledge encryption",
+    "AES-256-GCM encryption",
+    "DPDP Act compliance",
     "ITR document collection",
     "KYC collection software",
     "Chartered Accountant SaaS",
     "practice audit trail",
   ],
-  authors: [{ name: "DocuCollect Team" }],
-  creator: "DocuCollect",
-  publisher: "DocuCollect",
+  authors: [{ name: "DocGet Team" }],
+  creator: "DocGet",
+  publisher: "DocGet",
   robots: {
     index: true,
     follow: true,
@@ -51,8 +51,8 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: siteUrl,
-    siteName: "DocuCollect",
-    title: "DocuCollect — Secure Client Document Collection Portal",
+    siteName: "DocGet",
+    title: "DocGet — Secure Client Document Collection Portal",
     description:
       "Replace chaotic WhatsApp & email attachments with structured client document checklists, instant verification, and automatic client follow-ups.",
     images: [
@@ -60,16 +60,16 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "DocuCollect — Client Document Collection Portal",
+        alt: "DocGet — Client Document Collection Portal",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "DocuCollect — Secure Client Document Collection Portal",
+    title: "DocGet — Secure Client Document Collection Portal",
     description:
       "Collect client documents via WhatsApp links with structured checklists and CA review dashboard.",
-    creator: "@docucollect",
+    creator: "@docget",
   },
   alternates: {
     canonical: siteUrl,
@@ -82,7 +82,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "DocuCollect",
+  name: "DocGet",
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   offers: {
@@ -104,7 +104,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('docucollect_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';}else{document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}}catch(e){}})()`,
+            __html: `(function(){try{var t=localStorage.getItem('docget_theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);if(d){document.documentElement.classList.add('dark');document.documentElement.style.colorScheme='dark';}else{document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}}catch(e){}})()`,
           }}
         />
         <script

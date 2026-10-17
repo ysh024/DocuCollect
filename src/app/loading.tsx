@@ -6,7 +6,7 @@ export default function GlobalLoading() {
           <div className="w-10 h-10 rounded-full border-2 border-neutral-200 border-t-neutral-900 animate-spin" />
         </div>
         <p className="text-xs font-semibold text-neutral-500 tracking-wide uppercase">
-          Loading DocuCollect...
+          Loading DocGet...
         </p>
       </div>
     </div>

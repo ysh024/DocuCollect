@@ -40,9 +40,9 @@ import {
   Briefcase,
   Paperclip,
 } from "lucide-react";
-import type { PublicPaymentSettings } from "@/app/actions/portal";
-import { useToast } from "@/components/ui/Toast";
-import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
+import type { PublicPaymentSettings } from "@/app/actions";
+import { useToast } from "@/components/ui";
+import { DeleteConfirmationModal } from "@/components/ui";
 
 export default function AdminPortalPage() {
   const { toast } = useToast();
@@ -56,7 +56,7 @@ export default function AdminPortalPage() {
   // Active Tab
   const [activeTab, setActiveTab] = useState<
     "infrastructure" | "generate" | "ledger" | "direct" | "users" | "cases" | "templates" | "broadcast" | "payment"
-  >("generate");
+  >("infrastructure");
 
   // Infrastructure & Analytics State (Admin-Only)
   const [dbMetrics, setDbMetrics] = useState<any>(null);
@@ -67,10 +67,10 @@ export default function AdminPortalPage() {
   const [paymentSettings, setPaymentSettings] = useState<PublicPaymentSettings>({
     upi_id: "7290964963@kotak811",
     bank_name: "State Bank of India",
-    bank_holder: "DocuCollect Technologies",
+    bank_holder: "DocGet Technologies",
     bank_account: "3982001100234",
     bank_ifsc: "SBIN0001234",
-    contact_email: "support@docucollect.in",
+    contact_email: "support@docget.in",
     contact_phone: "+919718871979",
     show_upi: true,
     show_bank: true,
@@ -166,7 +166,7 @@ export default function AdminPortalPage() {
       (typeof window !== "undefined" ? sessionStorage.getItem("dc_admin_email") : "") ||
       "";
 
-    const res = await fetch("/api/admin/action", {
+    const res = await fetch("/api/admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ actionType, adminSecret: secret, adminEmail: email, payload }),
@@ -189,6 +189,18 @@ export default function AdminPortalPage() {
         if (res.analytics) setAnalytics(res.analytics);
         setKeysList(res.keys || []);
         setRecentUsers(res.recentUsers || []);
+
+        callAdminAction("get_cases", undefined, { secret, email })
+          .then((cRes) => {
+            if (cRes?.cases) setAdminCases(cRes.cases);
+          })
+          .catch(console.error);
+
+        callAdminAction("get_templates", undefined, { secret, email })
+          .then((tRes) => {
+            if (tRes?.templates) setAdminTemplates(tRes.templates);
+          })
+          .catch(console.error);
 
         callAdminAction("get_payment", undefined, { secret, email })
           .then((pRes) => {
@@ -424,7 +436,7 @@ export default function AdminPortalPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `docucollect_users_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `docget_users_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -606,7 +618,7 @@ export default function AdminPortalPage() {
             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto shadow-inner">
               <CheckCircle className="w-6 h-6" />
             </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">DocuCollect Admin Console</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">DocGet Admin Console</h1>
             <p className="text-xs text-neutral-400">
               Restricted administrative authority. Enter your verified admin email and secret key to issue single-use license vouchers and manage accounts.
             </p>
@@ -681,7 +693,7 @@ export default function AdminPortalPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-white tracking-tight">DocuCollect</span>
+                <span className="text-sm font-bold text-white tracking-tight">DocGet</span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.2 rounded font-mono font-bold">
                   ADMIN CONSOLE
                 </span>
@@ -861,7 +873,10 @@ export default function AdminPortalPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("cases")}
+            onClick={() => {
+              setActiveTab("cases");
+              if (adminCases.length === 0) loadAdminCases();
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === "cases"
                 ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
@@ -874,7 +889,10 @@ export default function AdminPortalPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("templates")}
+            onClick={() => {
+              setActiveTab("templates");
+              if (adminTemplates.length === 0) loadAdminTemplates();
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === "templates"
                 ? "bg-emerald-500 text-neutral-950 shadow-md shadow-emerald-500/20"
@@ -1279,7 +1297,7 @@ export default function AdminPortalPage() {
                     />
                     <a
                       href={`https://wa.me/${dispatchPhone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                        `Hello! Here is your one-time DocuCollect license voucher key: *${lastGeneratedKey.code}* (${lastGeneratedKey.plan_name.toUpperCase()} - ${lastGeneratedKey.period.toUpperCase()}).\n\nPlease redeem it on your DocuCollect Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
+                        `Hello! Here is your one-time DocGet license voucher key: *${lastGeneratedKey.code}* (${lastGeneratedKey.plan_name.toUpperCase()} - ${lastGeneratedKey.period.toUpperCase()}).\n\nPlease redeem it on your DocGet Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1420,7 +1438,7 @@ export default function AdminPortalPage() {
                             {k.status === "active" && (
                               <a
                                 href={`https://wa.me/?text=${encodeURIComponent(
-                                  `Hello! Here is your one-time DocuCollect license voucher key: *${k.code}* (${k.plan_name.toUpperCase()} - ${k.period.toUpperCase()}).\n\nPlease redeem it on your Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
+                                  `Hello! Here is your one-time DocGet license voucher key: *${k.code}* (${k.plan_name.toUpperCase()} - ${k.period.toUpperCase()}).\n\nPlease redeem it on your Billing page under "Redeem Key / Voucher" to instantly activate your plan.`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
@@ -1779,7 +1797,7 @@ export default function AdminPortalPage() {
                     onChange={(e) =>
                       setPaymentSettings({ ...paymentSettings, bank_holder: e.target.value })
                     }
-                    placeholder="e.g. DocuCollect Technologies"
+                    placeholder="e.g. DocGet Technologies"
                     className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>

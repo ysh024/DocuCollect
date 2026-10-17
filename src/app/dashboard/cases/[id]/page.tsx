@@ -23,7 +23,7 @@ import {
   Loader2,
   Trash2,
 } from "lucide-react";
-import { InfoPopover } from "@/components/ui/InfoPopover";
+import { InfoPopover } from "@/components/ui";
 import {
   getCaseDetails,
   generateUploadLinkAction,
@@ -31,17 +31,19 @@ import {
   advisorDeleteDocumentAction,
   advisorBulkDeleteDocumentsAction,
   deleteCaseAction,
-} from "@/app/actions/portal";
+} from "@/app/actions";
 import { CaseWithDetails, DocumentRequirement, Document } from "@/types";
 import { getCaseStatusBadge, getRequirementStatusBadge, formatDate, formatDateTime, formatBytes } from "@/lib/utils";
-import { ReviewModal } from "@/components/dashboard/ReviewModal";
-import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
-import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
-import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
-import { useToast } from "@/components/ui/Toast";
+import {
+  ReviewModal,
+  DocumentPreviewModal,
+  WhatsAppShareModal,
+  WhatsAppReminderModal,
+} from "@/components/dashboard/Modals";
+import { useToast } from "@/components/ui";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
-import { downloadFileWithFeedback } from "@/lib/download-client";
-import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
+import { downloadFileWithFeedback } from "@/lib/utils";
+import { DeleteConfirmationModal } from "@/components/ui";
 
 // Tenant-partitioned module-level in-memory cache to stop repeated fetch thrashing
 const caseDetailsClientCache = new Map<string, { data: CaseWithDetails; timestamp: number }>();
@@ -55,9 +57,9 @@ export default function CaseDetailPage() {
   const caseId = Array.isArray(rawId) ? rawId[0] : (rawId as string);
 
   const { toast } = useToast();
-  const { data: dashboardData, user, refresh: refreshDashboard } = useDashboardData();
+  const { data: dashboardData, user, refresh: refreshDashboard, navigateToTab } = useDashboardData();
 
-  const userOrgId = user?.organization_id;
+  const userOrgId = user?.organization_id || user?.organizationId;
   const cacheKey = `${userOrgId || "anon"}:${caseId}`;
 
   // Instant Cache resolution: Only resolve from cache if tenant matches active user organization
@@ -66,9 +68,8 @@ export default function CaseDetailPage() {
   );
 
   const [caseData, setCaseData] = useState<CaseWithDetails | null>(() => {
-    if (!userOrgId) return null;
     const entry = caseDetailsClientCache.get(cacheKey);
-    if (entry && entry.data.organization_id === userOrgId) return entry.data;
+    if (entry && (!userOrgId || entry.data.organization_id === userOrgId)) return entry.data;
     return cachedCase || null;
   });
   const [loading, setLoading] = useState<boolean>(!caseData);
@@ -182,7 +183,7 @@ export default function CaseDetailPage() {
     rejectionReason?: string
   ) => {
     try {
-      const res = await fetch("/api/cases/review", {
+      const res = await fetch(`/api/cases/${targetCaseId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ caseId: targetCaseId, requirementId: reqId, documentId: docId, action, rejectionReason }),
@@ -247,9 +248,52 @@ export default function CaseDetailPage() {
   // Loading State
   if (loading && !caseData) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[55vh] space-y-3">
-        <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Loading case file...</p>
+      <div className="space-y-6 w-full pb-12 animate-in fade-in duration-150">
+        {/* Back Link Shimmer */}
+        <div className="h-4 w-24 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+
+        {/* Case Banner Shimmer */}
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl border border-neutral-200/80 dark:border-neutral-800 p-6 sm:p-8 space-y-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-28 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                <div className="h-5 w-20 bg-neutral-100 dark:bg-neutral-800 rounded-full animate-pulse" />
+              </div>
+              <div className="h-7 w-64 bg-neutral-200 dark:bg-neutral-800 rounded-lg animate-pulse" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-9 w-28 bg-neutral-100 dark:bg-neutral-800 rounded-xl animate-pulse" />
+              <div className="h-9 w-32 bg-neutral-900/20 dark:bg-neutral-700/60 rounded-xl animate-pulse" />
+            </div>
+          </div>
+          <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center gap-6">
+            <div className="h-4 w-36 bg-neutral-100 dark:bg-neutral-800/70 rounded animate-pulse" />
+            <div className="h-4 w-28 bg-neutral-100 dark:bg-neutral-800/70 rounded animate-pulse" />
+          </div>
+        </div>
+
+        {/* Checklist Slots Shimmer */}
+        <div className="space-y-3">
+          <div className="h-4 w-40 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 p-4 flex items-center justify-between gap-4 shadow-xs"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse shrink-0" />
+                  <div className="space-y-1.5 min-w-0">
+                    <div className="h-4 w-48 bg-neutral-200 dark:bg-neutral-800 rounded animate-pulse" />
+                    <div className="h-3 w-64 bg-neutral-100 dark:bg-neutral-800/60 rounded animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-7 w-20 bg-neutral-100 dark:bg-neutral-800 rounded-lg animate-pulse shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -280,7 +324,14 @@ export default function CaseDetailPage() {
           </button>
           <Link
             href="/dashboard/cases"
-            className="inline-flex items-center gap-1 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl transition"
+            prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                e.preventDefault();
+                navigateToTab("cases");
+              }
+            }}
+            className="inline-flex items-center gap-1 px-4 py-2 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 text-neutral-700 dark:text-neutral-200 text-xs font-semibold rounded-xl transition cursor-pointer"
           >
             ← Back to Cases
           </Link>
@@ -561,7 +612,14 @@ export default function CaseDetailPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/cases"
-            onClick={() => setIsLeaving(true)}
+            prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                e.preventDefault();
+                setIsLeaving(true);
+                navigateToTab("cases");
+              }
+            }}
             className="w-8 h-8 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:white flex items-center justify-center shadow-subtle transition-colors cursor-pointer"
             title="Back to Cases"
           >
@@ -1001,6 +1059,23 @@ export default function CaseDetailPage() {
           isOpen={true}
           onClose={() => setSelectedForReview(null)}
           onSuccess={() => {
+            if (caseData?.id) caseDetailsClientCache.delete(caseData.id);
+            loadCase(true);
+            if (refreshDashboard) refreshDashboard();
+          }}
+        />
+      )}
+
+      {/* Document Preview Pop-up Window Modal */}
+      {previewDoc && (
+        <DocumentPreviewModal
+          document={previewDoc.doc}
+          requirementName={previewDoc.req.name}
+          requirementId={previewDoc.req.id}
+          caseId={caseData.id}
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          onStatusUpdated={() => {
             if (caseData?.id) caseDetailsClientCache.delete(caseData.id);
             loadCase(true);
             if (refreshDashboard) refreshDashboard();

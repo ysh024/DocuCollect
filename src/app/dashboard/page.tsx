@@ -23,25 +23,28 @@ import {
   Share2,
   Check,
   Phone,
+  RefreshCw,
 } from "lucide-react";
-import { InfoPopover } from "@/components/ui/InfoPopover";
+import { InfoPopover } from "@/components/ui";
 import { CaseWithDetails, Document } from "@/types";
 import { getCaseStatusBadge, formatDate } from "@/lib/utils";
-import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
-import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
-import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
-import { NewClientModal } from "@/components/dashboard/NewClientModal";
-import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
-import { useToast } from "@/components/ui/Toast";
+import {
+  WhatsAppShareModal,
+  WhatsAppReminderModal,
+  NewCaseModal,
+  NewClientModal,
+  DocumentPreviewModal,
+} from "@/components/dashboard/Modals";
+import { useToast } from "@/components/ui";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
-import { downloadFileWithFeedback } from "@/lib/download-client";
-import { generateUploadLinkAction } from "@/app/actions/portal";
+import { downloadFileWithFeedback } from "@/lib/utils";
+import { generateUploadLinkAction } from "@/app/actions";
 
 export default function DashboardOverviewPage() {
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const { data, user: userProfile, refresh } = useDashboardData();
+  const { data, user: userProfile, refresh, error, navigateToTab } = useDashboardData();
 
   const [filter, setFilter] = useState<"all" | "pending" | "under_review" | "completed">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -70,7 +73,7 @@ export default function DashboardOverviewPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined" && data) {
-      const dismissed = localStorage.getItem("docucollect_onboarding_dismissed");
+      const dismissed = localStorage.getItem("docget_onboarding_dismissed");
       if (!dismissed && data.cases.length === 0) {
         setShowOnboarding(true);
       }
@@ -80,14 +83,78 @@ export default function DashboardOverviewPage() {
   const dismissOnboarding = () => {
     setShowOnboarding(false);
     if (typeof window !== "undefined") {
-      localStorage.setItem("docucollect_onboarding_dismissed", "true");
+      localStorage.setItem("docget_onboarding_dismissed", "true");
     }
   };
 
   if (!data) {
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center p-6">
+          <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center justify-center mb-4">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold text-neutral-900 dark:text-white mb-1">
+            Database Connection Error
+          </h2>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 max-w-md mb-6">
+            {error || "Could not load workspace data from the database. Please check your connection and retry."}
+          </p>
+          <button
+            onClick={() => refresh(false, true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Retry Connection
+          </button>
+        </div>
+      );
+    }
+
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="w-6 h-6 border-2 border-neutral-900 dark:border-white border-t-transparent rounded-full animate-spin" />
+      <div className="space-y-6 animate-pulse">
+        {/* Top Header Skeleton */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-48 bg-neutral-200 dark:bg-neutral-800 rounded-lg" />
+            <div className="h-4 w-72 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-28 bg-neutral-200 dark:bg-neutral-800 rounded-xl" />
+            <div className="h-9 w-32 bg-neutral-200 dark:bg-neutral-800 rounded-xl" />
+          </div>
+        </div>
+
+        {/* Metric Cards Skeleton */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="p-4 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 space-y-2.5">
+              <div className="h-3 w-20 bg-neutral-100 dark:bg-neutral-800/70 rounded" />
+              <div className="h-7 w-14 bg-neutral-200 dark:bg-neutral-800 rounded" />
+              <div className="h-2.5 w-28 bg-neutral-100 dark:bg-neutral-800/50 rounded" />
+            </div>
+          ))}
+        </div>
+
+        {/* Direct Submissions Stream Skeleton */}
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-4 space-y-3">
+          <div className="h-4 w-44 bg-neutral-200 dark:bg-neutral-800 rounded" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-neutral-50 dark:bg-neutral-800/50 rounded-xl border border-neutral-100 dark:border-neutral-800" />
+            ))}
+          </div>
+        </div>
+
+        {/* Cases Table Skeleton */}
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 p-5 space-y-3">
+          <div className="h-10 w-full bg-neutral-100 dark:bg-neutral-800/60 rounded-xl" />
+          <div className="space-y-2 pt-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-14 bg-neutral-50 dark:bg-neutral-800/40 rounded-xl" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -169,15 +236,18 @@ export default function DashboardOverviewPage() {
             <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-white">
               {userProfile ? `Welcome, ${userProfile.fullName}` : "Dashboard Overview"}
             </h1>
+            <InfoPopover
+              title="Dashboard Overview"
+              text="Monitor client document uploads, reviews, and collection progress in real time."
+              align="left"
+              side="bottom"
+            />
             {userProfile && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
                 {userProfile.organizationName}
               </span>
             )}
           </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Monitor client document uploads, reviews, and collection progress in real time.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -210,7 +280,14 @@ export default function DashboardOverviewPage() {
           </div>
           <Link
             href="/dashboard/settings"
-            className="inline-flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300 hover:underline shrink-0 text-xs"
+            prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                e.preventDefault();
+                navigateToTab("settings");
+              }
+            }}
+            className="inline-flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300 hover:underline shrink-0 text-xs cursor-pointer"
           >
             <span>Update in Settings →</span>
           </Link>
@@ -229,73 +306,65 @@ export default function DashboardOverviewPage() {
             <X className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <span className="p-1 rounded-lg bg-emerald-600 text-white shadow-xs">
               <Sparkles className="w-4 h-4" />
             </span>
-            <h2 className="text-sm font-bold text-neutral-900 dark:text-white">
-              Getting Started with DocuCollect in 3 Simple Steps
+            <h2 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-1.5">
+              Getting Started
+              <InfoPopover text="Three simple steps to collect client documents 10x faster without email clutter." />
             </h2>
           </div>
-          <p className="text-xs text-neutral-600 dark:text-neutral-300 max-w-2xl mb-4">
-            Collect verified client documents 10x faster without email clutter or follow-up phone calls.
-          </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-            <div className="p-3 bg-white/90 dark:bg-neutral-800/70 border border-emerald-100 dark:border-neutral-700 rounded-xl space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-white">
-                <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <div className="p-3 bg-white/90 dark:bg-neutral-800/70 border border-emerald-100 dark:border-neutral-700 rounded-xl flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px] font-bold shrink-0">
                   1
                 </span>
-                <span>Add Your First Client</span>
+                <span className="text-xs font-semibold text-neutral-900 dark:text-white truncate">Add Client</span>
+                <InfoPopover title="Step 1: Add Client" text="Create a client profile with phone number for automated WhatsApp reminders." />
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Create a client record with their name and phone number for WhatsApp reminders.
-              </p>
               <button
                 type="button"
                 onClick={() => setIsNewClientOpen(true)}
-                className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline shrink-0 cursor-pointer"
               >
-                <span>+ Add Client</span>
+                + Add
               </button>
             </div>
 
-            <div className="p-3 bg-white/90 dark:bg-neutral-800/70 border border-emerald-100 dark:border-neutral-700 rounded-xl space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-white">
-                <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px]">
+            <div className="p-3 bg-white/90 dark:bg-neutral-800/70 border border-emerald-100 dark:border-neutral-700 rounded-xl flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px] font-bold shrink-0">
                   2
                 </span>
-                <span>Select Checklist Template</span>
+                <span className="text-xs font-semibold text-neutral-900 dark:text-white truncate">New Case</span>
+                <InfoPopover title="Step 2: Assign Template" text="Select standard checklists (GST, ITR, Audit) or build custom requirements." />
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Choose standard checklists (GST, ITR, Company, Visa) or build your own custom list.
-              </p>
               <button
                 type="button"
                 onClick={() => setIsNewCaseOpen(true)}
-                className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline shrink-0 cursor-pointer"
               >
-                <span>+ Create Case</span>
+                + Case
               </button>
             </div>
 
-            <div className="p-3 bg-white/90 dark:bg-neutral-800/70 border border-emerald-100 dark:border-neutral-700 rounded-xl space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold text-neutral-900 dark:text-white">
-                <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px]">
+            <div className="p-3 bg-white/90 dark:bg-neutral-800/70 border border-emerald-100 dark:border-neutral-700 rounded-xl flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 flex items-center justify-center text-[11px] font-bold shrink-0">
                   3
                 </span>
-                <span>Share 1-Click Upload Link</span>
+                <span className="text-xs font-semibold text-neutral-900 dark:text-white truncate">Share Link</span>
+                <InfoPopover title="Step 3: Client Upload Link" text="Send 1-click token link. Clients upload directly without needing any password." />
               </div>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                Send link to client. They upload from phone/desktop without needing any password!
-              </p>
               <button
                 type="button"
                 onClick={dismissOnboarding}
-                className="mt-2 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer"
+                className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 shrink-0 cursor-pointer"
               >
-                Got it, dismiss guide
+                Dismiss
               </button>
             </div>
           </div>
@@ -304,30 +373,50 @@ export default function DashboardOverviewPage() {
 
       {/* 4 Minimal Metric Cards with 1-Click filter clickability */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setFilter("all")}
-          className={`p-4 bg-white dark:bg-neutral-900 rounded-2xl border text-left transition-all cursor-pointer ${
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setFilter("all");
+            }
+          }}
+          className={`p-4 bg-white dark:bg-neutral-900 rounded-2xl border text-left transition-all cursor-pointer select-none ${
             filter === "all" ? "border-neutral-900 dark:border-white ring-1 ring-neutral-900/10 shadow-xs" : "border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700"
           }`}
         >
-          <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Active Cases</p>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Active Cases</p>
+            <InfoPopover title="Active Cases" text="Cases currently in your active workflow pipeline." />
+          </div>
           <p className="text-2xl font-bold text-neutral-900 dark:text-white mt-1">{data.metrics.activeCases}</p>
           <div className="flex items-center gap-1.5 mt-2 text-[10px] text-blue-600 dark:text-blue-400 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
             <span>In pipeline</span>
           </div>
-        </button>
+        </div>
 
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setFilter("under_review")}
-          className={`p-4 bg-white dark:bg-neutral-900 rounded-2xl border text-left transition-all cursor-pointer ${
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setFilter("under_review");
+            }
+          }}
+          className={`p-4 bg-white dark:bg-neutral-900 rounded-2xl border text-left transition-all cursor-pointer select-none ${
             filter === "under_review" ? "border-indigo-600 ring-1 ring-indigo-600/20 shadow-xs" : "border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700"
           }`}
         >
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Awaiting Review</p>
+            <div className="flex items-center gap-1">
+              <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Awaiting Review</p>
+              <InfoPopover title="Awaiting Review" text="Documents uploaded by clients that are pending advisor verification." />
+            </div>
             {data.metrics.documentsAwaitingReview > 0 && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-800">
                 {data.metrics.documentsAwaitingReview} doc{data.metrics.documentsAwaitingReview === 1 ? "" : "s"}
@@ -339,17 +428,27 @@ export default function DashboardOverviewPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
             <span>{data.metrics.casesAwaitingReview === 1 ? "1 case needs review" : `${data.metrics.casesAwaitingReview} cases need review`}</span>
           </div>
-        </button>
+        </div>
 
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setFilter("pending")}
-          className={`p-4 bg-white dark:bg-neutral-900 rounded-2xl border text-left transition-all cursor-pointer ${
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setFilter("pending");
+            }
+          }}
+          className={`p-4 bg-white dark:bg-neutral-900 rounded-2xl border text-left transition-all cursor-pointer select-none ${
             filter === "pending" ? "border-amber-600 ring-1 ring-amber-600/20 shadow-xs" : "border-neutral-200 dark:border-neutral-800 shadow-2xs hover:border-neutral-300 dark:hover:border-neutral-700"
           }`}
         >
           <div className="flex items-center justify-between">
-            <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Pending Uploads</p>
+            <div className="flex items-center gap-1">
+              <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Pending Uploads</p>
+              <InfoPopover title="Pending Uploads" text="Cases where client has not yet uploaded all required documents." />
+            </div>
             {data.metrics.pendingDocuments > 0 && (
               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-100 dark:border-amber-800">
                 {data.metrics.pendingDocuments} doc{data.metrics.pendingDocuments === 1 ? "" : "s"}
@@ -361,10 +460,13 @@ export default function DashboardOverviewPage() {
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             <span>{data.metrics.casesPendingUpload === 1 ? "1 case awaiting client" : `${data.metrics.casesPendingUpload} cases awaiting client`}</span>
           </div>
-        </button>
+        </div>
 
         <div className="p-4 bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 shadow-2xs">
-          <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Total Clients</p>
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Total Clients</p>
+            <InfoPopover title="Total Clients" text="Active clients registered in your practice directory." />
+          </div>
           <p className="text-2xl font-bold text-neutral-900 dark:text-white mt-1">{data.metrics.totalClients}</p>
           <div className="flex items-center gap-1.5 mt-2 text-[10px] text-neutral-500 dark:text-neutral-400 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
@@ -558,7 +660,7 @@ export default function DashboardOverviewPage() {
                       <td className="py-3.5 px-4 min-w-0">
                         <Link
                           href={`/dashboard/cases/${c.id}`}
-                          prefetch={false}
+                          prefetch={true}
                           onClick={() => setOpeningCaseId(c.id)}
                           className="block group"
                         >
@@ -639,7 +741,7 @@ export default function DashboardOverviewPage() {
                           {/* Open Case Details */}
                           <Link
                             href={`/dashboard/cases/${c.id}`}
-                            prefetch={false}
+                            prefetch={true}
                             onClick={() => setOpeningCaseId(c.id)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-neutral-900 hover:bg-neutral-800 dark:bg-white dark:hover:bg-neutral-100 text-white dark:text-neutral-900 font-bold rounded-lg transition-colors text-[11px] shadow-2xs shrink-0 ml-0.5 cursor-pointer"
                           >
@@ -702,7 +804,12 @@ export default function DashboardOverviewPage() {
           clients={data.clients}
           isOpen={isNewCaseOpen}
           onClose={() => setIsNewCaseOpen(false)}
-          onSuccess={() => refresh()}
+          onSuccess={(newCase) => {
+            refresh();
+            if (newCase?.id) {
+              navigateToTab(`/dashboard/cases?highlight=${newCase.id}`);
+            }
+          }}
         />
       )}
 
@@ -710,7 +817,12 @@ export default function DashboardOverviewPage() {
         <NewClientModal
           isOpen={isNewClientOpen}
           onClose={() => setIsNewClientOpen(false)}
-          onSuccess={() => refresh()}
+          onSuccess={(client) => {
+            refresh();
+            if (client?.id) {
+              navigateToTab(`/dashboard/clients?highlight=${client.id}`);
+            }
+          }}
         />
       )}
     </div>

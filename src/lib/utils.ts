@@ -1,5 +1,11 @@
 import { type ClassValue, clsx } from "clsx";
-import { CaseStatus, RequirementStatus, DocumentStatus } from "@/types";
+import crypto from "crypto";
+import { z } from "zod";
+import { CaseStatus, RequirementStatus } from "@/types";
+
+// =====================================================================
+// CSS CLASS UTILITIES & FORMATTERS
+// =====================================================================
 
 export function cn(...inputs: ClassValue[]) {
   return clsx(inputs);
@@ -136,4 +142,304 @@ export function getRequirementStatusBadge(status: RequirementStatus): {
         bgCard: "bg-white dark:bg-neutral-900",
       };
   }
+}
+
+// =====================================================================
+// UPLOAD TOKENS & SECURITY HELPERS
+// =====================================================================
+
+export function generateUploadToken(): {
+  token: string;
+  tokenHash: string;
+  tokenPrefix: string;
+} {
+  const token = crypto.randomBytes(24).toString("base64url");
+  const tokenHash = hashToken(token);
+  const tokenPrefix = token.substring(0, 6);
+
+  return {
+    token,
+    tokenHash,
+    tokenPrefix,
+  };
+}
+
+export function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// =====================================================================
+// IN-MEMORY LOGO CACHE
+// =====================================================================
+
+const logoUrlCache = new Map<string, { logoUrl: string | null; expires: number }>();
+
+export function getCachedLogo(orgId: string): { logoUrl: string | null; expires: number } | undefined {
+  return logoUrlCache.get(orgId);
+}
+
+export function setCachedLogo(orgId: string, data: { logoUrl: string | null; expires: number }): void {
+  logoUrlCache.set(orgId, data);
+}
+
+export function invalidateLogoCache(orgId?: string): void {
+  if (orgId) {
+    logoUrlCache.delete(orgId);
+  } else {
+    logoUrlCache.clear();
+  }
+}
+
+// =====================================================================
+// RATE LIMITING
+// =====================================================================
+
+interface RateLimitRecord {
+  timestamps: number[];
+}
+
+const rateLimitStore = new Map<string, RateLimitRecord>();
+const CLEANUP_INTERVAL = 60 * 1000;
+let lastCleanup = Date.now();
+
+function cleanupStaleEntries(now: number) {
+  if (now - lastCleanup < CLEANUP_INTERVAL) return;
+  lastCleanup = now;
+
+  for (const [key, record] of Array.from(rateLimitStore.entries())) {
+    const activeTimestamps = record.timestamps.filter((ts) => now - ts < 3600 * 1000);
+    if (activeTimestamps.length === 0) {
+      rateLimitStore.delete(key);
+    } else {
+      record.timestamps = activeTimestamps;
+    }
+  }
+}
+
+export function checkRateLimit(
+  key: string,
+  maxAttempts: number,
+  windowSeconds: number
+): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
+  const now = Date.now();
+  cleanupStaleEntries(now);
+
+  const windowMs = windowSeconds * 1000;
+  const record = rateLimitStore.get(key) || { timestamps: [] };
+  const recentTimestamps = record.timestamps.filter((ts) => now - ts < windowMs);
+
+  const effectiveMax =
+    process.env.NODE_ENV === "development" ? Math.max(maxAttempts, 100) : maxAttempts;
+
+  if (recentTimestamps.length >= effectiveMax) {
+    const oldestInWindow = recentTimestamps[0];
+    const retryAfterMs = oldestInWindow + windowMs - now;
+    const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+
+    return {
+      allowed: false,
+      remaining: 0,
+      retryAfterSeconds,
+    };
+  }
+
+  recentTimestamps.push(now);
+  rateLimitStore.set(key, { timestamps: recentTimestamps });
+
+  return {
+    allowed: true,
+    remaining: maxAttempts - recentTimestamps.length,
+    retryAfterSeconds: 0,
+  };
+}
+
+export function resetRateLimit(key: string): void {
+  rateLimitStore.delete(key);
+}
+
+// =====================================================================
+// CLIENT DOWNLOAD WITH FEEDBACK
+// =====================================================================
+
+export async function downloadFileWithFeedback({
+  url,
+  fileName,
+  toast,
+  onStart,
+  onComplete,
+}: {
+  url: string;
+  fileName: string;
+  toast?: (options: { title: string; description?: string; type?: "success" | "error" | "info" }) => void;
+  onStart?: () => void;
+  onComplete?: () => void;
+}): Promise<boolean> {
+  if (onStart) onStart();
+
+  if (toast) {
+    toast({
+      title: "Download Started",
+      description: `Downloading "${fileName}"...`,
+      type: "info",
+    });
+  }
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || `Server responded with status ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.style.display = "none";
+    a.href = blobUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(blobUrl);
+    }, 1000);
+
+    if (toast) {
+      toast({
+        title: "Download Complete",
+        description: `"${fileName}" has been downloaded successfully.`,
+        type: "success",
+      });
+    }
+
+    if (onComplete) onComplete();
+    return true;
+  } catch (err: any) {
+    console.error("Download error:", err);
+    if (toast) {
+      toast({
+        title: "Download Failed",
+        description: err?.message || `Could not download "${fileName}". Please check your internet connection.`,
+        type: "error",
+      });
+    }
+    if (onComplete) onComplete();
+    return false;
+  }
+}
+
+// =====================================================================
+// SCHEMA VALIDATIONS
+// =====================================================================
+
+export const clientSchema = z.object({
+  name: z.string().min(2, "Client name must be at least 2 characters"),
+  email: z.string().email("Invalid email address").optional().or(z.literal("")),
+  phone: z.string().min(8, "Phone number is required"),
+  alternate_phone: z.string().optional().or(z.literal("")),
+  company: z.string().optional().or(z.literal("")),
+  client_ref_id: z.string().optional().or(z.literal("")),
+  address: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+});
+
+export const caseSchema = z.object({
+  client_id: z.string().uuid("Valid client ID is required"),
+  title: z.string().min(2, "Case title is required"),
+  service_type: z.string().min(2, "Service type is required"),
+  reference_number: z.string().min(1, "Reference number is required"),
+  due_date: z.string().optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+});
+
+export const documentRequirementSchema = z.object({
+  case_id: z.string().uuid(),
+  name: z.string().min(2, "Document name is required"),
+  description: z.string().optional().or(z.literal("")),
+  is_required: z.boolean().default(true),
+  allowed_types: z.array(z.string()).min(1, "At least one allowed file type required"),
+  max_size_mb: z.number().min(1).max(50).default(25),
+});
+
+export const reviewDocumentSchema = z.object({
+  document_id: z.string().uuid(),
+  status: z.enum(["approved", "rejected"]),
+  rejection_reason: z.string().optional(),
+});
+
+// =====================================================================
+// UNIFIED EMAIL NOTIFICATION SERVICE
+// =====================================================================
+
+export interface EmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  eventType: "auth_otp" | "welcome" | "doc_uploaded" | "doc_reviewed" | "password_reset" | "license_redeemed" | "case_completed";
+  plan?: string;
+}
+
+export async function sendNotificationEmail(opts: EmailOptions): Promise<{ success: boolean; status?: string; error?: string }> {
+  const googleScriptUrl = process.env.GOOGLE_SCRIPT_EMAIL_URL;
+  const resendApiKey = process.env.RESEND_API_KEY;
+
+  if (googleScriptUrl) {
+    try {
+      const response = await fetch(googleScriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        redirect: "follow",
+        signal: AbortSignal.timeout(4000),
+        body: JSON.stringify({
+          to: opts.to,
+          subject: opts.subject,
+          html: opts.html,
+          eventType: opts.eventType,
+          plan: opts.plan || "free",
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      return {
+        success: Boolean(data.success),
+        status: data.status || "SENT",
+        error: data.error,
+      };
+    } catch (err: any) {
+      console.warn("Google Apps Script email service error:", err);
+    }
+  }
+
+  if (resendApiKey) {
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM || "DocGet <amankumarak5933485@gmail.com>",
+          to: [opts.to],
+          subject: opts.subject,
+          html: opts.html,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      return {
+        success: response.ok,
+        status: response.ok ? "SENT" : "ERROR",
+        error: data.message,
+      };
+    } catch (err: any) {
+      console.warn("Resend email delivery error:", err);
+    }
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[Email Mock (${opts.eventType})] To: ${opts.to} | Subject: ${opts.subject}`);
+  }
+  return { success: true, status: "DEV_FALLBACK" };
 }

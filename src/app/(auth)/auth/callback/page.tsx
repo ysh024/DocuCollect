@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { resolveGoogleSessionAction } from "@/app/actions/auth";
+import { resolveGoogleSessionAction } from "@/app/actions";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -68,7 +68,7 @@ export default function AuthCallbackPage() {
                 Completing Google Sign-In
               </h1>
               <p className="text-xs text-neutral-500">
-                Verifying your credentials and preparing your DocuCollect workspace...
+                Verifying your credentials and preparing your DocGet workspace...
               </p>
             </div>
           </>

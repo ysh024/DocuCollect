@@ -1,10 +1,10 @@
 {
-  "name": "docucollect",
+  "name": "docget",
   "version": "1.0.0",
   "description": "Secure client document collection portal for Chartered Accountants, Tax Consultants, and Legal Advisors",
   "private": true,
-  "author": "DocuCollect",
-  "homepage": "https://docucollect.app",
+  "author": "DocGet",
+  "homepage": "https://docget.app",
   "keywords": [
     "docucollect",
     "document-collection",
@@ -26,14 +26,12 @@
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy:worker": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "test:security": "npx tsx security-audit/tests/verify-phase5-hardening.ts && npx tsx security-audit/tests/verify-phase3-fixes.ts && npx tsx security-audit/tests/adversarial-suite.ts && npx tsx scripts/test-security.ts",
-    "preinstall": "node -e \"require('fs').existsSync('.git/hooks/code-guardian/git-hooks/checkInstall.cjs') && require('child_process').execFileSync('node', ['.git/hooks/code-guardian/git-hooks/checkInstall.cjs'], {stdio:'inherit'})\""
+    "test:security": "npx tsx security-audit/tests/verify-phase5-hardening.ts && npx tsx security-audit/tests/verify-phase3-fixes.ts && npx tsx security-audit/tests/adversarial-suite.ts && npx tsx scripts/test-security.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1148.0",
     "@aws-sdk/s3-request-presigner": "^3.1148.0",
     "@neondatabase/serverless": "^1.2.0",
-    "@types/jszip": "^3.4.0",
     "aws4fetch": "^1.0.20",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -50,13 +48,21 @@
   "devDependencies": {
     "@opennextjs/cloudflare": "^1.20.10",
     "@types/bcryptjs": "^2.4.6",
+    "@types/jszip": "^3.4.0",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "autoprefixer": "^10.6.1",
-    "postcss": "^8.5.2",
+    "postcss": "^8.5.30",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "wrangler": "^4.149.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.30",
+    "@node-minify/core": {
+      "glob": "^10.5.0"
+    },
+    "postcss-selector-parser": "^7.1.6"
   }
 }

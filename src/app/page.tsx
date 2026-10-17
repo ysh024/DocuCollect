@@ -24,32 +24,32 @@ import {
   Copy,
   ExternalLink,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { ThemeToggle } from "@/components/ui";
 import { getSession } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "DocuCollect — Client Document Collection Portal for CAs, Tax Consultants & Advocates",
+  title: "DocGet — Client Document Collection Portal for CAs, Tax Consultants & Advocates",
   description:
-    "Secure link-based document collection portal for Indian Chartered Accountants, Tax Consultants, and Law Firms. Features Zero-Knowledge AES-256-GCM encryption, WhatsApp upload links, structured checklists, multi-file downloads, and practice audit trails.",
+    "Secure link-based document collection portal for Indian Chartered Accountants, Tax Consultants, and Law Firms. Features AES-256-GCM storage encryption, WhatsApp upload links, structured checklists, multi-file downloads, and practice audit trails.",
   keywords: [
-    "DocuCollect",
+    "DocGet",
     "CA document collection software",
     "Tax consultant client portal",
     "WhatsApp document upload link",
-    "Zero Knowledge encrypted storage",
+    "AES-256 encrypted storage",
     "Chartered Accountant checklist",
     "GST document collection",
     "ITR client files portal",
     "law firm client intake portal",
   ],
   alternates: {
-    canonical: "https://docucollect.app",
+    canonical: "https://docget.app",
   },
   openGraph: {
-    title: "DocuCollect — Client Document Collection Portal for CAs & Advisors",
+    title: "DocGet — Client Document Collection Portal for CAs & Advisors",
     description:
       "Stop chasing clients for documents. Send encrypted WhatsApp upload links with structured checklists, multi-file downloads, and immutable audit trails.",
-    url: "https://docucollect.app",
+    url: "https://docget.app",
     type: "website",
   },
 };
@@ -116,8 +116,8 @@ const features = [
   },
   {
     icon: Shield,
-    title: "Zero-Knowledge Encryption",
-    desc: "AES-256-GCM file encryption before cloud storage. Cloud providers cannot inspect files. Multi-tenant isolation.",
+    title: "AES-256-GCM Storage Encryption",
+    desc: "Application-layer AES-256-GCM file encryption before cloud storage. Cloud providers cannot inspect files. Multi-tenant isolation.",
   },
   {
     icon: Clock,
@@ -128,12 +128,12 @@ const features = [
 
 const testimonials = [
   {
-    quote: "My clients just click the WhatsApp link and upload. No confusion, no missing documents. DocuCollect saved me hours every week.",
+    quote: "My clients just click the WhatsApp link and upload. No confusion, no missing documents. DocGet saved me hours every week.",
     author: "CA Priya Mehta",
     role: "Tax Consultant, Pune",
   },
   {
-    quote: "We moved from email chains to DocuCollect in a day. The checklist system means nothing slips through the cracks.",
+    quote: "We moved from email chains to DocGet in a day. The checklist system means nothing slips through the cracks.",
     author: "Adv. Ravi Kumar",
     role: "Senior Partner, Kumar & Associates, Delhi",
   },
@@ -168,7 +168,7 @@ export default async function LandingPage() {
               <Layers className="w-4 h-4 text-white" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">DocuCollect</span>
+              <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">DocGet</span>
               <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
                 v2.0
               </span>
@@ -235,7 +235,7 @@ export default async function LandingPage() {
         </h1>
 
         <p className="text-neutral-600 dark:text-neutral-300 text-base sm:text-lg leading-relaxed max-w-2xl mx-auto mb-8 font-normal">
-          DocuCollect gives CAs, consultants, law firms, and agencies a secure link-based document collection portal.
+          DocGet gives CAs, consultants, law firms, and agencies a secure link-based document collection portal.
           Replace WhatsApp chaos with structured checklists, instant review, and complete audit trails.
         </p>
 
@@ -322,7 +322,7 @@ export default async function LandingPage() {
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 border-t border-neutral-200/80 dark:border-neutral-800 mt-3 text-xs">
               <div className="flex items-center gap-2 text-neutral-600 dark:text-neutral-400 w-full sm:w-auto">
                 <Send className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="truncate">Encrypted Upload Link: <strong className="text-neutral-900 dark:text-neutral-200 font-mono">docucollect.in/upload/sharma-8491</strong></span>
+                <span className="truncate">Encrypted Upload Link: <strong className="text-neutral-900 dark:text-neutral-200 font-mono">docget.in/upload/sharma-8491</strong></span>
               </div>
               <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                 <span className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white font-semibold text-[11px] flex items-center gap-1.5 shadow-2xs">
@@ -564,7 +564,7 @@ export default async function LandingPage() {
             <div className="w-6 h-6 rounded-md bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center shadow-xs">
               <Layers className="w-3.5 h-3.5 text-white" />
             </div>
-            <span className="text-sm font-bold text-neutral-900 dark:text-white">DocuCollect</span>
+            <span className="text-sm font-bold text-neutral-900 dark:text-white">DocGet</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-5 text-xs text-neutral-500 dark:text-neutral-400">
             <Link href="/pricing" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Pricing</Link>
@@ -575,7 +575,7 @@ export default async function LandingPage() {
             <Link href="/login" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Sign In</Link>
             <Link href="/signup" className="hover:text-neutral-900 dark:hover:text-white transition-colors">Sign Up</Link>
           </div>
-          <p className="text-xs text-neutral-400 dark:text-neutral-500">© 2026 DocuCollect. Built for professionals.</p>
+          <p className="text-xs text-neutral-400 dark:text-neutral-500">© 2026 DocGet. Built for professionals.</p>
         </div>
       </footer>
     </div>

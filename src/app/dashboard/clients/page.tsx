@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Users,
   Plus,
@@ -33,16 +34,16 @@ import {
   Loader2,
 } from "lucide-react";
 import { Client, CaseWithDetails, Document } from "@/types";
-import { formatDate, formatBytes, getCaseStatusBadge } from "@/lib/utils";
-import { NewClientModal } from "@/components/dashboard/NewClientModal";
-import { EditClientModal } from "@/components/dashboard/EditClientModal";
-import { DocumentPreviewModal } from "@/components/dashboard/DocumentPreviewModal";
-import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
-import { useToast } from "@/components/ui/Toast";
+import { formatDate, formatBytes, getCaseStatusBadge, downloadFileWithFeedback } from "@/lib/utils";
+import {
+  NewClientModal,
+  DocumentPreviewModal,
+  NewCaseModal,
+} from "@/components/dashboard/Modals";
+import { useToast, Pagination } from "@/components/ui";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
-import { Pagination } from "@/components/ui/Pagination";
-import { deleteClientAction } from "@/app/actions/portal";
-import { downloadFileWithFeedback } from "@/lib/download-client";
+import { deleteClientAction, updateClientAction } from "@/app/actions";
+import { createPortal } from "react-dom";
 
 export default function ClientsPage() {
   const { toast } = useToast();
@@ -72,6 +73,10 @@ export default function ClientsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const searchParams = useSearchParams();
+  const highlightId = searchParams?.get("highlight");
+  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -79,6 +84,25 @@ export default function ClientsPage() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search]);
+
+  useEffect(() => {
+    if (highlightId && mounted) {
+      setActiveHighlight(highlightId);
+      const targetIndex = filtered.findIndex((c) => c.id === highlightId);
+      if (targetIndex >= 0) {
+        const pageForClient = Math.floor(targetIndex / pageSize) + 1;
+        setCurrentPage(pageForClient);
+      }
+      setTimeout(() => {
+        const el = document.getElementById(`client-row-${highlightId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+      const timer = setTimeout(() => setActiveHighlight(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId, mounted, clients]);
 
   // Determine if current workspace has an active paid subscription
   const isPaid = !!(
@@ -193,7 +217,7 @@ export default function ClientsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `docucollect_clients_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `docget_clients_export_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -946,14 +970,36 @@ export default function ClientsPage() {
             </thead>
             <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {loading && clients.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-16 text-center">
-                    <div className="flex flex-col items-center justify-center gap-2.5">
-                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400 font-medium">Loading client portfolios...</p>
-                    </div>
-                  </td>
-                </tr>
+                <>
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="py-4 px-4 sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 shrink-0" />
+                          <div className="space-y-1.5 min-w-0">
+                            <div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                            <div className="h-3 w-20 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 hidden md:table-cell">
+                        <div className="space-y-1.5">
+                          <div className="h-3.5 w-28 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                          <div className="h-3 w-36 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+                        </div>
+                      </td>
+                      <td className="py-4 px-3 text-center">
+                        <div className="h-6 w-16 bg-neutral-100 dark:bg-neutral-800 rounded-full mx-auto" />
+                      </td>
+                      <td className="py-4 px-3 text-center">
+                        <div className="h-6 w-16 bg-neutral-100 dark:bg-neutral-800 rounded-full mx-auto" />
+                      </td>
+                      <td className="py-4 px-4 sm:px-6 text-right">
+                        <div className="h-8 w-20 bg-neutral-100 dark:bg-neutral-800 rounded-lg ml-auto" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-16 text-center">
@@ -992,11 +1038,16 @@ export default function ClientsPage() {
                   return (
                     <tr
                       key={client.id}
+                      id={`client-row-${client.id}`}
                       onClick={() => {
                         setSelectedClientId(client.id);
                         setClientViewTab("all");
                       }}
-                      className="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40 transition-colors cursor-pointer group/row"
+                      className={`transition-all duration-300 cursor-pointer group/row ${
+                        activeHighlight === client.id
+                          ? "bg-emerald-50/80 dark:bg-emerald-950/50 ring-2 ring-emerald-500/70 shadow-sm"
+                          : "hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40"
+                      }`}
                     >
                       {/* Client Entity & Name */}
                       <td className="py-4 px-4 sm:px-6">
@@ -1136,7 +1187,12 @@ export default function ClientsPage() {
         isOpen={isNewClientOpen}
         initialTab={modalTab}
         onClose={() => setIsNewClientOpen(false)}
-        onSuccess={() => refresh()}
+        onSuccess={(created) => {
+          refresh();
+          if (created?.id) {
+            setActiveHighlight(created.id);
+          }
+        }}
       />
 
       {/* Edit Client Modal */}
@@ -1148,6 +1204,295 @@ export default function ClientsPage() {
           onSuccess={() => refresh()}
         />
       )}
+
+      {/* Document Preview Pop-up Window Modal */}
+      {previewDoc && (
+        <DocumentPreviewModal
+          document={previewDoc.doc}
+          requirementName={previewDoc.reqName}
+          requirementId={previewDoc.doc.requirement_id}
+          caseId={previewDoc.caseId}
+          isOpen={true}
+          onClose={() => setPreviewDoc(null)}
+          onStatusUpdated={() => refresh()}
+        />
+      )}
+
+      {/* New Case Modal */}
+      {isNewCaseOpen && (
+        <NewCaseModal
+          clients={clients}
+          isOpen={isNewCaseOpen}
+          initialClientId={newCaseClientId}
+          onClose={() => {
+            setIsNewCaseOpen(false);
+            setNewCaseClientId(undefined);
+          }}
+          onSuccess={() => refresh()}
+        />
+      )}
     </div>
+  );
+}
+
+function EditClientModal({
+  isOpen,
+  client,
+  onClose,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  client: Client | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { toast } = useToast();
+
+  const [mounted, setMounted] = useState(false);
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [clientRefId, setClientRefId] = useState("");
+  const [alternatePhone, setAlternatePhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (client) {
+      setName(client.name || "");
+      setPhone(client.phone || "");
+      setEmail(client.email || "");
+      setCompany(client.company || "");
+      setClientRefId(client.client_ref_id || "");
+      setAlternatePhone(client.alternate_phone || "");
+      setAddress(client.address || "");
+      setNotes(client.notes || "");
+    }
+  }, [client]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !client || !mounted) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !phone.trim()) {
+      toast({
+        title: "Required fields missing",
+        description: "Full Name and Phone number are required.",
+        type: "error",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await updateClientAction(client.id, {
+        name,
+        phone,
+        email,
+        company,
+        client_ref_id: clientRefId,
+        alternate_phone: alternatePhone,
+        address,
+        notes,
+      });
+
+      toast({
+        title: "Client updated!",
+        description: `${name}'s details have been saved successfully.`,
+      });
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Failed to update client",
+        description: err.message || "An error occurred while updating the client.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!mounted || !isOpen || typeof window === "undefined" || !window.document?.body) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-lg w-full shadow-2xl border border-neutral-200/90 dark:border-neutral-800 overflow-hidden flex flex-col transition-colors">
+        <div className="px-6 py-4 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/60 dark:bg-neutral-800/80">
+          <div className="flex items-center gap-3 text-neutral-900 dark:text-neutral-100">
+            <div className="w-8 h-8 rounded-xl bg-neutral-900 dark:bg-neutral-800 text-white flex items-center justify-center shadow-xs border border-transparent dark:border-neutral-700">
+              <Pencil className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">Edit Client Details</h3>
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                Update portfolio information, contact numbers & reference ID
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Ramesh Patel"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  WhatsApp / Phone <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="ramesh@example.com"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Company / Firm
+                </label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="Patel Logistics LLP"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
+                    Client Ref ID (CLI)
+                  </label>
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500">e.g. CLI-3366</span>
+                </div>
+                <input
+                  type="text"
+                  value={clientRefId}
+                  onChange={(e) => setClientRefId(e.target.value)}
+                  placeholder="e.g. CLI-3366"
+                  className="w-full text-xs font-mono bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Alternate Phone
+                </label>
+                <input
+                  type="tel"
+                  value={alternatePhone}
+                  onChange={(e) => setAlternatePhone(e.target.value)}
+                  placeholder="Optional secondary phone"
+                  className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">Address</label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="Office or residential address"
+                className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Internal Notes
+              </label>
+              <textarea
+                rows={2}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="PAN, GSTIN, communication preferences, remarks..."
+                className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg px-3 py-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="px-6 py-3.5 bg-neutral-50/60 dark:bg-neutral-800/80 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+            <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
+              Fields marked with <span className="text-rose-500">*</span> are mandatory
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg shadow-xs transition-colors cursor-pointer"
+              >
+                {loading ? "Saving Changes..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
   );
 }

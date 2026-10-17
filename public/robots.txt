@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Allow: /pricing
+Allow: /security
+Allow: /privacy
+Allow: /terms
+Allow: /refund
+Allow: /login
+Allow: /signup
+Disallow: /dashboard/
+Disallow: /upload/
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: https://docget.app/sitemap.xml

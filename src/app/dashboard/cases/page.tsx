@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Briefcase,
   Plus,
@@ -18,18 +19,23 @@ import {
 } from "lucide-react";
 import { CaseWithDetails, Client } from "@/types";
 import { getCaseStatusBadge, formatDate } from "@/lib/utils";
-import { NewCaseModal } from "@/components/dashboard/NewCaseModal";
-import { WhatsAppShareModal } from "@/components/dashboard/WhatsAppShareModal";
-import { WhatsAppReminderModal } from "@/components/dashboard/WhatsAppReminderModal";
+import {
+  NewCaseModal,
+  WhatsAppShareModal,
+  WhatsAppReminderModal,
+} from "@/components/dashboard/Modals";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
-import { Pagination } from "@/components/ui/Pagination";
-import { DeleteConfirmationModal } from "@/components/ui/DeleteConfirmationModal";
-import { useToast } from "@/components/ui/Toast";
-import { deleteCaseAction, generateUploadLinkAction } from "@/app/actions/portal";
+import { Pagination } from "@/components/ui";
+import { DeleteConfirmationModal } from "@/components/ui";
+import { useToast } from "@/components/ui";
+import { deleteCaseAction, generateUploadLinkAction } from "@/app/actions";
 
 export default function CasesListPage() {
-  const { data, loading, refresh } = useDashboardData();
+  const { data, loading, refresh, navigateToTab } = useDashboardData();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams?.get("highlight");
+  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -42,6 +48,25 @@ export default function CasesListPage() {
   const [openingCaseId, setOpeningCaseId] = useState<string | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<CaseWithDetails | null>(null);
   const [isDeletingCase, setIsDeletingCase] = useState(false);
+
+  useEffect(() => {
+    if (highlightId && data?.cases) {
+      setActiveHighlight(highlightId);
+      const targetIndex = (data.cases || []).findIndex((c) => c.id === highlightId);
+      if (targetIndex >= 0) {
+        const pageForCase = Math.floor(targetIndex / pageSize) + 1;
+        setCurrentPage(pageForCase);
+      }
+      setTimeout(() => {
+        const el = document.getElementById(`case-card-${highlightId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 350);
+      const timer = setTimeout(() => setActiveHighlight(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightId, data]);
 
   const filtered = (data?.cases || []).filter((c) => {
     const matchesSearch =
@@ -114,7 +139,14 @@ export default function CasesListPage() {
         <div className="flex items-center gap-2.5">
           <Link
             href="/dashboard/templates"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-300 shadow-2xs transition-colors"
+            prefetch={true}
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+                e.preventDefault();
+                navigateToTab("templates");
+              }
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-neutral-700 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-300 shadow-2xs transition-colors cursor-pointer"
           >
             <Layers className="w-3.5 h-3.5 text-neutral-500" />
             <span>Checklist Templates</span>
@@ -194,7 +226,12 @@ export default function CasesListPage() {
             return (
               <div
                 key={c.id}
-                className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between space-y-4 group"
+                id={`case-card-${c.id}`}
+                className={`bg-white dark:bg-neutral-900 rounded-2xl border transition-all p-5 flex flex-col justify-between space-y-4 group ${
+                  activeHighlight === c.id
+                    ? "border-emerald-500 ring-2 ring-emerald-500/70 bg-emerald-50/20 dark:bg-emerald-950/30 shadow-md animate-pulse"
+                    : "border-neutral-200/80 dark:border-neutral-800 shadow-sm hover:shadow-md"
+                }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-2">
@@ -206,7 +243,7 @@ export default function CasesListPage() {
 
                   <Link
                     href={`/dashboard/cases/${c.id}`}
-                    prefetch={false}
+                    prefetch={true}
                     onClick={() => setOpeningCaseId(c.id)}
                     className="block mt-2"
                   >
@@ -273,7 +310,7 @@ export default function CasesListPage() {
 
                   <Link
                     href={`/dashboard/cases/${c.id}`}
-                    prefetch={false}
+                    prefetch={true}
                     onClick={() => setOpeningCaseId(c.id)}
                     className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 text-xs"
                   >
@@ -319,7 +356,13 @@ export default function CasesListPage() {
           clients={data?.clients || []}
           isOpen={isNewCaseOpen}
           onClose={() => setIsNewCaseOpen(false)}
-          onSuccess={() => refresh()}
+          onSuccess={(newCase) => {
+            setIsNewCaseOpen(false);
+            refresh();
+            if (newCase?.id) {
+              setActiveHighlight(newCase.id);
+            }
+          }}
         />
       )}
 

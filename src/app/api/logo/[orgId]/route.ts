@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, getTenantDb } from "@/lib/db";
 import { isS3Configured, getFileBufferFromStorage } from "@/lib/storage";
-
-import { getCachedLogo, setCachedLogo } from "@/lib/logo-cache";
+import { getCachedLogo, setCachedLogo } from "@/lib/utils";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -53,7 +52,9 @@ export async function GET(
           headers: {
             "Content-Type": mimeType,
             "Content-Length": buffer.length.toString(),
-            "Cache-Control": versionParam ? "public, max-age=31536000, immutable" : "public, max-age=600, stale-while-revalidate=86400",
+            "Cache-Control": versionParam
+              ? "public, max-age=31536000, immutable"
+              : "public, max-age=600, stale-while-revalidate=86400",
           },
         });
       }
@@ -74,9 +75,9 @@ export async function GET(
             headers: {
               "Content-Type": mimeType,
               "Content-Length": buffer.length.toString(),
-            "Cache-Control": versionParam
-              ? "public, max-age=31536000, immutable"
-              : "public, max-age=600, stale-while-revalidate=86400",
+              "Cache-Control": versionParam
+                ? "public, max-age=31536000, immutable"
+                : "public, max-age=600, stale-while-revalidate=86400",
             },
           });
         }

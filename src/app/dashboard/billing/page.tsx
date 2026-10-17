@@ -20,15 +20,15 @@ import {
   Calendar,
   Key,
 } from "lucide-react";
-import { RedeemVoucherModal } from "@/components/dashboard/RedeemVoucherModal";
-import { InfoPopover } from "@/components/ui/InfoPopover";
+import { RedeemVoucherModal } from "@/components/shared/Navigation";
+import { InfoPopover } from "@/components/ui";
 import {
   getSubscriptionAction,
   getAllPlansAction,
   getPublicPaymentSettingsAction,
   type PublicPaymentSettings,
-} from "@/app/actions/portal";
-import { useToast } from "@/components/ui/Toast";
+} from "@/app/actions";
+import { useToast } from "@/components/ui";
 import { useDashboardData } from "@/contexts/DashboardDataContext";
 
 let globalSubscriptionCache: any | null = null;
@@ -53,19 +53,19 @@ export default function BillingPage() {
 
   const loadData = async () => {
     try {
-      const [sub, pl, pay] = await Promise.all([
-        getSubscriptionAction(),
-        !globalPlansCache ? getAllPlansAction() : Promise.resolve(globalPlansCache),
-        !globalPaymentSettingsCache ? getPublicPaymentSettingsAction() : Promise.resolve(globalPaymentSettingsCache),
-      ]);
+      const sub = await getSubscriptionAction();
       if (sub) {
         globalSubscriptionCache = sub;
         setSubscription(sub);
       }
+
+      const pl = !globalPlansCache ? await getAllPlansAction() : globalPlansCache;
       if (pl) {
         globalPlansCache = pl;
         setPlans(pl);
       }
+
+      const pay = !globalPaymentSettingsCache ? await getPublicPaymentSettingsAction() : globalPaymentSettingsCache;
       if (pay) {
         globalPaymentSettingsCache = pay;
         setPaymentSettings(pay);
@@ -77,7 +77,9 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (contextSub) setSubscription(contextSub);
-    loadData();
+    if (!globalSubscriptionCache || !globalPlansCache || !globalPaymentSettingsCache) {
+      loadData();
+    }
   }, [contextSub]);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -103,9 +105,9 @@ export default function BillingPage() {
   const clientUsagePercent = Math.min(100, Math.round((clientsUsed / maxClients) * 100));
 
   const contactPhone = paymentSettings?.contact_phone || "+919876543210";
-  const upiId = paymentSettings?.upi_id || "docucollect@upi";
+  const upiId = paymentSettings?.upi_id || "docget@upi";
   const bankName = paymentSettings?.bank_name || "State Bank of India";
-  const bankHolder = paymentSettings?.bank_holder || "DocuCollect Technologies";
+  const bankHolder = paymentSettings?.bank_holder || "DocGet Technologies";
   const bankAccount = paymentSettings?.bank_account || "3982001100234";
   const bankIfsc = paymentSettings?.bank_ifsc || "SBIN0001234";
 
@@ -114,7 +116,7 @@ export default function BillingPage() {
   const emailSnippet = accountEmail ? ` (${accountEmail})` : "";
 
   const waMessage = encodeURIComponent(
-    `Hello DocuCollect! I have completed payment for subscription upgrade. Please issue my activation key for account${emailSnippet}.`
+    `Hello DocGet! I have completed payment for subscription upgrade. Please issue my activation key for account${emailSnippet}.`
   );
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${waMessage}`;
 
@@ -309,7 +311,7 @@ export default function BillingPage() {
               const Icon = planIcons[plan.name] || Zap;
               const isCurrent = plan.name === subscription?.plan_name;
               const upgradeWaUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                `Hello DocuCollect! I would like to upgrade my account${emailSnippet} to the *${plan.display_name}* plan (${plan.price_monthly ? `₹${plan.price_monthly}/month` : "Custom"}). Please share UPI payment details and issue my activation voucher key.`
+                `Hello DocGet! I would like to upgrade my account${emailSnippet} to the *${plan.display_name}* plan (${plan.price_monthly ? `₹${plan.price_monthly}/month` : "Custom"}). Please share UPI payment details and issue my activation voucher key.`
               )}`;
 
               return (
@@ -406,7 +408,7 @@ export default function BillingPage() {
             </div>
             <InfoPopover
               title="Official Payment Gateway"
-              text="Payment channels are verified by DocuCollect administrators. After payment, send confirmation on WhatsApp to immediately obtain your license voucher."
+              text="Payment channels are verified by DocGet administrators. After payment, send confirmation on WhatsApp to immediately obtain your license voucher."
             />
           </div>
 
@@ -451,7 +453,7 @@ export default function BillingPage() {
 
                   <a
                     href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                      `Hello DocuCollect! I have made payment via UPI to ${upiId} for subscription upgrade.\n\nAccount Email: ${accountEmail}\nSending payment screenshot now. Please dispatch my activation voucher key.`
+                      `Hello DocGet! I have made payment via UPI to ${upiId} for subscription upgrade.\n\nAccount Email: ${accountEmail}\nSending payment screenshot now. Please dispatch my activation voucher key.`
                     )}`}
                     target="_blank"
                     rel="noopener noreferrer"

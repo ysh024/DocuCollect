@@ -1,7 +1,100 @@
+import crypto from "crypto";
 import { AwsClient } from "aws4fetch";
-import { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer } from "./crypto";
 
-export { encryptFileBuffer, decryptFileBuffer, isEncryptedBuffer };
+// =====================================================================
+// APPLICATION-LAYER AES-256-GCM IN-MEMORY STORAGE ENCRYPTION
+// =====================================================================
+
+const MAGIC_HEADER = Buffer.from("DOCUENC1", "utf-8");
+const IV_LENGTH = 12; // 12 bytes standard IV for AES-GCM
+const TAG_LENGTH = 16; // 16 bytes authentication tag for AES-GCM
+
+function getEncryptionKey(): Buffer {
+  const envKey = process.env.STORAGE_ENCRYPTION_KEY || process.env.AUTH_SECRET;
+  if (envKey) {
+    if (envKey.length === 64 && /^[0-9a-fA-F]+$/.test(envKey)) {
+      return Buffer.from(envKey, "hex");
+    }
+    return crypto.createHash("sha256").update(envKey).digest();
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FATAL: STORAGE_ENCRYPTION_KEY or AUTH_SECRET must be configured in production environment.");
+  }
+  const devFallback = process.env.DATABASE_URL || "docucollect_dev_only_key_not_for_production";
+  return crypto.createHash("sha256").update(devFallback).digest();
+}
+
+export function isEncryptedBuffer(buffer: Buffer | Uint8Array): boolean {
+  if (!buffer || buffer.length < MAGIC_HEADER.length + IV_LENGTH + TAG_LENGTH) {
+    return false;
+  }
+  const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  return buf.subarray(0, MAGIC_HEADER.length).equals(MAGIC_HEADER);
+}
+
+export function encryptFileBuffer(rawBuffer: Buffer | Uint8Array): Buffer {
+  if (isEncryptedBuffer(rawBuffer)) {
+    return Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer);
+  }
+
+  const key = getEncryptionKey();
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+
+  const inputBuf = Buffer.isBuffer(rawBuffer) ? rawBuffer : Buffer.from(rawBuffer);
+  const encrypted = Buffer.concat([cipher.update(inputBuf), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return Buffer.concat([MAGIC_HEADER, iv, authTag, encrypted]);
+}
+
+export function decryptFileBuffer(fileBuffer: Buffer | Uint8Array): Buffer {
+  if (!isEncryptedBuffer(fileBuffer)) {
+    return Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer);
+  }
+
+  const buf = Buffer.isBuffer(fileBuffer) ? fileBuffer : Buffer.from(fileBuffer);
+  const key = getEncryptionKey();
+
+  let offset = MAGIC_HEADER.length;
+  const iv = buf.subarray(offset, offset + IV_LENGTH);
+  offset += IV_LENGTH;
+  const authTag = buf.subarray(offset, offset + TAG_LENGTH);
+  offset += TAG_LENGTH;
+  const ciphertext = buf.subarray(offset);
+
+  try {
+    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(authTag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  } catch (decErr: any) {
+    console.warn("Primary key decryption failed, attempting alternative key fallbacks:", decErr?.message);
+
+    if (process.env.AUTH_SECRET) {
+      try {
+        const altKey = crypto.createHash("sha256").update(process.env.AUTH_SECRET).digest();
+        const altDecipher = crypto.createDecipheriv("aes-256-gcm", altKey, iv);
+        altDecipher.setAuthTag(authTag);
+        return Buffer.concat([altDecipher.update(ciphertext), altDecipher.final()]);
+      } catch {}
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const dbKey = crypto.createHash("sha256").update(process.env.DATABASE_URL).digest();
+        const dbDecipher = crypto.createDecipheriv("aes-256-gcm", dbKey, iv);
+        dbDecipher.setAuthTag(authTag);
+        return Buffer.concat([dbDecipher.update(ciphertext), dbDecipher.final()]);
+      } catch {}
+    }
+
+    throw decErr;
+  }
+}
+
+// =====================================================================
+// OBJECT STORAGE CLIENT & HELPERS
+// =====================================================================
 
 export interface StorageUploadOptions {
   organizationId: string;
@@ -56,11 +149,6 @@ export function generateStoragePath(opts: StorageUploadOptions): string {
   return `org-${orgClean}/${clientClean}/${caseClean}/${reqClean}/v${opts.version}_${sanitizedName}`;
 }
 
-/**
- * Uploads file buffer directly to Neon Object Storage (S3-compatible).
- * Uses fetch-native aws4fetch (zero Node.js fs dependencies, fully compatible with Cloudflare Workers).
- * By default, encrypts files with AES-256-GCM Zero-Knowledge encryption before writing to cloud storage.
- */
 export async function uploadFileToStorage({
   storagePath,
   fileBuffer,
@@ -75,8 +163,6 @@ export async function uploadFileToStorage({
   try {
     const aws = getAwsClient();
     const url = getS3ObjectUrl(storagePath);
-
-    // Zero-Knowledge Encryption: Encrypt in-memory before sending to cloud bucket
     const bodyToSend = encrypt ? encryptFileBuffer(fileBuffer) : fileBuffer;
 
     const res = await aws.fetch(url, {
@@ -99,9 +185,6 @@ export async function uploadFileToStorage({
   }
 }
 
-/**
- * Generates a presigned GET URL for secure direct client downloading from Neon Object Storage
- */
 export async function getSignedStorageDownloadUrl(
   storagePath: string,
   fileName?: string,
@@ -133,9 +216,6 @@ export async function getSignedStorageDownloadUrl(
   }
 }
 
-/**
- * Deletes object from Neon Object Storage
- */
 export async function deleteFileFromStorage(storagePath: string): Promise<boolean> {
   if (!isS3Configured()) return false;
   try {
@@ -149,10 +229,6 @@ export async function deleteFileFromStorage(storagePath: string): Promise<boolea
   }
 }
 
-/**
- * Fetches complete file buffer from storage and decrypts in-memory on the fly.
- * Handles both AES-256-GCM Zero-Knowledge encrypted files and legacy files transparently.
- */
 export async function getFileBufferFromStorage(storagePath: string): Promise<Buffer | null> {
   if (!isS3Configured()) return null;
   try {
@@ -165,7 +241,6 @@ export async function getFileBufferFromStorage(storagePath: string): Promise<Buf
       return null;
     }
 
-    // Protect Cloudflare Workers 128 MB RAM limit against out-of-memory crashes
     const contentLength = res.headers.get("content-length");
     if (contentLength && parseInt(contentLength, 10) > 12 * 1024 * 1024) {
       console.warn(`File "${storagePath}" exceeds 12MB (${contentLength} bytes) in Worker memory, delegating to direct presigned storage URL.`);
@@ -181,9 +256,6 @@ export async function getFileBufferFromStorage(storagePath: string): Promise<Buf
   }
 }
 
-/**
- * Legacy compatibility stubs
- */
 export function getS3Client(): any {
   return getAwsClient();
 }

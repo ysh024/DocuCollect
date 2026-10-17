@@ -16,8 +16,8 @@ import {
   Laptop,
   RefreshCw,
 } from "lucide-react";
-import { getFullAuditLogsAction } from "@/app/actions/portal";
-import { Pagination } from "@/components/ui/Pagination";
+import { getFullAuditLogsAction } from "@/app/actions";
+import { Pagination } from "@/components/ui";
 
 let globalAuditLogsCache: any[] | null = null;
 
@@ -54,7 +54,9 @@ export default function AuditTrailPage() {
   };
 
   useEffect(() => {
-    loadLogs(!globalAuditLogsCache);
+    if (!globalAuditLogsCache) {
+      loadLogs(false);
+    }
   }, []);
 
   const filteredLogs = logs.filter((log) => {
@@ -102,7 +104,7 @@ export default function AuditTrailPage() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `docucollect_audit_log_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `docget_audit_log_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -242,12 +244,30 @@ export default function AuditTrailPage() {
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-neutral-400">
-                    <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-neutral-900 border-t-transparent mb-2" />
-                    <p className="text-sm">Loading audit records...</p>
-                  </td>
-                </tr>
+                <>
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-28 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-6 w-24 bg-neutral-100 dark:bg-neutral-800 rounded-full" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="space-y-1">
+                          <div className="h-3.5 w-24 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                          <div className="h-3 w-16 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-4 w-32 bg-neutral-200 dark:bg-neutral-800 rounded" />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="h-3.5 w-48 bg-neutral-100 dark:bg-neutral-800/60 rounded" />
+                      </td>
+                    </tr>
+                  ))}
+                </>
               ) : filteredLogs.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-5 py-12 text-center text-neutral-500">
