@@ -728,18 +728,18 @@ function TemplateEditorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150">
-      <div className="bg-white rounded-2xl max-w-2xl w-full border border-neutral-200 shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
-        <div className="p-5 border-b border-neutral-100 flex items-center justify-between bg-neutral-50/70">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 dark:bg-black/75 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150">
+      <div className="bg-white dark:bg-neutral-900 rounded-2xl max-w-2xl w-full border border-neutral-200 dark:border-neutral-800 shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col text-neutral-900 dark:text-neutral-100">
+        <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50/70 dark:bg-neutral-800/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-neutral-900 text-white flex items-center justify-center shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-neutral-900 dark:bg-neutral-800 text-white dark:text-emerald-400 border border-transparent dark:border-neutral-700 flex items-center justify-center shadow-xs">
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-neutral-900">
+              <h2 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
                 {initialTemplate ? "Edit Checklist Template" : "Create New Checklist Template"}
               </h2>
-              <p className="text-[11px] text-neutral-500">
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                 Create a reusable document checklist to apply to multiple clients in 1 click.
               </p>
             </div>
@@ -747,7 +747,7 @@ function TemplateEditorModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 hover:bg-neutral-200/60 transition-colors"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -756,7 +756,7 @@ function TemplateEditorModal({
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-[11px] font-semibold text-neutral-700 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                 Template Name <span className="text-rose-500">*</span>
               </label>
               <input
@@ -765,21 +765,21 @@ function TemplateEditorModal({
                 placeholder="e.g. Standard GST Refund Dossier"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2.5 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                className="w-full text-xs bg-white dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2.5 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-neutral-700 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                 Category / Service Type
               </label>
               <select
                 value={serviceType}
                 onChange={(e) => setServiceType(e.target.value)}
-                className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2.5 text-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                className="w-full text-xs bg-white dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2.5 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
               >
                 {SERVICE_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
+                  <option key={opt} value={opt} className="dark:bg-neutral-800 dark:text-neutral-100">
                     {opt}
                   </option>
                 ))}
@@ -787,7 +787,7 @@ function TemplateEditorModal({
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-[11px] font-semibold text-neutral-700 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider mb-1">
                 Description / Advisor Notes (Optional)
               </label>
               <input
@@ -795,23 +795,23 @@ function TemplateEditorModal({
                 placeholder="e.g. Standard checklist for regular monthly export refund filings under LUT"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2.5 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                className="w-full text-xs bg-white dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2.5 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
               />
             </div>
           </div>
 
           <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 pb-2">
               <div className="flex items-center gap-1.5">
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <h3 className="text-xs font-bold text-neutral-900">
+                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
                   Document Requirements ({requirements.length})
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={handleAddRequirement}
-                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200 transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Document Item</span>
@@ -825,30 +825,30 @@ function TemplateEditorModal({
                   id={`req-item-${idx}`}
                   className={`p-3 rounded-xl border space-y-2 transition-all duration-300 ${
                     justAddedIndex === idx
-                      ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-300/50 shadow-sm"
-                      : "bg-neutral-50/80 border-neutral-200/80 hover:border-neutral-300"
+                      ? "border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-300/50 dark:ring-emerald-800/50 shadow-sm"
+                      : "bg-neutral-50/80 dark:bg-neutral-800/50 border-neutral-200/80 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-mono font-bold text-neutral-500 bg-neutral-200/60 px-1.5 py-0.5 rounded">
+                      <span className="text-[10px] font-mono font-bold text-neutral-500 dark:text-neutral-400 bg-neutral-200/60 dark:bg-neutral-700 px-1.5 py-0.5 rounded">
                         #{idx + 1}
                       </span>
                       {justAddedIndex === idx && (
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded animate-pulse">
+                        <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-1.5 py-0.2 rounded animate-pulse">
                           Just added
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 cursor-pointer">
+                      <label className="inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 dark:text-neutral-300 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={req.is_required}
                           onChange={(e) =>
                             handleRequirementChange(idx, "is_required", e.target.checked)
                           }
-                          className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900 w-3.5 h-3.5"
+                          className="rounded border-neutral-300 dark:border-neutral-600 dark:bg-neutral-800 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
                         />
                         <span>Mandatory</span>
                       </label>
@@ -856,7 +856,7 @@ function TemplateEditorModal({
                         type="button"
                         onClick={() => handleRemoveRequirement(idx)}
                         disabled={requirements.length <= 1}
-                        className="text-neutral-400 hover:text-rose-600 p-1 rounded transition-colors disabled:opacity-30 cursor-pointer"
+                        className="text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded transition-colors disabled:opacity-30 cursor-pointer"
                         title="Remove item"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -874,7 +874,7 @@ function TemplateEditorModal({
                       onChange={(e) =>
                         handleRequirementChange(idx, "name", e.target.value)
                       }
-                      className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full text-xs bg-white dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
                     />
 
                     <input
@@ -884,7 +884,7 @@ function TemplateEditorModal({
                       onChange={(e) =>
                         handleRequirementChange(idx, "description", e.target.value)
                       }
-                      className="w-full text-xs bg-white border border-neutral-300 rounded-lg p-2 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                      className="w-full text-xs bg-white dark:bg-neutral-800/90 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:focus:ring-emerald-400"
                     />
                   </div>
                 </div>
@@ -893,9 +893,9 @@ function TemplateEditorModal({
               <button
                 type="button"
                 onClick={handleAddRequirement}
-                className="w-full py-2.5 px-3 border border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2"
+                className="w-full py-2.5 px-3 border border-dashed border-emerald-300 dark:border-emerald-800/80 hover:border-emerald-500 dark:hover:border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer mt-2"
               >
-                <Plus className="w-4 h-4 text-emerald-600" />
+                <Plus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>+ Add Another Document Item</span>
               </button>
 
@@ -903,22 +903,22 @@ function TemplateEditorModal({
             </div>
           </div>
 
-          <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
-            <p className="text-[10px] text-neutral-400">
+          <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+            <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
               Changes apply to new cases created using this template.
             </p>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors"
+                className="px-4 py-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 rounded-xl shadow-sm transition-all disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-neutral-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 rounded-xl shadow-sm transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
                 <span>{saving ? "Saving..." : initialTemplate ? "Save Changes" : "Create Template"}</span>
