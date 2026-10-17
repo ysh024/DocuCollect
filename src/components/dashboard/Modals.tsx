@@ -93,7 +93,14 @@ export function DocumentPreviewModal({
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [zoom, setZoom] = useState(100);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [rotation, setRotation] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+
   const [loadingAction, setLoadingAction] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -105,6 +112,17 @@ export function DocumentPreviewModal({
     setMounted(true);
   }, []);
 
+  // Reset zoom, pan and rotation when document changes or modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setZoom(100);
+      setPan({ x: 0, y: 0 });
+      setRotation(0);
+      setIsDragging(false);
+      isDraggingRef.current = false;
+    }
+  }, [isOpen, document?.id]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -115,6 +133,85 @@ export function DocumentPreviewModal({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, onClose]);
+
+  // Mouse wheel zoom centered on cursor position
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const rect = container.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+
+      // Coordinates relative to container center
+      const mx = e.clientX - rect.left - centerX;
+      const my = e.clientY - rect.top - centerY;
+
+      // Wheel delta: zoom in on wheel up, zoom out on wheel down
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+
+      setZoom((currentZoom) => {
+        const nextZoom = Math.min(500, Math.max(50, Math.round(currentZoom * zoomFactor)));
+        if (nextZoom === currentZoom) return currentZoom;
+
+        const oldScale = currentZoom / 100;
+        const newScale = nextZoom / 100;
+
+        setPan((currentPan) => {
+          if (nextZoom <= 100) {
+            // Center when fully zoomed out
+            return { x: 0, y: 0 };
+          }
+          // Mathematical zoom around cursor:
+          // newPan = mx - (mx - pan) * (newScale / oldScale)
+          const newX = mx - (mx - currentPan.x) * (newScale / oldScale);
+          const newY = my - (my - currentPan.y) * (newScale / oldScale);
+          return { x: Math.round(newX), y: Math.round(newY) };
+        });
+
+        return nextZoom;
+      });
+    };
+
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      container.removeEventListener("wheel", onWheel);
+    };
+  }, [document?.id]);
+
+  // Drag-to-pan handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only left click
+    isDraggingRef.current = true;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    panStartRef.current = { ...pan };
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setPan({
+      x: Math.round(panStartRef.current.x + dx),
+      y: Math.round(panStartRef.current.y + dy),
+    });
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+    setIsDragging(false);
+  };
+
+  const handleResetView = () => {
+    setZoom(100);
+    setPan({ x: 0, y: 0 });
+    setRotation(0);
+  };
 
   if (!mounted || !isOpen || !document || typeof window === "undefined" || !window.document?.body) return null;
 
@@ -268,15 +365,28 @@ export function DocumentPreviewModal({
           {/* Left Pane: Document Viewer Canvas */}
           <div className="flex-1 min-w-0 bg-neutral-950 relative overflow-hidden flex items-center justify-center">
             {isImage ? (
-              <div className="w-full h-full flex items-center justify-center overflow-auto p-4">
+              <div
+                ref={containerRef}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onDoubleClick={handleResetView}
+                className={`w-full h-full flex items-center justify-center overflow-hidden p-4 select-none ${
+                  zoom > 100 ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-default"
+                }`}
+                title="Scroll wheel to zoom at cursor position • Click & drag to pan • Double-click to reset"
+              >
                 <img
                   src={previewUrl}
                   alt={document.file_name}
+                  draggable={false}
                   style={{
-                    transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-                    transition: "transform 0.15s ease-out",
+                    transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100}) rotate(${rotation}deg)`,
+                    transition: isDragging ? "none" : "transform 0.08s ease-out",
+                    transformOrigin: "center center",
                   }}
-                  className="max-h-full max-w-full object-contain rounded shadow-lg select-none"
+                  className="max-h-full max-w-full object-contain rounded shadow-lg pointer-events-none select-none"
                 />
               </div>
             ) : isPdf ? (
@@ -303,33 +413,57 @@ export function DocumentPreviewModal({
 
             {/* Floating Image Zoom / Rotate Bar */}
             {isImage && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-neutral-900/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-neutral-700 flex items-center gap-2 text-white shadow-xl z-10">
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-neutral-900/90 dark:bg-neutral-800/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-neutral-700 dark:border-neutral-600 flex items-center gap-2 text-white shadow-xl z-10 select-none">
                 <button
                   type="button"
-                  onClick={() => setZoom((z) => Math.max(50, z - 25))}
-                  title="Zoom Out"
-                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
+                  onClick={() => {
+                    setZoom((z) => {
+                      const next = Math.max(50, z - 25);
+                      if (next <= 100) setPan({ x: 0, y: 0 });
+                      return next;
+                    });
+                  }}
+                  title="Zoom Out (or scroll wheel down)"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer transition-colors"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
-                <span className="text-[11px] font-mono font-medium px-1">{zoom}%</span>
                 <button
                   type="button"
-                  onClick={() => setZoom((z) => Math.min(250, z + 25))}
-                  title="Zoom In"
-                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
+                  onClick={handleResetView}
+                  title="Click to reset zoom & position (100%)"
+                  className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded hover:bg-neutral-800 text-neutral-200 hover:text-white cursor-pointer transition-colors"
+                >
+                  {zoom}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(500, z + 25))}
+                  title="Zoom In (or scroll wheel up at cursor)"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer transition-colors"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
                 <div className="h-3 w-px bg-neutral-700 mx-1" />
                 <button
                   type="button"
+                  onClick={handleResetView}
+                  title="Reset view (or double-click canvas)"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
                   onClick={handleRotate}
                   title="Rotate 90°"
-                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer"
+                  className="p-1 hover:bg-neutral-800 rounded-full text-neutral-300 hover:text-white cursor-pointer transition-colors"
                 >
                   <RotateCw className="w-3.5 h-3.5" />
                 </button>
+                <span className="text-[10px] text-neutral-400 font-normal hidden md:inline ml-1 pl-2 border-l border-neutral-700">
+                  Wheel zoom at cursor • Drag to pan
+                </span>
               </div>
             )}
           </div>
