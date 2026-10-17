@@ -1064,40 +1064,40 @@ export function WhatsAppReminderModal({
   }[] = [
     {
       id: "pending",
-      label: "Pending Checklist",
-      sub: `${pendingReqs.length} items missing`,
+      label: "Pending",
+      sub: `${pendingReqs.length} missing`,
       icon: Sparkles,
       color: "text-neutral-700 dark:text-neutral-300",
       activeClass: "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-900 shadow-xs",
     },
     {
       id: "urgent",
-      label: "Urgent Due Date",
-      sub: dueDateFormatted ? `Due ${dueDateFormatted}` : "High priority",
+      label: "Urgent",
+      sub: dueDateFormatted ? `Due ${dueDateFormatted}` : "Priority",
       icon: Clock,
       color: "text-amber-600 dark:text-amber-400",
       activeClass: "bg-amber-600 text-white border-amber-600 shadow-xs",
     },
     {
       id: "rejected",
-      label: "Re-upload Needed",
-      sub: `${rejectedReqs.length} rejected files`,
+      label: "Re-upload",
+      sub: `${rejectedReqs.length} rejected`,
       icon: FileWarning,
       color: "text-rose-600 dark:text-rose-400",
       activeClass: "bg-rose-600 text-white border-rose-600 shadow-xs",
     },
     {
       id: "under_review",
-      label: "Under Review",
-      sub: "Files received",
+      label: "In Review",
+      sub: "Received",
       icon: Hourglass,
       color: "text-purple-600 dark:text-purple-400",
       activeClass: "bg-purple-600 text-white border-purple-600 shadow-xs",
     },
     {
       id: "completed",
-      label: "Case Completed",
-      sub: "100% approved",
+      label: "Completed",
+      sub: "Approved",
       icon: FileCheck2,
       color: "text-emerald-600 dark:text-emerald-400",
       activeClass: "bg-emerald-600 text-white border-emerald-600 shadow-xs",
@@ -1141,16 +1141,16 @@ export function WhatsAppReminderModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-bold text-neutral-900 dark:text-white">
-                Template Preset
+                Preset
               </label>
               <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                 <Sparkles className="w-3 h-3" />
-                <span>Auto-selected based on case status</span>
+                <span>Auto-selected</span>
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {toneOptions.map((opt) => {
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
+              {toneOptions.map((opt, optIdx) => {
                 const Icon = opt.icon;
                 const isSelected = tone === opt.id;
                 const isAuto = autoDetectedTone === opt.id;
@@ -1159,26 +1159,30 @@ export function WhatsAppReminderModal({
                     key={opt.id}
                     type="button"
                     onClick={() => setTone(opt.id)}
-                    className={`p-2.5 rounded-2xl text-left border transition-all cursor-pointer relative ${
+                    className={`p-2 rounded-xl text-left border transition-all cursor-pointer relative flex flex-col justify-between min-h-[58px] ${
+                      optIdx === 4 ? "col-span-2 sm:col-span-1" : ""
+                    } ${
                       isSelected
                         ? opt.activeClass
-                        : "bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                        : "bg-neutral-50 dark:bg-neutral-800/50 border-neutral-200/90 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <Icon className={`w-3.5 h-3.5 ${isSelected ? "text-current" : opt.color}`} />
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? "text-current" : opt.color}`} />
                       {isAuto && (
-                        <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
-                          isSelected ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300"
+                        <span className={`text-[9px] font-bold px-1 py-0.2 rounded uppercase tracking-wider ${
+                          isSelected ? "bg-white/20 text-white" : "bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800"
                         }`}>
                           Auto
                         </span>
                       )}
                     </div>
-                    <p className="text-xs font-bold leading-tight">{opt.label}</p>
-                    <p className={`text-[10px] mt-0.5 truncate ${isSelected ? "opacity-90" : "text-neutral-400"}`}>
-                      {opt.sub}
-                    </p>
+                    <div>
+                      <p className="text-xs font-bold leading-tight truncate">{opt.label}</p>
+                      <p className={`text-[10px] mt-0.5 truncate ${isSelected ? "opacity-90" : "text-neutral-400 dark:text-neutral-500"}`}>
+                        {opt.sub}
+                      </p>
+                    </div>
                   </button>
                 );
               })}
