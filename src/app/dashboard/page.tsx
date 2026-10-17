@@ -242,11 +242,6 @@ export default function DashboardOverviewPage() {
               align="left"
               side="bottom"
             />
-            {userProfile && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700">
-                {userProfile.organizationName}
-              </span>
-            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
