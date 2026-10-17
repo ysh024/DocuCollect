@@ -966,7 +966,7 @@ export default function CaseDetailPage() {
                         }`}
                       >
                         <Eye className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                        <span>{latestDoc.status === "under_review" ? "Feedback / Reject" : "Review Document"}</span>
+                        <span>{latestDoc.status === "under_review" ? "Reject" : "Review Document"}</span>
                       </button>
                     </div>
                   )}

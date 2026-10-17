@@ -530,7 +530,7 @@ export function DocumentPreviewModal({
                       }`}
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
-                      <span>{isRejecting ? "Close" : "Feedback / Reject"}</span>
+                      <span>{isRejecting ? "Close" : "Reject"}</span>
                     </button>
                   </div>
 
@@ -540,7 +540,7 @@ export function DocumentPreviewModal({
                       <div className="flex items-center justify-between text-xs text-rose-900 dark:text-rose-200 font-bold">
                         <span className="flex items-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-                          <span>Client Feedback & Rejection</span>
+                          <span>Rejection Reason</span>
                         </span>
                         <button
                           type="button"
@@ -553,7 +553,7 @@ export function DocumentPreviewModal({
 
                       <div className="space-y-1.5">
                         <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                          Quick Reason (1-Click Fill):
+                          Quick Reason:
                         </label>
                         <select
                           value={selectedTemplate}
@@ -563,7 +563,7 @@ export function DocumentPreviewModal({
                           }}
                           className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
                         >
-                          <option value="">-- Choose standard template --</option>
+                          <option value="">Select reason...</option>
                           {PREDEFINED_REJECTION_REASONS.map((r, i) => (
                             <option key={i} value={r.template}>
                               {r.label}
@@ -574,13 +574,13 @@ export function DocumentPreviewModal({
 
                       <div className="space-y-1.5">
                         <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300">
-                          Custom Instructions for Client:
+                          Note for Client:
                         </label>
                         <textarea
                           rows={3}
                           value={rejectionReason}
                           onChange={(e) => setRejectionReason(e.target.value)}
-                          placeholder="Explain what the client needs to correct (e.g. upload page 2, fix blurry scan)..."
+                          placeholder="Explain what needs to be fixed..."
                           className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 focus:outline-none focus:ring-1 focus:ring-rose-500 resize-none"
                         />
                       </div>
@@ -596,7 +596,7 @@ export function DocumentPreviewModal({
                         ) : (
                           <AlertCircle className="w-3.5 h-3.5" />
                         )}
-                        <span>{loadingReject ? "Sending..." : "Feedback / Reject"}</span>
+                        <span>{loadingReject ? "Rejecting..." : "Reject"}</span>
                       </button>
                     </div>
                   )}
@@ -825,12 +825,12 @@ export function ReviewModal({
             <div className="space-y-3 p-4 bg-rose-50/60 dark:bg-rose-950/30 rounded-xl border border-rose-200/80 dark:border-rose-900/60">
               <div className="flex items-center gap-1.5 text-rose-900 dark:text-rose-300 text-xs font-bold">
                 <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                <span>Specify Rejection Reason for Client</span>
+                <span>Rejection Reason</span>
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Common Reasons (1-Click Fill):
+                  Quick Reason:
                 </label>
                 <select
                   value={selectedTemplate}
@@ -840,7 +840,7 @@ export function ReviewModal({
                   }}
                   className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
                 >
-                  <option value="">-- Choose standard template --</option>
+                  <option value="">Select reason...</option>
                   {PREDEFINED_REJECTION_REASONS.map((r, i) => (
                     <option key={i} value={r.template} className="dark:bg-neutral-800">
                       {r.label}
@@ -851,13 +851,13 @@ export function ReviewModal({
 
               <div>
                 <label className="block text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
-                  Custom feedback note:
+                  Note for Client:
                 </label>
                 <textarea
                   rows={2}
                   value={customReason}
                   onChange={(e) => setCustomReason(e.target.value)}
-                  placeholder="Explain why this scan was rejected (e.g. blur, cropped corners, wrong year)..."
+                  placeholder="Explain what needs to be fixed..."
                   className="w-full text-xs bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded-lg p-2 text-neutral-800 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
                 />
               </div>
@@ -869,7 +869,7 @@ export function ReviewModal({
                   onClick={() => setIsRejecting(false)}
                   className="px-3 py-1.5 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100"
                 >
-                  Back
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -878,7 +878,7 @@ export function ReviewModal({
                   className="inline-flex items-center gap-1 px-3.5 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-xs transition-colors"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>{loading ? "Sending..." : "Feedback / Reject"}</span>
+                  <span>{loading ? "Rejecting..." : "Reject"}</span>
                 </button>
               </div>
             </div>
@@ -897,7 +897,7 @@ export function ReviewModal({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl border border-rose-200/80 dark:border-rose-900/60 transition-colors"
             >
               <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
-              <span>Feedback / Reject</span>
+              <span>Reject</span>
             </button>
 
             <div className="flex items-center gap-2">

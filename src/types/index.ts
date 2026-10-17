@@ -415,28 +415,28 @@ export interface RejectionReasonOption {
 
 export const PREDEFINED_REJECTION_REASONS: RejectionReasonOption[] = [
   {
-    label: "Blurry / Unreadable Scan",
-    template: "The uploaded file is blurry or illegible. Please upload a high-resolution, clear scan or photo.",
+    label: "Blurry / Unreadable",
+    template: "File is blurry or illegible. Please upload a clear copy.",
   },
   {
-    label: "Incomplete / Cut-off Pages",
-    template: "The document is missing pages or edges are cropped. Please provide all pages in full.",
+    label: "Missing / Cut-off Pages",
+    template: "Pages are missing or cut off. Please upload all pages in full.",
   },
   {
-    label: "Password Protected File",
-    template: "The PDF is password protected. Please upload an unlocked PDF or share the password in the notes.",
+    label: "Password Protected",
+    template: "File is password protected. Please upload an unlocked file.",
   },
   {
     label: "Expired Document",
-    template: "The provided document is past its validity date. Please provide a currently valid document.",
+    template: "Document is expired. Please upload a valid document.",
   },
   {
-    label: "Incorrect Document Type",
-    template: "The uploaded file does not match the requested document requirement. Please check and re-upload.",
+    label: "Incorrect Document",
+    template: "File does not match requirement. Please upload the correct document.",
   },
   {
-    label: "Wrong Assessment Year / Period",
-    template: "The statement or form is not for the requested financial period/year. Please provide the correct year's document.",
+    label: "Wrong Period / Year",
+    template: "File is for the wrong period. Please upload the correct year's document.",
   },
 ];
 
