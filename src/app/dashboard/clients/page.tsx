@@ -276,85 +276,87 @@ export default function ClientsPage() {
 
     return (
       <div className="space-y-6 w-full max-w-full pb-16 min-w-0">
-        {/* Breadcrumb & Navigation */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSelectedClientId(null)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer shadow-2xs"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Back to All Clients</span>
-            </button>
-            <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
-              <span>Clients</span>
-              <span>/</span>
-              <span className="font-semibold text-neutral-900 dark:text-neutral-100">{selectedClient.name}</span>
+        {/* Sticky Breadcrumb & Navigation Header */}
+        <div className="sticky top-16 z-20 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 bg-[#fbfbfb]/95 dark:bg-neutral-950/95 backdrop-blur-md border-b border-neutral-200/60 dark:border-neutral-800/60 transition-colors">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedClientId(null)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition cursor-pointer shadow-2xs"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to All Clients</span>
+              </button>
+              <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+                <span>Clients</span>
+                <span>/</span>
+                <span className="font-semibold text-neutral-900 dark:text-neutral-100">{selectedClient.name}</span>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                setNewCaseClientId(selectedClient.id);
-                setIsNewCaseOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 rounded-xl shadow-xs transition cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Create New Case</span>
-            </button>
+            <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setNewCaseClientId(selectedClient.id);
+                  setIsNewCaseOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 dark:bg-emerald-600 hover:bg-neutral-800 dark:hover:bg-emerald-500 rounded-xl shadow-xs transition cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Create New Case</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setEditingClient(selectedClient)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-xl transition cursor-pointer"
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit Client</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => setEditingClient(selectedClient)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200 bg-white dark:bg-neutral-900 hover:bg-neutral-50 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-xl transition cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Client</span>
+              </button>
 
-            <a
-              href={`https://wa.me/${cleanPhone}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 rounded-xl transition"
-            >
-              <MessageSquareShare className="w-3.5 h-3.5" />
-              <span>WhatsApp</span>
-            </a>
+              <a
+                href={`https://wa.me/${cleanPhone}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-800 rounded-xl transition"
+              >
+                <MessageSquareShare className="w-3.5 h-3.5" />
+                <span>WhatsApp</span>
+              </a>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (!isPaid) {
-                  toast({
-                    title: "Paid Feature Only",
-                    description:
-                      "Deleting clients is only available on paid subscription plans (Starter, Professional, Firm).",
-                    type: "error",
-                  });
-                  return;
-                }
-                setClientToDelete(selectedClient);
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
-                isPaid
-                  ? "text-rose-600 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 border-rose-200 dark:border-rose-800/80"
-                  : "text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800/40 border-neutral-200 dark:border-neutral-800 cursor-not-allowed"
-              }`}
-              title={isPaid ? "Delete client" : "Deleting clients requires an active paid plan"}
-            >
-              {isPaid ? <Trash2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
-              <span>Delete Client</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isPaid) {
+                    toast({
+                      title: "Paid Feature Only",
+                      description:
+                        "Deleting clients is only available on paid subscription plans (Starter, Professional, Firm).",
+                      type: "error",
+                    });
+                    return;
+                  }
+                  setClientToDelete(selectedClient);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border transition cursor-pointer ${
+                  isPaid
+                    ? "text-rose-600 dark:text-rose-400 bg-rose-50/60 dark:bg-rose-950/30 hover:bg-rose-100/60 dark:hover:bg-rose-900/40 border-rose-200 dark:border-rose-800/80"
+                    : "text-neutral-400 dark:text-neutral-500 bg-neutral-100 dark:bg-neutral-800/40 border-neutral-200 dark:border-neutral-800 cursor-not-allowed"
+                }`}
+                title={isPaid ? "Delete client" : "Deleting clients requires an active paid plan"}
+              >
+                {isPaid ? <Trash2 className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+                <span>Delete Client</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Client Header Profile Banner */}
-        <div className="sticky top-16 z-20 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-4 sm:p-5 shadow-sm space-y-3 transition-colors">
+        <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200/90 dark:border-neutral-800 p-4 sm:p-5 shadow-xs space-y-3 transition-colors">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 border-b border-neutral-100 dark:border-neutral-800 pb-3">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/60 flex items-center justify-center font-black text-lg shrink-0">
