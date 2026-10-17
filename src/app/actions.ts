@@ -2574,45 +2574,13 @@ export async function clientDeleteDocumentAction(token: string, documentId: stri
   }
   const doc = docRows[0];
 
-  // 1. Delete physical file from object storage
-  if (doc.storage_path) {
-    try {
-      await deleteFileFromStorage(doc.storage_path);
-    } catch (storageErr) {
-      console.warn("Could not delete file from object storage:", storageErr);
-    }
-  }
-
-  // 2. Remove document record from database
-  await sql`DELETE FROM public.documents WHERE id = ${doc.id};`;
-
-  // 3. Update requirement status based on any remaining documents
-  const remainingDocs = await sql`
-    SELECT status FROM public.documents 
-    WHERE requirement_id = ${doc.requirement_id} 
-    ORDER BY version DESC LIMIT 1;
-  `;
-  const newReqStatus = remainingDocs.length > 0 ? remainingDocs[0].status : "not_uploaded";
-  await sql`
-    UPDATE public.document_requirements
-    SET status = ${newReqStatus}, updated_at = now()
-    WHERE id = ${doc.requirement_id};
-  `;
-
-  // 4. Update overall case status
-  await updateCaseStatusAfterDocChange(c.id, sql);
-
-  // 5. Invalidate caches and revalidate paths
-  invalidateDashboardCache(c.organization_id);
-  invalidateCaseCache(c.id);
-  invalidatePortalCache(token);
-  invalidatePortalCache(c.id);
-
-  revalidatePath(`/upload/${token}`);
-  revalidatePath(`/dashboard/cases/${c.id}`);
-  revalidatePath("/dashboard");
-
-  return { success: true, message: `"${doc.file_name}" was deleted successfully.` };
+  // 1. Enforce smart client retention policy:
+  // Once a document is submitted by the client, permanent delete from direct storage is disabled.
+  // Clients can only replace the file with an updated version, keeping all version records under the document requirement.
+  return {
+    success: false,
+    error: "Permanent deletion of submitted documents is disabled for clients. You may replace this file with an updated version.",
+  };
 }
 
 /**

@@ -22,18 +22,19 @@ import {
   Loader2,
   ArrowRight,
   X,
+  History,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   getPortalData,
-  clientDeleteDocumentAction,
   clientUploadDocumentAction,
 } from "@/app/actions";
 import { ClientPortalData } from "@/types";
-import { formatBytes } from "@/lib/utils";
+import { formatBytes, formatDateTime } from "@/lib/utils";
 import {
   RequirementsPopover,
   ThemeToggle,
-  DeleteConfirmationModal,
   useToast,
   SafeImage,
 } from "@/components/ui";
@@ -48,8 +49,8 @@ export default function ClientUploadPortalPage() {
   const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isNetworkError, setIsNetworkError] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [replacingReqId, setReplacingReqId] = useState<string | null>(null);
+  const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const [hasConsent, setHasConsent] = useState<boolean>(false);
   const [consentHighlighted, setConsentHighlighted] = useState<boolean>(false);
@@ -149,46 +150,6 @@ export default function ClientUploadPortalPage() {
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (!documentToDelete || !token) return;
-    const docId = documentToDelete.id;
-    setIsDeleting(true);
-    try {
-      const res = await clientDeleteDocumentAction(token, docId);
-      if (res.success) {
-        setDocumentToDelete(null);
-        // Instant optimistic internal state update: removes file and updates requirement status with 0ms lag
-        setPortalData((prev) => {
-          if (!prev) return prev;
-          const updatedReqs = prev.requirements.map((req) => {
-            const isMatch = req.latest_document?.id === docId || (req.history || []).some((d) => d.id === docId);
-            if (!isMatch) return req;
-            const remainingHistory = (req.history || []).filter((d) => d.id !== docId);
-            const newLatest = req.latest_document?.id === docId
-              ? (remainingHistory.length > 0 ? remainingHistory[0] : null)
-              : req.latest_document;
-            const newStatus = newLatest ? newLatest.status : "not_uploaded";
-            return {
-              ...req,
-              status: newStatus as any,
-              latest_document: newLatest,
-              history: remainingHistory,
-            };
-          });
-          return { ...prev, requirements: updatedReqs };
-        });
-        // Silent background sync
-        loadPortal(false);
-      } else {
-        alert(res.error || "Failed to delete file.");
-      }
-    } catch (err: any) {
-      console.error("Delete error:", err);
-      alert(err.message || "Could not delete document.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   useEffect(() => {
     setIsOnline(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -714,73 +675,149 @@ export default function ClientUploadPortalPage() {
 
                   {/* Body State 2: Uploaded & In Review */}
                   {isUnderReview && latestDoc && (
-                    <div className="p-2.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200/70 dark:border-blue-900/50 flex items-center justify-between gap-2.5 text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
-                          <Clock className="w-3.5 h-3.5" />
+                    <div className="space-y-2">
+                      <div className="p-2.5 bg-blue-50/70 dark:bg-blue-950/30 rounded-xl border border-blue-200/70 dark:border-blue-900/50 flex items-center justify-between gap-2.5 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 flex items-center justify-center shrink-0">
+                            <Clock className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-semibold text-blue-950 dark:text-blue-200 truncate text-xs">
+                                {latestDoc.file_name}
+                              </p>
+                              {latestDoc.version && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 rounded">
+                                  v{latestDoc.version}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-blue-600 dark:text-blue-400">
+                              {formatBytes(latestDoc.file_size)} • Under advisor review
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-blue-950 dark:text-blue-200 truncate text-xs">
-                            {latestDoc.file_name}
-                          </p>
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400">
-                            {formatBytes(latestDoc.file_size)} • Under advisor review
-                          </p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 shrink-0">
+                            Submitted
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setReplacingReqId(replacingReqId === req.id ? null : req.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-neutral-900 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
+                            title="Upload an updated replacement file"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${replacingReqId === req.id ? "rotate-180" : ""} transition-transform`} />
+                            <span>{replacingReqId === req.id ? "Cancel" : "Replace"}</span>
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 shrink-0">
-                          Submitted
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDocumentToDelete({ id: latestDoc.id, name: latestDoc.file_name });
-                          }}
-                          className="p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
-                          title="Delete this uploaded file"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+
+                      {/* Interactive Replacement Upload Box */}
+                      {replacingReqId === req.id && (
+                        <div className="p-3 bg-neutral-50/90 dark:bg-neutral-900/90 rounded-xl border border-dashed border-blue-300 dark:border-blue-800 space-y-2 animate-in fade-in">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                              <FileUp className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                              <span>Upload Replacement Document</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setReplacingReqId(null)}
+                              className="text-[11px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <InteractiveFileUpload
+                            token={token}
+                            requirementId={req.id}
+                            requirementName={req.name}
+                            isReplacement={true}
+                            hasConsent={hasConsent}
+                            onRequireConsent={promptConsent}
+                            onCancel={() => setReplacingReqId(null)}
+                            onUploadComplete={() => {
+                              setReplacingReqId(null);
+                              loadPortal(true);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Body State 3: Approved & Verified */}
                   {isApproved && (
-                    <div className="p-2.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 flex items-center justify-between gap-2.5 text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <div className="space-y-2">
+                      <div className="p-2.5 bg-emerald-50/70 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 flex items-center justify-between gap-2.5 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-semibold text-emerald-950 dark:text-emerald-200 truncate text-xs">
+                                {latestDoc?.file_name || "Verified Document"}
+                              </p>
+                              {latestDoc?.version && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.2 bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded">
+                                  v{latestDoc.version}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                              {latestDoc?.file_size ? `${formatBytes(latestDoc.file_size)} • ` : ""}Verified by your advisor
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-emerald-950 dark:text-emerald-200 truncate text-xs">
-                            {latestDoc?.file_name || "Verified Document"}
-                          </p>
-                          <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
-                            Verified by your advisor
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 shrink-0">
-                          Verified
-                        </span>
-                        {latestDoc && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-neutral-900 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            Verified
+                          </span>
                           <button
                             type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDocumentToDelete({ id: latestDoc.id, name: latestDoc.file_name });
-                            }}
-                            className="p-1 text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-md transition-colors cursor-pointer"
-                            title="Delete this document"
+                            onClick={() => setReplacingReqId(replacingReqId === req.id ? null : req.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-neutral-900 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-semibold shadow-2xs transition-colors cursor-pointer"
+                            title="Upload an updated replacement file"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <RefreshCw className={`w-3 h-3 ${replacingReqId === req.id ? "rotate-180" : ""} transition-transform`} />
+                            <span>{replacingReqId === req.id ? "Cancel" : "Replace"}</span>
                           </button>
-                        )}
+                        </div>
                       </div>
+
+                      {/* Interactive Replacement Upload Box */}
+                      {replacingReqId === req.id && (
+                        <div className="p-3 bg-neutral-50/90 dark:bg-neutral-900/90 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800 space-y-2 animate-in fade-in">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-1.5">
+                              <FileUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Upload Replacement Document</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setReplacingReqId(null)}
+                              className="text-[11px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <InteractiveFileUpload
+                            token={token}
+                            requirementId={req.id}
+                            requirementName={req.name}
+                            isReplacement={true}
+                            hasConsent={hasConsent}
+                            onRequireConsent={promptConsent}
+                            onCancel={() => setReplacingReqId(null)}
+                            onUploadComplete={() => {
+                              setReplacingReqId(null);
+                              loadPortal(true);
+                            }}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -796,6 +833,90 @@ export default function ClientUploadPortalPage() {
                         onRequireConsent={promptConsent}
                         onUploadComplete={() => loadPortal(true)}
                       />
+                    </div>
+                  )}
+
+                  {/* Document Version Records (Preserved History under single doc heading) */}
+                  {req.history && req.history.length > 1 && (
+                    <div className="mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedHistory((prev) => ({
+                            ...prev,
+                            [req.id]: !prev[req.id],
+                          }))
+                        }
+                        className="flex items-center justify-between w-full py-1 text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <History className="w-3.5 h-3.5 text-neutral-400" />
+                          <span>
+                            File Records ({req.history.length} versions kept under this requirement)
+                          </span>
+                        </span>
+                        <span className="text-[10px] text-neutral-400 flex items-center gap-1">
+                          {expandedHistory[req.id] ? "Hide records" : "View all records"}
+                          {expandedHistory[req.id] ? (
+                            <ChevronUp className="w-3 h-3" />
+                          ) : (
+                            <ChevronDown className="w-3 h-3" />
+                          )}
+                        </span>
+                      </button>
+
+                      {expandedHistory[req.id] && (
+                        <div className="mt-1.5 space-y-1.5 pl-2 border-l-2 border-neutral-200 dark:border-neutral-800 animate-in fade-in">
+                          {req.history
+                            .slice()
+                            .sort((a, b) => (b.version || 0) - (a.version || 0))
+                            .map((doc, docIdx) => {
+                              const isLatest = doc.id === latestDoc?.id;
+                              return (
+                                <div
+                                  key={doc.id || docIdx}
+                                  className={`p-2 rounded-lg text-xs flex items-center justify-between gap-2 transition-colors ${
+                                    isLatest
+                                      ? "bg-neutral-100/80 dark:bg-neutral-800/60 font-medium"
+                                      : "bg-neutral-50/60 dark:bg-neutral-900/40 text-neutral-600 dark:text-neutral-400"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                        isLatest
+                                          ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                          : "bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400"
+                                      }`}
+                                    >
+                                      v{doc.version || req.history!.length - docIdx}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="text-[11px] font-medium truncate text-neutral-800 dark:text-neutral-200">
+                                        {doc.file_name}
+                                      </p>
+                                      <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                                        {formatBytes(doc.file_size)} • Uploaded {formatDateTime(doc.uploaded_at)}
+                                        {isLatest ? " • Current active file" : " • Previous version preserved"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isLatest ? (
+                                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/60 dark:border-emerald-900">
+                                        Active
+                                      </span>
+                                    ) : (
+                                      <span className="text-[10px] text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full">
+                                        Preserved
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -873,19 +994,6 @@ export default function ClientUploadPortalPage() {
             <span>Encrypted with TLS 1.3 • Confidential Document Collection</span>
           </p>
         </div>
-
-        {/* Delete Confirmation Dialog for User (single file delete) */}
-        <DeleteConfirmationModal
-          isOpen={Boolean(documentToDelete)}
-          onClose={() => setDocumentToDelete(null)}
-          onConfirm={handleConfirmDelete}
-          title="Delete Uploaded Document?"
-          description="Are you sure you want to remove this document? This will permanently delete the file from storage and reset this checklist requirement so you can upload a new one."
-          fileName={documentToDelete?.name}
-          confirmLabel="Yes, Delete File"
-          cancelLabel="Keep File"
-          isLoading={isDeleting}
-        />
       </main>
     </div>
   );
@@ -898,6 +1006,7 @@ function InteractiveFileUpload({
   isReplacement = false,
   hasConsent = false,
   onRequireConsent,
+  onCancel,
   onUploadComplete,
 }: {
   token: string;
@@ -906,6 +1015,7 @@ function InteractiveFileUpload({
   isReplacement?: boolean;
   hasConsent?: boolean;
   onRequireConsent?: () => void;
+  onCancel?: () => void;
   onUploadComplete: () => void;
 }) {
   const { toast } = useToast();
@@ -1118,13 +1228,18 @@ function InteractiveFileUpload({
               <button
                 type="button"
                 onClick={handleCancelSelection}
-                className="w-6 h-6 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-200 dark:hover:bg-neutral-700 flex items-center justify-center transition"
-                title="Cancel"
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                title="Remove selected file before submitting"
               >
-                <X className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Remove</span>
               </button>
             )}
           </div>
+
+          <p className="text-[10px] text-neutral-500 dark:text-neutral-400">
+            You can remove or change this file before submitting. Once submitted, your file is safely kept.
+          </p>
 
           {uploading ? (
             <div className="space-y-1 pt-1">
@@ -1143,22 +1258,34 @@ function InteractiveFileUpload({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-end gap-2 pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-neutral-200/60 dark:border-neutral-700/60">
               <button
                 type="button"
                 onClick={handleCancelSelection}
-                className="px-2.5 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
               >
-                Cancel
+                <Trash2 className="w-3 h-3" />
+                <span>Remove file</span>
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmUpload}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
-              >
-                <span>Upload</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {onCancel && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="px-2.5 py-1 text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleConfirmUpload}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-lg text-xs font-bold shadow-xs transition cursor-pointer"
+                >
+                  <span>{isReplacement ? "Submit Replacement" : "Submit Document"}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           )}
         </div>
